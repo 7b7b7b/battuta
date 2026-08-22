@@ -15,7 +15,9 @@ xcrun --sdk macosx swiftc \
   -parse-as-library \
   -module-cache-path "$HARNESS_TEMP/module-cache" \
   SimuBoardMac/SimuBoardMac/Models/KeySound.swift \
+  SimuBoardMac/SimuBoardMac/Models/PointerSound.swift \
   SimuBoardMac/SimuBoardMac/Models/SwitchProfile.swift \
+  SimuBoardMac/SimuBoardMac/Models/AppSettings.swift \
   SimuBoardMac/SimuBoardMac/Models/KeyboardLayout.swift \
   SimuBoardMac/SimuBoardMac/Models/SoundPack.swift \
   SimuBoardMac/SimuBoardMac/Models/SemanticVersion.swift \
@@ -27,6 +29,7 @@ xcrun --sdk macosx swiftc \
   SimuBoardMac/SimuBoardMac/Services/SoundPackArchiveService.swift \
   SimuBoardMac/SimuBoardMac/Services/GitHubReleaseClient.swift \
   SimuBoardMac/SimuBoardMac/Services/UpdateController.swift \
+  SimuBoardMac/SimuBoardMac/Services/KeyboardMonitor.swift \
   SimuBoardMac/Tests/DIYCoreHarness.swift \
   -o "$HARNESS_TEMP/diy-core-harness"
 

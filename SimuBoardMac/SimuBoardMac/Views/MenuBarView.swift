@@ -30,12 +30,17 @@ struct MenuBarView: View {
                     audioFailureCard(message)
                 }
 
+                if let message = model.pointerSoundError {
+                    audioFailureCard(message)
+                }
+
                 if let message = model.soundPackError {
                     audioFailureCard(message)
                 }
 
                 profileSection
                 soundSection
+                PointerSoundSection(settings: settings)
                 UpdateSection(controller: model.updates)
                 footer
             }
@@ -45,7 +50,7 @@ struct MenuBarView: View {
         // MenuBarExtra can propose a near-zero height to a root ScrollView.
         // Keep a real sizing range so AppKit cannot collapse the popover to
         // only its scroller when the content becomes taller.
-        .frame(minHeight: 560, idealHeight: 660, maxHeight: 720)
+        .frame(minHeight: 620, idealHeight: 760, maxHeight: 820)
         .tint(Color(red: 0.72, green: 0.88, blue: 0.33))
     }
 
@@ -66,21 +71,28 @@ struct MenuBarView: View {
             }
 
             Spacer()
-            Toggle("启用声音", isOn: $settings.isEnabled)
-                .labelsHidden()
-                .toggleStyle(.switch)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("键盘音")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Toggle("启用键盘声音", isOn: $settings.isEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .accessibilityLabel("启用键盘声音")
+                    .help("启用或暂停键盘声音")
+            }
         }
     }
 
     private func monitoringFailureCard(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 9) {
-            Label("键盘监听未启动", systemImage: "exclamationmark.triangle.fill")
+            Label("键盘与点击监听未启动", systemImage: "exclamationmark.triangle.fill")
                 .font(.subheadline.weight(.semibold))
             Text(message)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("重试监听") { model.retryKeyboardMonitor() }
+            Button("重试输入监听") { model.retryKeyboardMonitor() }
                 .buttonStyle(.bordered)
         }
         .padding(12)
@@ -106,7 +118,7 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("需要输入监控权限", systemImage: "keyboard.badge.eye")
                 .font(.subheadline.weight(.semibold))
-            Text("SimuBoard 只读取按键编号来播放声音，不读取或保存输入内容。")
+            Text("SimuBoard 只读取按键编号、鼠标按钮类型和按下/抬起状态来播放声音，不读取或保存文字、点击位置或输入内容。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -220,12 +232,18 @@ struct MenuBarView: View {
     }
 
     private var headerStatusText: String {
-        guard settings.isEnabled else { return "声音已暂停" }
+        guard settings.isEnabled || settings.isPointerSoundEnabled else { return "键盘与点击音已暂停" }
         switch model.monitoringState {
-        case .running: return "正在监听键盘"
+        case .running:
+            switch (settings.isEnabled, settings.isPointerSoundEnabled) {
+            case (true, true): return "正在监听键盘与点击"
+            case (true, false): return "正在监听键盘"
+            case (false, true): return "正在监听鼠标与触控板点击"
+            case (false, false): return "键盘与点击音已暂停"
+            }
         case .waitingForPermission: return "等待输入监控授权"
-        case .failed: return "键盘监听启动失败"
-        case .stopped: return "键盘监听已停止"
+        case .failed: return "键盘与点击监听启动失败"
+        case .stopped: return "键盘与点击监听已停止"
         }
     }
 
@@ -244,6 +262,46 @@ struct MenuBarView: View {
             return ("监听启动失败", "xmark.shield.fill", .red)
         case .stopped:
             return ("监听已停止", "pause.circle.fill", .secondary)
+        }
+    }
+}
+
+private struct PointerSoundSection: View {
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        GroupBox("鼠标与触控板点击音") {
+            VStack(alignment: .leading, spacing: 11) {
+                Toggle("启用点击音", isOn: $settings.isPointerSoundEnabled)
+
+                Picker("点击音色", selection: $settings.selectedPointerProfileID) {
+                    ForEach(PointerSoundProfile.allCases) { profile in
+                        Text("\(profile.displayName) · \(profile.family)")
+                            .tag(profile.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(!settings.isPointerSoundEnabled)
+
+                HStack(spacing: 6) {
+                    Text(settings.selectedPointerProfile.family)
+                    Text(settings.selectedPointerProfile.tone)
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+                Toggle("播放点击抬起音", isOn: $settings.playsPointerReleaseSound)
+                    .disabled(!settings.isPointerSoundEnabled)
+
+                Divider()
+
+                Text("触控板轻点、物理点按和鼠标点击共用这套配置。macOS 不会向本功能公开设备型号，因此无法自动识别不同鼠标；音量和音高变化沿用上方设置。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.subheadline)
+            .padding(.top, 4)
         }
     }
 }

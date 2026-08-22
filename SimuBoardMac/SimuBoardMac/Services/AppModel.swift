@@ -16,6 +16,7 @@ final class AppModel: ObservableObject {
     let soundPackLibrary: SoundPackLibrary
     @Published private(set) var monitoringState: KeyboardMonitoringState = .stopped
     @Published private(set) var audioError: String?
+    @Published private(set) var pointerSoundError: String?
     @Published private(set) var soundPackError: String?
     @Published private(set) var soundPacks: [SoundPackDescriptor] = SoundPackDescriptor.bundledDefaults
 
@@ -25,6 +26,7 @@ final class AppModel: ObservableObject {
     private var selectionLoadTask: Task<Void, Never>?
     private var libraryRefreshTask: Task<Void, Never>?
     private var selectionGeneration: UInt64 = 0
+    private var isRollingBackPointerSelection = false
     private var soundPackEditorWindowController: SoundPackEditorWindowController?
 
     var selectedSoundPack: SoundPackDescriptor {
@@ -53,6 +55,17 @@ final class AppModel: ObservableObject {
         } else {
             audioEngine.load(profile: .holyPanda)
         }
+        let initialPointerProfile = settings.selectedPointerProfile
+        if !audioEngine.load(pointerProfile: initialPointerProfile) {
+            let reason = audioEngine.pointerResourceError ?? "点击音资源不可用。"
+            if initialPointerProfile != .classic,
+               audioEngine.load(pointerProfile: .classic) {
+                settings.selectedPointerProfile = .classic
+                pointerSoundError = "\(initialPointerProfile.displayName) 载入失败，已回退到经典微动：\(reason)"
+            } else {
+                pointerSoundError = "\(initialPointerProfile.displayName) 载入失败：\(reason)"
+            }
+        }
         if startsServices {
             audioEngine.warmUp()
         }
@@ -64,6 +77,18 @@ final class AppModel: ObservableObject {
                 guard let self else { return }
                 selectionGeneration &+= 1
                 loadSoundPack(selectionID: profileID)
+            }
+            .store(in: &cancellables)
+        settings.$selectedPointerProfileID
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] profileID in
+                guard let self else { return }
+                if isRollingBackPointerSelection {
+                    isRollingBackPointerSelection = false
+                    return
+                }
+                loadPointerSoundProfile(profileID: profileID)
             }
             .store(in: &cancellables)
 
@@ -199,14 +224,24 @@ final class AppModel: ObservableObject {
             monitoringState = .waitingForPermission
             return
         }
-        let started = keyboardMonitor.start { [weak self] event in self?.handle(event) } 
+        let started = keyboardMonitor.start { [weak self] event in self?.handle(event) }
         monitoringState = started
             ? .running
-            : .failed("无法启动全局键盘监听。请退出并重新打开 SimuBoard 后再试。")
+            : .failed("无法启动全局键盘与点击监听。请退出并重新打开 SimuBoard 后再试。")
+    }
+
+    private func handle(_ event: GlobalInputEvent) {
+        guard permission.isGranted else { return }
+        switch event {
+        case let .keyboard(keyboardEvent):
+            handle(keyboardEvent)
+        case let .pointer(pointerEvent):
+            handle(pointerEvent)
+        }
     }
 
     private func handle(_ event: KeyboardEvent) {
-        guard settings.isEnabled, permission.isGranted else { return }
+        guard settings.isEnabled else { return }
         if event.kind == .keyDown, event.isRepeat { return }
         if event.kind == .keyUp, !settings.playsReleaseSound { return }
 
@@ -218,6 +253,44 @@ final class AppModel: ObservableObject {
             pitchVariation: settings.usesPitchVariation
         )
         syncAudioError()
+    }
+
+    private func handle(_ event: PointerEvent) {
+        guard settings.isPointerSoundEnabled else { return }
+        if event.phase == .release, !settings.playsPointerReleaseSound { return }
+
+        audioEngine.play(
+            pointerButton: event.button,
+            phase: event.phase,
+            volume: settings.volume,
+            pitchVariation: settings.usesPitchVariation
+        )
+        syncAudioError()
+    }
+
+    private func loadPointerSoundProfile(profileID: String) {
+        guard let profile = PointerSoundProfile(rawValue: profileID) else {
+            let fallback = audioEngine.loadedPointerProfile
+            pointerSoundError = "无法识别所选点击音，继续使用 \(fallback.displayName)。"
+            rollBackPointerSelection(to: fallback)
+            return
+        }
+        guard audioEngine.load(pointerProfile: profile) else {
+            let fallback = audioEngine.loadedPointerProfile
+            let reason = audioEngine.pointerResourceError ?? "点击音资源不可用。"
+            pointerSoundError = "\(profile.displayName) 载入失败，继续使用 \(fallback.displayName)：\(reason)"
+            rollBackPointerSelection(to: fallback)
+            syncAudioError()
+            return
+        }
+        pointerSoundError = nil
+        syncAudioError()
+    }
+
+    private func rollBackPointerSelection(to profile: PointerSoundProfile) {
+        guard settings.selectedPointerProfileID != profile.rawValue else { return }
+        isRollingBackPointerSelection = true
+        settings.selectedPointerProfileID = profile.rawValue
     }
 
     private func loadSoundPack(selectionID: String) {
@@ -270,7 +343,7 @@ final class AppModel: ObservableObject {
     }
 
     private func syncAudioError() {
-        let latest = audioEngine.lastError
+        let latest = audioEngine.engineError ?? audioEngine.resourceError
         if audioError != latest { audioError = latest }
     }
 

@@ -1,8 +1,8 @@
 import CoreGraphics
 import Foundation
 
-struct KeyboardEvent: Sendable {
-    enum Kind: Sendable {
+struct KeyboardEvent: Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
         case keyDown
         case keyUp
     }
@@ -20,25 +20,37 @@ final class KeyboardMonitor {
     }
 
     private var runState: RunState?
-    private var handler: (@MainActor (KeyboardEvent) -> Void)?
+    private var handler: (@MainActor (GlobalInputEvent) -> Void)?
     private var pressedModifierKeyCodes: Set<UInt16> = []
 
+    static let observedEventTypes: [CGEventType] = [
+        .keyDown,
+        .keyUp,
+        .flagsChanged,
+        .leftMouseDown,
+        .leftMouseUp,
+        .rightMouseDown,
+        .rightMouseUp,
+        .otherMouseDown,
+        .otherMouseUp,
+    ]
+
+    static let observedEventMask = observedEventTypes.reduce(CGEventMask(0)) { mask, type in
+        mask | (CGEventMask(1) << type.rawValue)
+    }
+
     @discardableResult
-    func start(handler: @escaping @MainActor (KeyboardEvent) -> Void) -> Bool {
+    func start(handler: @escaping @MainActor (GlobalInputEvent) -> Void) -> Bool {
         stop()
         self.handler = handler
 
-        let keyDownMask = CGEventMask(1) << CGEventType.keyDown.rawValue
-        let keyUpMask = CGEventMask(1) << CGEventType.keyUp.rawValue
-        let flagsChangedMask = CGEventMask(1) << CGEventType.flagsChanged.rawValue
-        let eventMask = keyDownMask | keyUpMask | flagsChangedMask
         let userInfo = Unmanaged.passUnretained(self).toOpaque()
 
         guard let port = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .listenOnly,
-            eventsOfInterest: eventMask,
+            eventsOfInterest: Self.observedEventMask,
             callback: Self.eventTapCallback,
             userInfo: userInfo
         ), let source = CFMachPortCreateRunLoopSource(nil, port, 0) else {
@@ -69,16 +81,8 @@ final class KeyboardMonitor {
         guard let userInfo else { return Unmanaged.passUnretained(event) }
         let monitor = Unmanaged<KeyboardMonitor>.fromOpaque(userInfo).takeUnretainedValue()
         let wasDisabled = type == .tapDisabledByTimeout || type == .tapDisabledByUserInput
+        let payload = decodedInputEvent(type: type, event: event)
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-        let payload: KeyboardEvent? = if type == .keyDown || type == .keyUp {
-            KeyboardEvent(
-                kind: type == .keyDown ? .keyDown : .keyUp,
-                keyCode: keyCode,
-                isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
-            )
-        } else {
-            nil
-        }
         let modifierKeyCode = type == .flagsChanged ? keyCode : nil
         let modifierIsDown = modifierKeyCode.map {
             CGEventSource.keyState(.combinedSessionState, key: CGKeyCode($0))
@@ -100,12 +104,43 @@ final class KeyboardMonitor {
         return Unmanaged.passUnretained(event)
     }
 
+    static func decodedInputEvent(type: CGEventType, event: CGEvent) -> GlobalInputEvent? {
+        switch type {
+        case .keyDown, .keyUp:
+            let keyboardEvent = KeyboardEvent(
+                kind: type == .keyDown ? .keyDown : .keyUp,
+                keyCode: UInt16(event.getIntegerValueField(.keyboardEventKeycode)),
+                isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+            )
+            return .keyboard(keyboardEvent)
+        case .leftMouseDown, .leftMouseUp:
+            return .pointer(PointerEvent(
+                phase: type == .leftMouseDown ? .press : .release,
+                button: .primary
+            ))
+        case .rightMouseDown, .rightMouseUp:
+            return .pointer(PointerEvent(
+                phase: type == .rightMouseDown ? .press : .release,
+                button: .secondary
+            ))
+        case .otherMouseDown, .otherMouseUp:
+            return .pointer(PointerEvent(
+                phase: type == .otherMouseDown ? .press : .release,
+                button: PointerButton(
+                    mouseButtonNumber: event.getIntegerValueField(.mouseEventButtonNumber)
+                )
+            ))
+        default:
+            return nil
+        }
+    }
+
     private func reenableTap() {
         pressedModifierKeyCodes.removeAll()
         if let port = runState?.port { CGEvent.tapEnable(tap: port, enable: true) }
     }
 
-    private func receive(_ payload: KeyboardEvent) {
+    private func receive(_ payload: GlobalInputEvent) {
         guard let handler else { return }
         handler(payload)
     }
@@ -120,7 +155,7 @@ final class KeyboardMonitor {
             pressedModifierKeyCodes.remove(keyCode)
         }
         let kind: KeyboardEvent.Kind = isDown ? .keyDown : .keyUp
-        receive(KeyboardEvent(kind: kind, keyCode: keyCode, isRepeat: false))
+        receive(.keyboard(KeyboardEvent(kind: kind, keyCode: keyCode, isRepeat: false)))
     }
 
     isolated deinit {

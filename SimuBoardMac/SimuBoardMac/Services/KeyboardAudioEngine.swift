@@ -11,6 +11,16 @@ final class KeyboardAudioEngine {
         let sample: KeySoundSample
     }
 
+    private struct PointerBufferKey: Hashable {
+        let phase: PointerSoundPhase
+        let sample: PointerSoundSample
+    }
+
+    private enum ResourceDomain {
+        case keyboard
+        case pointer
+    }
+
     private struct Voice {
         let player: AVAudioPlayerNode
         let speed: AVAudioUnitVarispeed
@@ -23,16 +33,19 @@ final class KeyboardAudioEngine {
     )!
     private var voices: [Voice] = []
     private var buffers: [BufferKey: AVAudioPCMBuffer] = [:]
+    private var pointerBuffers: [PointerBufferKey: AVAudioPCMBuffer] = [:]
     private var customBuffers: [SoundPackAssetID: AVAudioPCMBuffer] = [:]
     private var customResolver: SoundPackResolver?
     private var voiceCursor = 0
     private var configurationObserver: NSObjectProtocol?
     private(set) var loadedProfile: SwitchProfile = .holyPanda
     private(set) var loadedSelectionID: String = SwitchProfile.holyPanda.rawValue
+    private(set) var loadedPointerProfile: PointerSoundProfile = .classic
     private(set) var engineError: String?
     private(set) var resourceError: String?
+    private(set) var pointerResourceError: String?
 
-    var lastError: String? { engineError ?? resourceError }
+    var lastError: String? { engineError ?? resourceError ?? pointerResourceError }
 
     init(voiceCount: Int = 16) {
         for _ in 0..<voiceCount {
@@ -108,6 +121,17 @@ final class KeyboardAudioEngine {
         return true
     }
 
+    @discardableResult
+    func load(pointerProfile: PointerSoundProfile) -> Bool {
+        pointerResourceError = nil
+        guard let nextBuffers = makePointerBuffers(profile: pointerProfile) else {
+            return false
+        }
+        loadedPointerProfile = pointerProfile
+        pointerBuffers = nextBuffers
+        return true
+    }
+
     func play(
         keyCode: UInt16,
         phase: KeySoundPhase,
@@ -137,6 +161,25 @@ final class KeyboardAudioEngine {
             phase: phase,
             volume: volume,
             pitchVariation: pitchVariation
+        )
+    }
+
+    func play(
+        pointerButton: PointerButton,
+        phase: PointerSoundPhase,
+        volume: Double,
+        pitchVariation: Bool
+    ) {
+        let requestedKey = PointerBufferKey(phase: phase, sample: pointerButton.sample)
+        let fallbackKey = PointerBufferKey(phase: phase, sample: .primary)
+        guard let buffer = pointerBuffers[requestedKey] ?? pointerBuffers[fallbackKey] else {
+            return
+        }
+        play(
+            buffer: buffer,
+            volume: volume,
+            pitchVariation: pitchVariation,
+            baseRate: pointerButton.playbackRate
         )
     }
 
@@ -197,6 +240,30 @@ final class KeyboardAudioEngine {
         return nextBuffers
     }
 
+    private func makePointerBuffers(
+        profile: PointerSoundProfile
+    ) -> [PointerBufferKey: AVAudioPCMBuffer]? {
+        var nextBuffers: [PointerBufferKey: AVAudioPCMBuffer] = [:]
+        for phase in PointerSoundPhase.allCases {
+            let key = PointerBufferKey(phase: phase, sample: .primary)
+            if let buffer = loadPointerBuffer(
+                profile: profile,
+                phase: phase,
+                sample: .primary
+            ) {
+                nextBuffers[key] = buffer
+            }
+        }
+
+        guard nextBuffers.count == PointerSoundPhase.allCases.count else {
+            if pointerResourceError == nil {
+                pointerResourceError = "\(profile.displayName) 的点击音资源不完整（\(nextBuffers.count)/\(PointerSoundPhase.allCases.count)）。"
+            }
+            return nil
+        }
+        return nextBuffers
+    }
+
     func play(
         sample: KeySoundSample,
         phase: KeySoundPhase,
@@ -217,7 +284,8 @@ final class KeyboardAudioEngine {
     private func play(
         buffer: AVAudioPCMBuffer,
         volume: Double,
-        pitchVariation: Bool
+        pitchVariation: Bool,
+        baseRate: Float = 1
     ) {
         guard startEngineIfNeeded() else { return }
         guard !voices.isEmpty else { return }
@@ -226,7 +294,8 @@ final class KeyboardAudioEngine {
         voiceCursor = (voiceCursor + 1) % voices.count
         voice.player.stop()
         voice.player.volume = Float(max(0, min(1, volume)))
-        voice.speed.rate = pitchVariation ? Float.random(in: 0.97...1.03) : 1
+        let variation: Float = pitchVariation ? .random(in: 0.97...1.03) : 1
+        voice.speed.rate = max(0.25, min(4, baseRate * variation))
         voice.player.scheduleBuffer(buffer, at: nil, options: [])
         voice.player.play()
     }
@@ -262,7 +331,28 @@ final class KeyboardAudioEngine {
         return loadBuffer(at: url)
     }
 
-    private func loadBuffer(at url: URL) -> AVAudioPCMBuffer? {
+    private func loadPointerBuffer(
+        profile: PointerSoundProfile,
+        phase: PointerSoundPhase,
+        sample: PointerSoundSample
+    ) -> AVAudioPCMBuffer? {
+        let directory = "Audio/pointer/\(profile.rawValue)/\(phase.rawValue)"
+        let supportedExtensions = ["wav", "mp3"]
+        guard let url = supportedExtensions.lazy.compactMap({ fileExtension in
+            Bundle.main.url(
+                forResource: sample.rawValue,
+                withExtension: fileExtension,
+                subdirectory: directory
+            )
+        }).first else { return nil }
+
+        return loadBuffer(at: url, resourceDomain: .pointer)
+    }
+
+    private func loadBuffer(
+        at url: URL,
+        resourceDomain: ResourceDomain = .keyboard
+    ) -> AVAudioPCMBuffer? {
         let didStartSecurityScope = url.startAccessingSecurityScopedResource()
         defer {
             if didStartSecurityScope { url.stopAccessingSecurityScopedResource() }
@@ -275,13 +365,28 @@ final class KeyboardAudioEngine {
             ) else { return nil }
             try file.read(into: buffer)
             guard let convertedBuffer = convertToPlaybackFormat(buffer) else {
-                resourceError = "无法将 \(url.lastPathComponent) 预转换为 48 kHz。"
+                setResourceError(
+                    "无法将 \(url.lastPathComponent) 预转换为 48 kHz。",
+                    domain: resourceDomain
+                )
                 return nil
             }
             return convertedBuffer
         } catch {
-            resourceError = "无法预载 \(url.lastPathComponent)：\(error.localizedDescription)"
+            setResourceError(
+                "无法预载 \(url.lastPathComponent)：\(error.localizedDescription)",
+                domain: resourceDomain
+            )
             return nil
+        }
+    }
+
+    private func setResourceError(_ message: String, domain: ResourceDomain) {
+        switch domain {
+        case .keyboard:
+            resourceError = message
+        case .pointer:
+            pointerResourceError = message
         }
     }
 

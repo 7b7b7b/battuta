@@ -35,6 +35,7 @@
 		A30000000000000000000003 /* SoundPackKeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000003 /* SoundPackKeyboardView.swift */; };
 		A30000000000000000000004 /* AudioSplitEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000004 /* AudioSplitEditorSheet.swift */; };
 		A30000000000000000000005 /* SoundPackEditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000005 /* SoundPackEditorWindowController.swift */; };
+		A40000000000000000000001 /* PointerSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000001 /* PointerSound.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,6 +70,7 @@
 		B30000000000000000000003 /* SoundPackKeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackKeyboardView.swift; sourceTree = "<group>"; };
 		B30000000000000000000004 /* AudioSplitEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSplitEditorSheet.swift; sourceTree = "<group>"; };
 		B30000000000000000000005 /* SoundPackEditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackEditorWindowController.swift; sourceTree = "<group>"; };
+		B40000000000000000000001 /* PointerSound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointerSound.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -108,6 +110,7 @@
 			children = (
 				B10000000000000000000002 /* SwitchProfile.swift */,
 				B10000000000000000000003 /* KeySound.swift */,
+				B40000000000000000000001 /* PointerSound.swift */,
 				B10000000000000000000004 /* AppSettings.swift */,
 				B20000000000000000000001 /* KeyboardLayout.swift */,
 				B20000000000000000000002 /* SoundPack.swift */,
@@ -231,6 +234,7 @@
 				A10000000000000000000001 /* SimuBoardApp.swift in Sources */,
 				A10000000000000000000002 /* SwitchProfile.swift in Sources */,
 				A10000000000000000000003 /* KeySound.swift in Sources */,
+				A40000000000000000000001 /* PointerSound.swift in Sources */,
 				A10000000000000000000004 /* AppSettings.swift in Sources */,
 				A10000000000000000000005 /* KeyboardMonitor.swift in Sources */,
 				A10000000000000000000006 /* KeyboardAudioEngine.swift in Sources */,
@@ -303,14 +307,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = SimuBoard;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -325,14 +329,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = SimuBoard;
 				SWIFT_STRICT_CONCURRENCY = complete;

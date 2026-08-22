@@ -1,8 +1,14 @@
 # SimuBoard for macOS
 
-原生 macOS 菜单栏键盘音效应用，最低支持 macOS 13。内置 20 种轴体/键盘音色和 227 段按键录音，在浏览器、编辑器、聊天软件等桌面应用中均可工作。应用启动时会预热音频引擎，并在加载音色时把样本预转换为 48 kHz PCM，避免首次按键再启动引擎，也避免在 48 kHz 输出链路中实时转换资源采样率。
+原生 macOS 菜单栏输入音效应用，最低支持 macOS 13。内置 20 种轴体/键盘音色、5 种鼠标与触控板点击风格，共 237 段按下/抬起录音，在浏览器、编辑器、聊天软件等桌面应用中均可工作。应用启动时会预热音频引擎，并在加载音色时把样本预转换为 48 kHz PCM，避免首次输入再启动引擎，也避免在 48 kHz 输出链路中实时转换资源采样率。
 
 新增音色包括 Cherry MX Clear、Logitech G915 TKL Brown、Kailh BOX White、Kailh Low-profile Blue、Keychron Red Linear，以及 Studio Tactile / Studio Clicky。完整击键录音已经按波形里的机械事件分成独立 press/release 样本，按下与抬起会跟随真实键盘事件分别播放。逐项来源、许可和导入方式见 [`AUDIO_SOURCES.md`](AUDIO_SOURCES.md)。
+
+## 鼠标与触控板点击音
+
+开启后，触控板物理点按、系统“轻点来点按”、鼠标左/右/中键都会按真实的 down/up 事件分别播放按下与抬起音。内置经典微动、静音微动、电竞脆响、厚重办公和玻璃触控板 5 种通用风格；它们是基于 CC0 素材制作的模拟音色，不代表或复刻具体鼠标品牌。
+
+macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型号，也不会区分触控板轻点与物理第一段点按，因此音色由用户手动选择。首版不监听光标移动、拖动、滚轮或 Force Click 第二段压力事件。
 
 ## DIY 音色编辑器
 
@@ -27,7 +33,7 @@
 ./Tests/run-diy-core-harness.sh
 ```
 
-该 harness 使用 Swift 6 严格并发编译，覆盖映射优先级、音色包校验与往返、音频归一化与内存边界、自动拆分双段导出、SemVer、更新缓存和限流。
+该 harness 使用 Swift 6 严格并发编译，覆盖键盘与点击事件映射、映射优先级、音色包校验与往返、音频归一化与内存边界、自动拆分双段导出、SemVer、更新缓存和限流。
 
 ## 在 Xcode 中运行
 
@@ -37,7 +43,7 @@
 4. 点击菜单栏键盘图标，在弹窗中选择“请求授权”。
 5. 在“系统设置 → 隐私与安全性 → 输入监控”中启用 SimuBoard；如果没有立即生效，退出后重新运行。
 
-应用只使用硬件按键编号选择声音，不读取字符内容。密码和输入文本不会被记录、保存或上传。
+应用只使用硬件按键编号、鼠标按钮类型和按下/抬起状态选择声音，不读取字符内容或点击位置。密码、输入文本和指针位置不会被记录、保存或上传。
 
 ## 构建未公证 DMG
 
@@ -55,7 +61,7 @@
 ./scripts/build-dmg.sh
 ```
 
-输出位于 `build/SimuBoard-0.4.0-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
+输出位于 `build/SimuBoard-0.5.0-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
 
 如有正式证书，可通过 `SIMUBOARD_SIGNING_IDENTITY="Developer ID Application: ..." ./scripts/build-dmg.sh` 指定。打包脚本会拒绝退回 ad-hoc 签名，防止更新再次悄悄破坏输入监控授权。
 

@@ -1,4 +1,5 @@
 import AVFAudio
+import CoreGraphics
 import Darwin
 import Foundation
 
@@ -92,6 +93,8 @@ private struct DIYCoreHarness {
         var results = HarnessResults()
         do {
             try testSemanticVersion(&results)
+            try testPointerEventMapping(&results)
+            try testPointerSettingsAndResources(&results)
             try testValidatorAndResolver(&results)
             try await testAudioLibraryAndArchive(&results)
             try await testAudioSplit(&results)
@@ -126,6 +129,155 @@ private struct DIYCoreHarness {
         for invalid in ["1.2", "01.2.3", "1.02.3", "1.2.03", "1.2.3-01", "1.2.3-", "1.2.3+", "1.2.3+bad_idea"] {
             try results.check(SemanticVersion(invalid) == nil, "invalid SemVer accepted: \(invalid)")
         }
+    }
+
+    @MainActor
+    private static func testPointerEventMapping(_ results: inout HarnessResults) throws {
+        let observedTypes = KeyboardMonitor.observedEventTypes
+        try results.check(observedTypes.count == 9, "input tap should observe the expected event types exactly once")
+        try results.check(Set(observedTypes.map(\.rawValue)).count == observedTypes.count, "input event mask must not contain duplicates")
+        for eventType in observedTypes {
+            let bit = CGEventMask(1) << eventType.rawValue
+            try results.check(
+                KeyboardMonitor.observedEventMask & bit != 0,
+                "input event mask should contain \(eventType.rawValue)"
+            )
+        }
+        for ignoredType in [CGEventType.mouseMoved, .leftMouseDragged, .rightMouseDragged, .scrollWheel] {
+            let bit = CGEventMask(1) << ignoredType.rawValue
+            try results.check(
+                KeyboardMonitor.observedEventMask & bit == 0,
+                "movement, drag, and scroll events must remain outside the tap mask"
+            )
+        }
+
+        guard let keyboardEvent = CGEvent(
+            keyboardEventSource: nil,
+            virtualKey: 12,
+            keyDown: true
+        ) else {
+            throw HarnessFailure.assertion("could not create keyboard CGEvent fixture")
+        }
+        keyboardEvent.setIntegerValueField(.keyboardEventAutorepeat, value: 1)
+        guard case let .keyboard(decodedKeyboard)? = KeyboardMonitor.decodedInputEvent(
+            type: .keyDown,
+            event: keyboardEvent
+        ) else {
+            throw HarnessFailure.assertion("key-down CGEvent should decode as keyboard input")
+        }
+        try results.check(
+            decodedKeyboard == KeyboardEvent(kind: .keyDown, keyCode: 12, isRepeat: true),
+            "keyboard decoding should retain key code and repeat state"
+        )
+
+        let pointerFixtures: [(CGEventType, CGMouseButton, Int64?, PointerEvent)] = [
+            (.leftMouseDown, .left, nil, PointerEvent(phase: .press, button: .primary)),
+            (.leftMouseUp, .left, nil, PointerEvent(phase: .release, button: .primary)),
+            (.rightMouseDown, .right, nil, PointerEvent(phase: .press, button: .secondary)),
+            (.rightMouseUp, .right, nil, PointerEvent(phase: .release, button: .secondary)),
+            (.otherMouseDown, .center, nil, PointerEvent(phase: .press, button: .middle)),
+            (.otherMouseUp, .center, nil, PointerEvent(phase: .release, button: .middle)),
+            (.otherMouseDown, .center, 4, PointerEvent(phase: .press, button: .auxiliary(4))),
+            (.otherMouseUp, .center, 5, PointerEvent(phase: .release, button: .auxiliary(5))),
+        ]
+        for (eventType, mouseButton, buttonNumber, expected) in pointerFixtures {
+            guard let event = CGEvent(
+                mouseEventSource: nil,
+                mouseType: eventType,
+                mouseCursorPosition: .zero,
+                mouseButton: mouseButton
+            ) else {
+                throw HarnessFailure.assertion("could not create pointer CGEvent fixture")
+            }
+            if let buttonNumber {
+                event.setIntegerValueField(.mouseEventButtonNumber, value: buttonNumber)
+            }
+            guard case let .pointer(decoded)? = KeyboardMonitor.decodedInputEvent(type: eventType, event: event) else {
+                throw HarnessFailure.assertion("pointer CGEvent should decode as pointer input")
+            }
+            try results.check(decoded == expected, "pointer phase/button mapping should match the CGEvent type")
+        }
+
+        try results.check(PointerButton(mouseButtonNumber: 0) == .primary, "button 0 should be primary")
+        try results.check(PointerButton(mouseButtonNumber: 1) == .secondary, "button 1 should be secondary")
+        try results.check(PointerButton(mouseButtonNumber: 2) == .middle, "button 2 should be middle")
+        try results.check(PointerButton(mouseButtonNumber: 8) == .auxiliary(8), "higher button numbers should remain identifiable")
+        try results.check(PointerButton.secondary.sample == .secondary, "secondary button should request its semantic sample")
+        try results.check(PointerButton.middle.sample == .middle, "middle button should request its semantic sample")
+
+        guard let ignoredEvent = CGEvent(
+            mouseEventSource: nil,
+            mouseType: .mouseMoved,
+            mouseCursorPosition: .zero,
+            mouseButton: .left
+        ) else {
+            throw HarnessFailure.assertion("could not create ignored CGEvent fixture")
+        }
+        try results.check(
+            KeyboardMonitor.decodedInputEvent(type: .mouseMoved, event: ignoredEvent) == nil,
+            "unobserved mouse movement should not decode into input audio"
+        )
+    }
+
+    @MainActor
+    private static func testPointerSettingsAndResources(
+        _ results: inout HarnessResults
+    ) throws {
+        let suiteName = "SimuBoard.DIYCoreHarness.PointerSettings.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            throw HarnessFailure.assertion("could not create pointer-settings UserDefaults")
+        }
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let initial = AppSettings(defaults: defaults)
+        try results.check(!initial.isPointerSoundEnabled, "pointer sounds should be opt-in")
+        try results.check(initial.selectedPointerProfile == .classic, "classic should be the default pointer profile")
+        try results.check(initial.playsPointerReleaseSound, "pointer release sound should default to enabled")
+
+        initial.isPointerSoundEnabled = true
+        initial.selectedPointerProfile = .glass
+        initial.playsPointerReleaseSound = false
+        let reloaded = AppSettings(defaults: defaults)
+        try results.check(reloaded.isPointerSoundEnabled, "pointer enabled state should persist")
+        try results.check(reloaded.selectedPointerProfile == .glass, "pointer profile should persist")
+        try results.check(!reloaded.playsPointerReleaseSound, "pointer release preference should persist")
+
+        defaults.set("missing-future-profile", forKey: "selectedPointerProfile")
+        let repaired = AppSettings(defaults: defaults)
+        try results.check(
+            repaired.selectedPointerProfileID == PointerSoundProfile.classic.rawValue,
+            "an invalid persisted pointer profile should normalize to classic"
+        )
+        try results.check(
+            defaults.string(forKey: "selectedPointerProfile") == PointerSoundProfile.classic.rawValue,
+            "pointer profile normalization should repair persisted storage"
+        )
+
+        let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let pointerRoot = projectRoot.appendingPathComponent(
+            "SimuBoardMac/SimuBoardMac/Resources/Audio/pointer",
+            isDirectory: true
+        )
+        var expectedPaths = Set<String>()
+        for profile in PointerSoundProfile.allCases {
+            for phase in PointerSoundPhase.allCases {
+                let relativePath = "\(profile.rawValue)/\(phase.rawValue)/PRIMARY.wav"
+                expectedPaths.insert(relativePath)
+                let sampleURL = pointerRoot.appendingPathComponent(relativePath)
+                let info = try AudioImportService.validateNormalizedAudio(at: sampleURL)
+                try results.check(
+                    (0.02...0.15).contains(info.durationSeconds),
+                    "pointer sample duration should remain click-like: \(relativePath)"
+                )
+            }
+        }
+
+        let bundledPaths = try FileManager.default.subpathsOfDirectory(atPath: pointerRoot.path)
+            .filter { $0.hasSuffix(".wav") }
+        try results.check(
+            Set(bundledPaths) == expectedPaths,
+            "pointer resource tree should contain exactly one press/release pair per profile"
+        )
     }
 
     private static func testValidatorAndResolver(_ results: inout HarnessResults) throws {
@@ -643,6 +795,11 @@ private struct DIYCoreHarness {
         try results.check(
             appModelSource.contains("DIY 音色载入失败，已回退到"),
             "fallback should remain visible to the user instead of silently playing the prior pack"
+        )
+        try results.check(
+            appModelSource.contains("guard audioEngine.load(pointerProfile: profile) else")
+                && appModelSource.contains("rollBackPointerSelection(to: fallback)"),
+            "pointer profile loading must roll back the UI selection after resource failure"
         )
     }
 
