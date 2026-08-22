@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "SimuBoard 轴体音效",
+  "version": "0.1.0",
+  "description": "在网页中打字时播放可切换的机械键盘轴体音效。",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "SimuBoard 轴体音效",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["profiles.js", "content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["audio/*"],
+      "matches": ["<all_urls>"],
+      "use_dynamic_url": true
+    }
+  ]
+}

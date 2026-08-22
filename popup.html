@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SimuBoard</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div>
+          <h1>SimuBoard</h1>
+          <p>给每一次按键加上触感</p>
+        </div>
+        <label class="switch" title="总开关">
+          <input id="enabled" type="checkbox" />
+          <span></span>
+        </label>
+      </header>
+
+      <section class="profile-card">
+        <label for="profile">轴体音色</label>
+        <select id="profile"></select>
+        <div class="profile-meta">
+          <span id="family"></span>
+          <span id="tone"></span>
+        </div>
+        <button id="preview" type="button"><span>▶</span> 试听当前轴体</button>
+      </section>
+
+      <section class="settings">
+        <div class="setting-row volume-row">
+          <label for="volume">音量</label>
+          <output id="volumeValue">42%</output>
+          <input id="volume" type="range" min="0" max="1" step="0.01" />
+        </div>
+        <label class="check-row">
+          <span><strong>回弹音</strong><small>松开按键时播放声音</small></span>
+          <input id="releaseSound" type="checkbox" />
+        </label>
+        <label class="check-row">
+          <span><strong>自然音高</strong><small>每次按键加入细微差异</small></span>
+          <input id="pitchVariation" type="checkbox" />
+        </label>
+        <label class="check-row site-row">
+          <span><strong>本网站静音</strong><small id="host">当前页面</small></span>
+          <input id="siteMuted" type="checkbox" />
+        </label>
+      </section>
+
+      <footer>声音仅在本机播放 · 不记录输入内容</footer>
+    </main>
+    <script src="profiles.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

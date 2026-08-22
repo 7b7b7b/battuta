@@ -1,0 +1,152 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #141518;
+  color: #f4f0e7;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 340px;
+  margin: 0;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(220, 255, 117, 0.1), transparent 38%),
+    #141518;
+}
+
+main { padding: 18px; }
+
+header {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 18px;
+}
+
+h1 { margin: 0; font-size: 19px; letter-spacing: -0.02em; }
+header p { margin: 3px 0 0; color: #93958f; font-size: 11px; }
+
+.brand-mark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 42px;
+  padding: 10px 9px;
+  border: 1px solid #373a34;
+  border-radius: 12px;
+  background: #20221f;
+}
+.brand-mark span { width: 6px; border-radius: 3px; background: #d8ff73; }
+.brand-mark span:nth-child(1) { height: 11px; }
+.brand-mark span:nth-child(2) { height: 20px; }
+.brand-mark span:nth-child(3) { height: 15px; }
+
+.profile-card, .settings {
+  border: 1px solid #2d302b;
+  border-radius: 15px;
+  background: rgba(31, 33, 30, 0.92);
+}
+.profile-card { padding: 15px; }
+.profile-card > label, .volume-row label {
+  display: block;
+  margin-bottom: 8px;
+  color: #9b9e96;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+select {
+  width: 100%;
+  height: 42px;
+  padding: 0 11px;
+  border: 1px solid #44483f;
+  border-radius: 10px;
+  outline: none;
+  background: #171916;
+  color: #f7f4ea;
+  font-size: 14px;
+}
+select:focus { border-color: #b7dc5f; box-shadow: 0 0 0 3px rgba(216, 255, 115, 0.09); }
+
+.profile-meta { display: flex; gap: 6px; margin: 10px 0 13px; }
+.profile-meta span {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #292c27;
+  color: #b8bcb2;
+  font-size: 10px;
+}
+.profile-meta span:first-child { background: rgba(216, 255, 115, 0.12); color: #d8ff73; }
+
+button {
+  width: 100%;
+  height: 37px;
+  border: 0;
+  border-radius: 10px;
+  background: #d8ff73;
+  color: #1a1d16;
+  font-weight: 750;
+  cursor: pointer;
+}
+button:hover { background: #e3ff9a; }
+button:active { transform: translateY(1px); }
+button span { margin-right: 4px; font-size: 10px; }
+
+.settings { margin-top: 11px; padding: 6px 15px; }
+.setting-row, .check-row {
+  min-height: 60px;
+  border-bottom: 1px solid #30332e;
+}
+.volume-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 9px 0 12px;
+}
+.volume-row label { margin: 0; }
+.volume-row output { color: #d8ff73; font: 12px ui-monospace, monospace; }
+input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: #d8ff73; }
+
+.check-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  cursor: pointer;
+}
+.check-row:last-child { border-bottom: 0; }
+.check-row span { display: flex; flex-direction: column; gap: 3px; }
+.check-row strong { font-size: 12px; font-weight: 650; }
+.check-row small { max-width: 235px; color: #868981; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.check-row input { width: 16px; height: 16px; accent-color: #d8ff73; }
+
+.switch input { position: absolute; opacity: 0; }
+.switch span {
+  display: block;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #3a3d37;
+  cursor: pointer;
+  transition: 150ms ease;
+}
+.switch span::after {
+  content: "";
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 3px;
+  border-radius: 50%;
+  background: #f0eee7;
+  transition: 150ms ease;
+}
+.switch input:checked + span { background: #d8ff73; }
+.switch input:checked + span::after { transform: translateX(16px); background: #1a1d16; }
+
+footer { margin-top: 12px; color: #696c65; font-size: 10px; text-align: center; }
+body.is-disabled .profile-card, body.is-disabled .settings { opacity: 0.45; }
+body.is-disabled .profile-card *, body.is-disabled .settings * { pointer-events: none; }

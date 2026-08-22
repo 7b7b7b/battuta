@@ -1,0 +1,11 @@
+{
+  "name": "simuboard-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A lightweight Manifest V3 mechanical keyboard sound extension.",
+  "scripts": {
+    "test": "node scripts/verify.mjs",
+    "check": "node --check content.js && node --check popup.js && node --check profiles.js && node scripts/verify.mjs"
+  },
+  "license": "MIT"
+}
