@@ -55,6 +55,11 @@ if [[ -n "$existing_fingerprint" ]]; then
     print -u2 "Restore the original keychain backup instead of generating a new release identity."
     exit 1
   fi
+  security set-key-partition-list \
+    -S apple-tool:,apple: \
+    -s \
+    -k "$KEYCHAIN_PASSWORD" \
+    "$KEYCHAIN_PATH" >/dev/null
   print "Existing signing certificate found: $existing_fingerprint"
   print "Nothing changed. Keep this certificate and its private key for every future release."
   security lock-keychain "$KEYCHAIN_PATH"
@@ -67,6 +72,10 @@ PRIVATE_KEY="$TEMP_DIR/signing-key.pem"
 CERTIFICATE="$TEMP_DIR/signing-cert.pem"
 IDENTITY_P12="$TEMP_DIR/signing-identity.p12"
 P12_PASSWORD=$(openssl rand -hex 32)
+P12_COMPATIBILITY_ARGS=()
+if openssl pkcs12 -help 2>&1 | grep -- '-legacy' >/dev/null; then
+  P12_COMPATIBILITY_ARGS=(-legacy)
+fi
 
 openssl req \
   -new \
@@ -81,7 +90,7 @@ openssl req \
 
 openssl pkcs12 \
   -export \
-  -legacy \
+  "${P12_COMPATIBILITY_ARGS[@]}" \
   -inkey "$PRIVATE_KEY" \
   -in "$CERTIFICATE" \
   -name "$COMMON_NAME" \

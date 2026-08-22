@@ -49,16 +49,19 @@ recorded here for provenance.
   sound IDs 766625, 766632–766635, 766605–766606, and 766622–766624.
   SimuBoard uses the public HQ preview renditions, trims leading room tone while
   retaining a short pre-roll, downmixes to mono, resamples to 48 kHz PCM, and
-  fades for 4 ms at the tail.
+  separates each complete keystroke into press and release at an audited energy
+  valley, with short boundary fades.
 - **Kailh Low-profile Blue** — “Fast Typing on Mechanical Keyboard” by
   [HeinzBBQ](https://freesound.org/people/HeinzBBQ/sounds/502653/), Freesound
   sound 502653. SimuBoard selects five excerpts from the public HQ preview,
-  downmixes them to mono, resamples them to 48 kHz PCM, and adds a 4 ms tail
-  fade.
+  downmixes them to mono, resamples them to 48 kHz PCM, separates the press and
+  release events, and excludes neighboring keystrokes from the release samples.
 - **Cherry MX Clear** — “Mechanical keyboard clicking. Different keys (4)” by
   [humi74](https://freesound.org/people/humi74/sounds/412926/), Freesound sound
   412926. SimuBoard selects five excerpts from the public HQ preview, downmixes
-  them to mono, resamples them to 48 kHz PCM, and adds a 4 ms tail fade.
+  them to mono, resamples them to 48 kHz PCM, and separates the press and
+  release events. One excerpt without a usable release reuses the closest clean
+  release variation from the same source recording.
 
 ## CC BY 4.0 recording
 
@@ -68,5 +71,6 @@ by Wikimedia Commons user **C40115**, licensed under
 [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
 
 SimuBoard selected five 180 ms excerpts, downmixed the stereo recording to
-mono, retained the original 48 kHz rate, encoded the excerpts as PCM WAV, and
-added a 4 ms tail fade. No endorsement by the original author is implied.
+mono, retained the original 48 kHz rate, and separated each press/release event
+while excluding neighboring keystrokes. No endorsement by the original author
+is implied.

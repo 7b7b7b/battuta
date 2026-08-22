@@ -14,6 +14,7 @@ LOW_PROFILE_BLUE_AUDIO=$5
 MX_CLEAR_AUDIO=$6
 SCRIPT_DIR=${0:A:h}
 PROJECT_DIR=${SCRIPT_DIR:h}
+SPLIT_SCRIPT="$SCRIPT_DIR/split-full-keystrokes.py"
 FINAL_TARGET_ROOT="$PROJECT_DIR/SimuBoardMac/Resources/Audio"
 STAGE_DIR=$(mktemp -d /private/tmp/simuboard-open-sound-import.XXXXXX)
 TARGET_ROOT="$STAGE_DIR/new"
@@ -24,7 +25,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for command_name in ffmpeg git shasum; do
+for command_name in ffmpeg git python3 shasum; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     print -u2 "Missing required command: $command_name"
     exit 69
@@ -33,6 +34,10 @@ done
 
 if [[ ! -d "$FINAL_TARGET_ROOT" ]]; then
   print -u2 "Missing target audio directory: $FINAL_TARGET_ROOT"
+  exit 66
+fi
+if [[ ! -f "$SPLIT_SCRIPT" ]]; then
+  print -u2 "Missing full-keystroke splitter: $SPLIT_SCRIPT"
   exit 66
 fi
 if [[ ! -f "$CLICKETYCLACK_REPO/LICENSE" ]]; then
@@ -201,14 +206,14 @@ import_g915_brown() {
 }
 
 import_stavsounds() {
-  local target_dir="$TARGET_ROOT/studiotactile/press"
+  local target_dir="$TARGET_ROOT/studiotactile/full"
   convert_file "$STAVSOUNDS_DIR/766625.mp3" "$target_dir/GENERIC_R0.wav" 0 0.030
   convert_file "$STAVSOUNDS_DIR/766632.mp3" "$target_dir/GENERIC_R1.wav" 0 0.024
   convert_file "$STAVSOUNDS_DIR/766633.mp3" "$target_dir/GENERIC_R2.wav" 0 0.011
   convert_file "$STAVSOUNDS_DIR/766634.mp3" "$target_dir/GENERIC_R3.wav" 0 0.032
   convert_file "$STAVSOUNDS_DIR/766635.mp3" "$target_dir/GENERIC_R4.wav"
 
-  target_dir="$TARGET_ROOT/studioclicky/press"
+  target_dir="$TARGET_ROOT/studioclicky/full"
   convert_file "$STAVSOUNDS_DIR/766605.mp3" "$target_dir/GENERIC_R0.wav" 0 0.028
   convert_file "$STAVSOUNDS_DIR/766606.mp3" "$target_dir/GENERIC_R1.wav" 0 0.020
   convert_file "$STAVSOUNDS_DIR/766622.mp3" "$target_dir/GENERIC_R2.wav" 0 0.027
@@ -217,7 +222,7 @@ import_stavsounds() {
 }
 
 import_keychron_red() {
-  local target_dir="$TARGET_ROOT/keychronred/press"
+  local target_dir="$TARGET_ROOT/keychronred/full"
   extract_timed_clip "$KEYCHRON_RED_AUDIO" 1.081 0.180 "$target_dir/GENERIC_R0.wav"
   extract_timed_clip "$KEYCHRON_RED_AUDIO" 2.091 0.180 "$target_dir/GENERIC_R1.wav"
   extract_timed_clip "$KEYCHRON_RED_AUDIO" 4.476 0.180 "$target_dir/GENERIC_R2.wav"
@@ -226,7 +231,7 @@ import_keychron_red() {
 }
 
 import_low_profile_blue() {
-  local target_dir="$TARGET_ROOT/lowprofileblue/press"
+  local target_dir="$TARGET_ROOT/lowprofileblue/full"
   extract_timed_clip "$LOW_PROFILE_BLUE_AUDIO" 0.348 0.220 "$target_dir/GENERIC_R0.wav"
   extract_timed_clip "$LOW_PROFILE_BLUE_AUDIO" 0.734 0.220 "$target_dir/GENERIC_R1.wav"
   extract_timed_clip "$LOW_PROFILE_BLUE_AUDIO" 3.696 0.220 "$target_dir/GENERIC_R2.wav"
@@ -235,7 +240,7 @@ import_low_profile_blue() {
 }
 
 import_mx_clear() {
-  local target_dir="$TARGET_ROOT/mxclear/press"
+  local target_dir="$TARGET_ROOT/mxclear/full"
   extract_timed_clip "$MX_CLEAR_AUDIO" 7.369 0.220 "$target_dir/GENERIC_R0.wav"
   extract_timed_clip "$MX_CLEAR_AUDIO" 11.126 0.220 "$target_dir/GENERIC_R1.wav"
   extract_timed_clip "$MX_CLEAR_AUDIO" 24.182 0.220 "$target_dir/GENERIC_R2.wav"
@@ -249,10 +254,11 @@ import_stavsounds
 import_keychron_red
 import_low_profile_blue
 import_mx_clear
+python3 "$SPLIT_SCRIPT" "$TARGET_ROOT"
 
 generated_count=$(find "$TARGET_ROOT" -type f -name '*.wav' | wc -l | tr -d ' ')
-if [[ "$generated_count" != 51 ]]; then
-  print -u2 "Expected 51 generated WAV files, found $generated_count"
+if [[ "$generated_count" != 76 ]]; then
+  print -u2 "Expected 76 generated WAV files, found $generated_count"
   exit 70
 fi
 

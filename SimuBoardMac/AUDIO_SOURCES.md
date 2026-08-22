@@ -11,10 +11,10 @@ is bundled with SimuBoard. Derived files are trimmed and/or resampled to
 | Original 13 profiles | [tplai/kbsim](https://github.com/tplai/kbsim) | See the original import history | MIT | Existing MP3 samples; decoded and resampled to 48 kHz in memory |
 | Kailh BOX White | [Mange/clicketyclack](https://github.com/Mange/clicketyclack) | `bb87dc501a18a082675e51193a8a06134deb2a56` | MIT | Five matched press/release recordings resampled; upstream README says contributed switch sounds must be self-recorded and not taken from elsewhere |
 | Logitech G915 TKL Brown | [keyboard-sounds/keyboardsounds-pro](https://github.com/keyboard-sounds/keyboardsounds-pro/tree/main/desktop/bundled-profiles/logitech-g915-tkl-brown) | `bac56ac700635c512e57621f35780c5b79eba4cd` | MIT | Five matched normal-key press/release variations plus dedicated large-key recordings selected from the upstream profile; leading room tone is trimmed while retaining about 2 ms before the first useful transient; profile gain compensation is applied, with extra gain for the much quieter alternate large-key release |
-| Studio Tactile and Studio Clicky | [StavSounds: Mechanical Keyboards](https://freesound.org/people/StavSounds/packs/42151/) | Freesound IDs `766625`, `766632`–`766635`, `766605`–`766606`, `766622`–`766624` | CC0 1.0 | Ten public HQ preview MP3s downmixed and resampled; leading room tone is trimmed while retaining about 2 ms before the first useful transient; each upstream file is already one complete key press |
-| Keychron Red Linear | [Typing on Keychron V1 Ultra (Red Linear Switch)](https://commons.wikimedia.org/wiki/File:Typing_on_Keychron_V1_Ultra_(Red_Linear_Switch).wav) by C40115 | Wikimedia file revision available on the source page | CC BY 4.0 | Five 180 ms excerpts selected from the original 48 kHz WAV, downmixed to mono, and faded for 4 ms at the tail |
-| Kailh Low-profile Blue | [Fast Typing on Mechanical Keyboard](https://freesound.org/people/HeinzBBQ/sounds/502653/) by HeinzBBQ | Freesound ID `502653` | CC0 1.0 | Five 220 ms excerpts selected from the public HQ preview, downmixed and resampled |
-| Cherry MX Clear | [Mechanical keyboard clicking. Different keys (4)](https://freesound.org/people/humi74/sounds/412926/) by humi74 | Freesound ID `412926` | CC0 1.0 | Five 220 ms excerpts selected from the public HQ preview, downmixed and resampled |
+| Studio Tactile and Studio Clicky | [StavSounds: Mechanical Keyboards](https://freesound.org/people/StavSounds/packs/42151/) | Freesound IDs `766625`, `766632`–`766635`, `766605`–`766606`, `766622`–`766624` | CC0 1.0 | Ten public HQ preview MP3s downmixed and resampled; leading room tone is trimmed while retaining about 2 ms before the first useful transient; each complete keystroke is separated at the audited energy valley before its release event |
+| Keychron Red Linear | [Typing on Keychron V1 Ultra (Red Linear Switch)](https://commons.wikimedia.org/wiki/File:Typing_on_Keychron_V1_Ultra_(Red_Linear_Switch).wav) by C40115 | Wikimedia file revision available on the source page | CC BY 4.0 | Five 180 ms excerpts selected from the original 48 kHz WAV and downmixed to mono; each complete keystroke is separated into press/release samples, with later neighboring keystrokes excluded |
+| Kailh Low-profile Blue | [Fast Typing on Mechanical Keyboard](https://freesound.org/people/HeinzBBQ/sounds/502653/) by HeinzBBQ | Freesound ID `502653` | CC0 1.0 | Five 220 ms excerpts selected from the public HQ preview, downmixed and resampled; click and bottom-out remain in press while the later release event is separated and neighboring keystrokes are excluded |
+| Cherry MX Clear | [Mechanical keyboard clicking. Different keys (4)](https://freesound.org/people/humi74/sounds/412926/) by humi74 | Freesound ID `412926` | CC0 1.0 | Five 220 ms excerpts selected from the public HQ preview, downmixed and resampled, then separated at the audited energy valley before release; one excerpt without a usable release reuses the closest clean release variation from the same recording |
 
 The imported files can be reproduced with:
 
@@ -30,8 +30,15 @@ The imported files can be reproduced with:
 
 The importer rejects a different Git revision, a modified source directory, or
 any of the 13 downloaded files whose SHA-256 does not match this audited import.
-It renders all seven profiles in a staging directory before replacing the
-previous generated copies, so stale files cannot survive a re-import.
+For the five full-keystroke sources, the importer uses the per-recording split
+manifest in `scripts/split-full-keystrokes.py`. Split points were selected from
+4 ms RMS energy and spectral-flux features: press ends at the quiet valley
+before the release event, while explicit release end points exclude the next
+keystroke in continuous recordings. Press tails fade for 4 ms; release samples
+fade in for 2 ms and out for 4 ms. Three obvious release-level outliers receive
+small −5 dB or +6 dB corrections, recorded in the same manifest. The importer
+renders all seven profiles in a staging directory before replacing the previous
+generated copies, so stale files cannot survive a re-import.
 
 The copyright notices and license terms required for redistribution are in
 `SimuBoardMac/Resources/THIRD_PARTY_NOTICES.txt` and the repository-level

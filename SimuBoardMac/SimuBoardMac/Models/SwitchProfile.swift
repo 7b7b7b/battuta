@@ -95,17 +95,14 @@ enum SwitchProfile: String, CaseIterable, Identifiable, Sendable {
     }
 
     var supportsReleaseSound: Bool {
-        switch self {
-        case .mxClear, .studioTactile, .lowProfileBlue, .studioClicky, .keychronRed:
-            false
-        default:
-            true
-        }
+        true
     }
 
     var hasRowSpecificReleaseSamples: Bool {
         switch self {
-        case .g915Brown, .boxWhite: true
+        case .mxClear, .g915Brown, .studioTactile, .boxWhite, .lowProfileBlue,
+             .studioClicky, .keychronRed:
+            true
         default: false
         }
     }
