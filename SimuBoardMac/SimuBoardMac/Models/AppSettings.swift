@@ -1,6 +1,20 @@
 import Combine
 import Foundation
 
+enum HapticFeedbackStyle: String, CaseIterable, Identifiable {
+    case system
+    case enhanced
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .system: "系统"
+        case .enhanced: "强劲"
+        }
+    }
+}
+
 @MainActor
 final class AppSettings: ObservableObject {
     private enum Key {
@@ -10,6 +24,7 @@ final class AppSettings: ObservableObject {
         static let releaseSound = "releaseSound"
         static let pitchVariation = "pitchVariation"
         static let hapticFeedback = "hapticFeedback"
+        static let hapticFeedbackStyle = "hapticFeedbackStyle"
     }
 
     private let defaults: UserDefaults
@@ -38,9 +53,18 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(isHapticFeedbackEnabled, forKey: Key.hapticFeedback) }
     }
 
+    @Published var hapticFeedbackStyleID: String {
+        didSet { defaults.set(hapticFeedbackStyleID, forKey: Key.hapticFeedbackStyle) }
+    }
+
     var selectedProfile: SwitchProfile {
         get { SwitchProfile(rawValue: selectedProfileID) ?? .holyPanda }
         set { selectedProfileID = newValue.rawValue }
+    }
+
+    var hapticFeedbackStyle: HapticFeedbackStyle {
+        get { HapticFeedbackStyle(rawValue: hapticFeedbackStyleID) ?? .enhanced }
+        set { hapticFeedbackStyleID = newValue.rawValue }
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -51,9 +75,14 @@ final class AppSettings: ObservableObject {
         playsReleaseSound = defaults.object(forKey: Key.releaseSound) as? Bool ?? true
         usesPitchVariation = defaults.object(forKey: Key.pitchVariation) as? Bool ?? true
         isHapticFeedbackEnabled = defaults.object(forKey: Key.hapticFeedback) as? Bool ?? false
+        hapticFeedbackStyleID = defaults.string(forKey: Key.hapticFeedbackStyle)
+            ?? HapticFeedbackStyle.enhanced.rawValue
 
         if SwitchProfile(rawValue: selectedProfileID) == nil {
             selectedProfileID = SwitchProfile.holyPanda.rawValue
+        }
+        if HapticFeedbackStyle(rawValue: hapticFeedbackStyleID) == nil {
+            hapticFeedbackStyleID = HapticFeedbackStyle.enhanced.rawValue
         }
     }
 }

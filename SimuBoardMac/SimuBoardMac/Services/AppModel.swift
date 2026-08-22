@@ -78,7 +78,7 @@ final class AppModel: ObservableObject {
     func preview() {
         let profile = settings.selectedProfile
         if settings.isHapticFeedbackEnabled {
-            hapticFeedback.performTest()
+            hapticFeedback.performTest(style: settings.hapticFeedbackStyle)
         }
         if audioEngine.loadedProfile != profile { audioEngine.load(profile: profile) }
         audioEngine.play(
@@ -102,7 +102,7 @@ final class AppModel: ObservableObject {
 
     func testHapticFeedback() {
         guard settings.isHapticFeedbackEnabled else { return }
-        hapticFeedback.performTest()
+        hapticFeedback.performTest(style: settings.hapticFeedbackStyle)
     }
 
     private func startKeyboardMonitor() {
@@ -121,7 +121,7 @@ final class AppModel: ObservableObject {
         guard permission.isGranted else { return }
         if event.kind == .keyDown, event.isRepeat { return }
         if event.kind == .keyDown, settings.isHapticFeedbackEnabled {
-            hapticFeedback.performKeyPress()
+            hapticFeedback.performKeyPress(style: settings.hapticFeedbackStyle)
         }
         guard settings.isEnabled else { return }
         if event.kind == .keyUp, !settings.playsReleaseSound { return }

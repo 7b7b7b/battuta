@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct MenuBarView: View {
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject private var model: AppModel
     @ObservedObject private var settings: AppSettings
     @ObservedObject private var permission: InputMonitoringPermissionManager
@@ -100,9 +101,18 @@ struct MenuBarView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button("请求授权") { model.requestInputMonitoring() }
+                Button("请求授权") {
+                    model.requestInputMonitoring()
+                    if !permission.isGranted {
+                        model.openInputMonitoringSettings()
+                    }
+                    dismiss()
+                }
                     .buttonStyle(.borderedProminent)
-                Button("打开系统设置") { model.openInputMonitoringSettings() }
+                Button("打开系统设置") {
+                    model.openInputMonitoringSettings()
+                    dismiss()
+                }
                     .buttonStyle(.bordered)
             }
         }
@@ -174,7 +184,15 @@ struct MenuBarView: View {
                     Label("随真实按键触发", systemImage: "hand.tap.fill")
                 }
 
-                Text("测试时请将一根手指轻放在 Force Touch 触控板上。力度由 macOS 控制；外接键盘本体不会振动。")
+                Picker("力度", selection: $settings.hapticFeedbackStyleID) {
+                    ForEach(HapticFeedbackStyle.allCases) { style in
+                        Text(style.displayName).tag(style.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!settings.isHapticFeedbackEnabled)
+
+                Text(hapticDescription)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -182,7 +200,7 @@ struct MenuBarView: View {
                 Button {
                     model.testHapticFeedback()
                 } label: {
-                    Label("测试触觉", systemImage: "waveform")
+                    Label("测试当前触觉", systemImage: "waveform")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -201,6 +219,9 @@ struct MenuBarView: View {
             .foregroundStyle(status.color)
 
             Spacer()
+            Button("收起") { dismiss() }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
             Button("退出") { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
@@ -214,6 +235,15 @@ struct MenuBarView: View {
         case .waitingForPermission: return "等待输入监控授权"
         case .failed: return "键盘监听启动失败"
         case .stopped: return "键盘监听已停止"
+        }
+    }
+
+    private var hapticDescription: String {
+        switch settings.hapticFeedbackStyle {
+        case .system:
+            return "系统档播放一次标准脉冲。测试时请将一根手指轻放在 Force Touch 触控板上。"
+        case .enhanced:
+            return "强劲档使用更强的短双脉冲，且不再限制快速按键。力度仍由 macOS 与触控板硬件控制。"
         }
     }
 

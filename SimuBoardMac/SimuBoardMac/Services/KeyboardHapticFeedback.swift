@@ -1,34 +1,43 @@
 import AppKit
-import Foundation
 
 @MainActor
 final class KeyboardHapticFeedback {
-    private let minimumInterval: TimeInterval
-    private var lastFeedbackTime: TimeInterval?
+    private static let enhancedPulseGap = Duration.milliseconds(10)
+    private var pendingEnhancedPulse: Task<Void, Never>?
 
-    init(minimumInterval: TimeInterval = 0.025) {
-        self.minimumInterval = minimumInterval
+    func performKeyPress(style: HapticFeedbackStyle) {
+        perform(style: style)
     }
 
-    func performKeyPress() {
-        performFeedback(respectingRateLimit: true)
+    func performTest(style: HapticFeedbackStyle) {
+        perform(style: style)
     }
 
-    func performTest() {
-        performFeedback(respectingRateLimit: false)
-    }
+    private func perform(style: HapticFeedbackStyle) {
+        pendingEnhancedPulse?.cancel()
+        pendingEnhancedPulse = nil
 
-    private func performFeedback(respectingRateLimit: Bool) {
-        let now = ProcessInfo.processInfo.systemUptime
-        if respectingRateLimit,
-           let lastFeedbackTime,
-           now - lastFeedbackTime < minimumInterval {
-            return
+        switch style {
+        case .system:
+            performPulse(.generic)
+        case .enhanced:
+            performPulse(.levelChange)
+            pendingEnhancedPulse = Task { @MainActor [weak self] in
+                do {
+                    try await Task.sleep(for: Self.enhancedPulseGap)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                self?.performPulse(.levelChange)
+                self?.pendingEnhancedPulse = nil
+            }
         }
+    }
 
-        lastFeedbackTime = now
+    private func performPulse(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {
         NSHapticFeedbackManager.defaultPerformer.perform(
-            .generic,
+            pattern,
             performanceTime: .now
         )
     }
