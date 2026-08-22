@@ -32,6 +32,9 @@ final class AppModel: ObservableObject {
         self.keyboardMonitor = keyboardMonitor
 
         audioEngine.load(profile: settings.selectedProfile)
+        if startsServices {
+            audioEngine.warmUp()
+        }
         syncAudioError()
         guard startsServices else { return }
         startKeyboardMonitor()

@@ -7,7 +7,7 @@ SimuBoard 目前包含两个版本：
 
 ## macOS 系统级版本
 
-Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。当前纯声音版位于 `SimuBoardMac/build/SimuBoard-0.2.2-unnotarized.dmg`，稳定基线包位于 `SimuBoardMac/build/SimuBoard-0.1.0-unnotarized.dmg`。
+Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。当前低延迟纯声音版位于 `SimuBoardMac/build/SimuBoard-0.2.3-unnotarized.dmg`，稳定基线包位于 `SimuBoardMac/build/SimuBoard-0.1.0-unnotarized.dmg`。
 
 此版本使用 macOS“输入监控”读取硬件键码，不读取字符内容；支持 13 种音色、按下/回弹音、音量与轻微音高变化。当前 DMG 未使用 Developer ID，也未经过 Apple 公证，因此不需要开发者账号即可自行构建和分享，但其他用户首次运行时必须手动允许。
 

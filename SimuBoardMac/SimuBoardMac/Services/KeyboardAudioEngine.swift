@@ -3,6 +3,9 @@ import Foundation
 
 @MainActor
 final class KeyboardAudioEngine {
+    private static let playbackSampleRate = 48_000.0
+    private static let conversionCapacityPadding: AVAudioFrameCount = 32
+
     private struct BufferKey: Hashable {
         let phase: KeySoundPhase
         let sample: KeySoundSample
@@ -14,7 +17,10 @@ final class KeyboardAudioEngine {
     }
 
     private let engine = AVAudioEngine()
-    private let sourceFormat = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+    private let playbackFormat = AVAudioFormat(
+        standardFormatWithSampleRate: playbackSampleRate,
+        channels: 1
+    )!
     private var voices: [Voice] = []
     private var buffers: [BufferKey: AVAudioPCMBuffer] = [:]
     private var voiceCursor = 0
@@ -31,10 +37,11 @@ final class KeyboardAudioEngine {
             let speed = AVAudioUnitVarispeed()
             engine.attach(player)
             engine.attach(speed)
-            engine.connect(player, to: speed, format: sourceFormat)
-            engine.connect(speed, to: engine.mainMixerNode, format: sourceFormat)
+            engine.connect(player, to: speed, format: playbackFormat)
+            engine.connect(speed, to: engine.mainMixerNode, format: playbackFormat)
             voices.append(Voice(player: player, speed: speed))
         }
+        engine.isAutoShutdownEnabled = false
         engine.prepare()
         configurationObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange,
@@ -47,6 +54,11 @@ final class KeyboardAudioEngine {
                 _ = self.startEngineIfNeeded()
             }
         }
+    }
+
+    func warmUp() {
+        engine.prepare()
+        _ = startEngineIfNeeded()
     }
 
     func load(profile: SwitchProfile) {
@@ -133,9 +145,62 @@ final class KeyboardAudioEngine {
                 frameCapacity: AVAudioFrameCount(file.length)
             ) else { return nil }
             try file.read(into: buffer)
-            return buffer
+            guard let convertedBuffer = convertToPlaybackFormat(buffer) else {
+                resourceError = "无法将 \(url.lastPathComponent) 预转换为 48 kHz。"
+                return nil
+            }
+            return convertedBuffer
         } catch {
-            resourceError = "无法读取 \(url.lastPathComponent)：\(error.localizedDescription)"
+            resourceError = "无法预载 \(url.lastPathComponent)：\(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    private func convertToPlaybackFormat(_ source: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard source.frameLength > 0 else { return nil }
+        guard let converter = AVAudioConverter(from: source.format, to: playbackFormat) else {
+            return nil
+        }
+
+        let ratio = playbackFormat.sampleRate / source.format.sampleRate
+        let estimatedFrameCount = ceil(Double(source.frameLength) * ratio)
+        let maximumFrameCount = Double(
+            AVAudioFrameCount.max - Self.conversionCapacityPadding
+        )
+        guard estimatedFrameCount.isFinite,
+              estimatedFrameCount > 0,
+              estimatedFrameCount <= maximumFrameCount else { return nil }
+
+        let capacity = AVAudioFrameCount(estimatedFrameCount)
+            + Self.conversionCapacityPadding
+        guard let output = AVAudioPCMBuffer(
+            pcmFormat: playbackFormat,
+            frameCapacity: capacity
+        ) else { return nil }
+
+        var didProvideInput = false
+        var didReachEnd = false
+        var conversionError: NSError?
+        let status = converter.convert(to: output, error: &conversionError) { _, inputStatus in
+            guard !didProvideInput else {
+                didReachEnd = true
+                inputStatus.pointee = .endOfStream
+                return nil
+            }
+            didProvideInput = true
+            inputStatus.pointee = .haveData
+            return source
+        }
+
+        guard conversionError == nil,
+              didReachEnd,
+              output.frameLength > 0 else { return nil }
+        switch status {
+        case .haveData, .endOfStream:
+            return output
+        case .error, .inputRanDry:
+            return nil
+        @unknown default:
             return nil
         }
     }
