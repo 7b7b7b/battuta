@@ -31,7 +31,6 @@ struct MenuBarView: View {
 
             profileSection
             soundSection
-            hapticSection
             footer
         }
         .padding(16)
@@ -177,40 +176,6 @@ struct MenuBarView: View {
         }
     }
 
-    private var hapticSection: some View {
-        GroupBox("触觉反馈（实验）") {
-            VStack(alignment: .leading, spacing: 10) {
-                Toggle(isOn: $settings.isHapticFeedbackEnabled) {
-                    Label("随真实按键触发", systemImage: "hand.tap.fill")
-                }
-
-                Picker("力度", selection: $settings.hapticFeedbackStyleID) {
-                    ForEach(HapticFeedbackStyle.allCases) { style in
-                        Text(style.displayName).tag(style.rawValue)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .disabled(!settings.isHapticFeedbackEnabled)
-
-                Text(hapticDescription)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Button {
-                    model.testHapticFeedback()
-                } label: {
-                    Label("测试当前触觉", systemImage: "waveform")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(!settings.isHapticFeedbackEnabled)
-            }
-            .font(.subheadline)
-            .padding(.top, 4)
-        }
-    }
-
     private var footer: some View {
         let status = statusPresentation
         return HStack {
@@ -235,15 +200,6 @@ struct MenuBarView: View {
         case .waitingForPermission: return "等待输入监控授权"
         case .failed: return "键盘监听启动失败"
         case .stopped: return "键盘监听已停止"
-        }
-    }
-
-    private var hapticDescription: String {
-        switch settings.hapticFeedbackStyle {
-        case .system:
-            return "系统档播放一次标准脉冲。测试时请将一根手指轻放在 Force Touch 触控板上。"
-        case .enhanced:
-            return "强劲档使用更强的短双脉冲，且不再限制快速按键。力度仍由 macOS 与触控板硬件控制。"
         }
     }
 

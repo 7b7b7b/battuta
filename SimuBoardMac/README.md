@@ -1,10 +1,6 @@
 # SimuBoard for macOS
 
-原生 macOS 菜单栏键盘音效应用，最低支持 macOS 13。内置 13 种轴体/键盘音色和 151 段按键录音，在浏览器、编辑器、聊天软件等桌面应用中均可工作。0.2.1 实验版还可在支持的 Force Touch 触控板上随真实按键播放系统触觉反馈。
-
-## 触觉实验
-
-在菜单中打开“触觉反馈（实验）→ 随真实按键触发”，选择“系统”或“强劲”，把一根手指轻放在 Force Touch 触控板上，然后点击“测试当前触觉”。“强劲”使用更强的短双脉冲，并移除了上一版的快速按键限流。触觉仍由 macOS 和触控板硬件控制；不支持的硬件可能没有反应。触觉开关独立于声音开关，自动连发和按键抬起不会额外触发反馈。
+原生 macOS 菜单栏键盘音效应用，最低支持 macOS 13。内置 13 种轴体/键盘音色和 151 段按键录音，在浏览器、编辑器、聊天软件等桌面应用中均可工作。
 
 ## 在 Xcode 中运行
 
@@ -24,7 +20,7 @@
 ./scripts/build-dmg.sh
 ```
 
-输出位于 `build/SimuBoard-0.2.1-haptics-enhanced-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App，使用免费的 ad-hoc 本地签名，并未使用 Developer ID 或 Apple 公证；构建它不需要 Apple Developer 账号。
+输出位于 `build/SimuBoard-0.2.2-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App，使用免费的 ad-hoc 本地签名，并未使用 Developer ID 或 Apple 公证；构建它不需要 Apple Developer 账号。
 
 ## 安装未公证版本
 
