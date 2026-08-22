@@ -66,13 +66,15 @@ recorded here for provenance.
   [Kenney UI Audio](https://kenney.nl/assets/ui-audio) by Kenney Vleugels. The
   source archive was downloaded on 2026-08-22. SimuBoard derives all five
   generic simulated styles from the matched `mouseclick1.ogg` press recording
-  and `mouserelease1.ogg` release recording. The variants use level adjustment
-  and combinations of low-pass, high-pass, equalization, and pitch-shift
-  filtering, remove leading signal below −45 dBFS while retaining up to 2 ms
-  of pre-roll, then add a 4 ms tail fade and render as 48 kHz mono 16-bit PCM
-  WAV. These style names do not identify or claim to reproduce a particular
-  mouse brand or switch. Attribution is not required by CC0; it is provided
-  for provenance.
+  and `mouserelease1.ogg` release recording. Each phase is pitch-lowered with
+  compensation for the associated tempo change, then receives profile-specific
+  low-pass filtering, restrained midrange EQ and level adjustment; Crisp and
+  Glass retain a gentle
+  low cut for definition. The process removes leading signal below −45 dBFS
+  while retaining up to 2 ms of pre-roll, then adds a 4 ms tail fade and
+  renders as 48 kHz mono 16-bit PCM WAV. These style names do not identify or
+  claim to reproduce a particular mouse brand or switch. Attribution is not
+  required by CC0; it is provided for provenance.
 
 ## CC BY 4.0 recording
 

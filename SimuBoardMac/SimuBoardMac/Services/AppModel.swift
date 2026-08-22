@@ -262,7 +262,7 @@ final class AppModel: ObservableObject {
         audioEngine.play(
             pointerButton: event.button,
             phase: event.phase,
-            volume: settings.volume,
+            volume: settings.pointerVolume,
             pitchVariation: settings.usesPitchVariation
         )
         syncAudioError()

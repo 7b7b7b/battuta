@@ -8,6 +8,8 @@
 
 开启后，触控板物理点按、系统“轻点来点按”、鼠标左/右/中键都会按真实的 down/up 事件分别播放按下与抬起音。内置经典微动、静音微动、电竞脆响、厚重办公和玻璃触控板 5 种通用风格；它们是基于 CC0 素材制作的模拟音色，不代表或复刻具体鼠标品牌。
 
+键盘音量与点击音量使用两个独立滑杆并分别保存。首次从旧版本升级时，点击音量会以原键盘音量的 65% 初始化，之后调整任意一边都不会影响另一边；轻微音高变化仍由一个共用开关控制。0.5.1 还针对原素材过强的 6–14 kHz 瞬态重新母带处理：五档整体频谱重心中位数下降约 40%，8 kHz 以上能量中位数下降约 91%，同时保留从厚重到通透的层次。
+
 macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型号，也不会区分触控板轻点与物理第一段点按，因此音色由用户手动选择。首版不监听光标移动、拖动、滚轮或 Force Click 第二段压力事件。
 
 ## DIY 音色编辑器
@@ -33,7 +35,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 ./Tests/run-diy-core-harness.sh
 ```
 
-该 harness 使用 Swift 6 严格并发编译，覆盖键盘与点击事件映射、映射优先级、音色包校验与往返、音频归一化与内存边界、自动拆分双段导出、SemVer、更新缓存和限流。
+该 harness 使用 Swift 6 严格并发编译，覆盖键盘与点击事件映射、独立音量迁移与路由、点击音频谱/峰值/尾部回归、音色包校验与往返、音频归一化与内存边界、自动拆分双段导出、SemVer、更新缓存和限流。
 
 ## 在 Xcode 中运行
 
@@ -61,7 +63,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 ./scripts/build-dmg.sh
 ```
 
-输出位于 `build/SimuBoard-0.5.0-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
+输出位于 `build/SimuBoard-0.5.1-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
 
 如有正式证书，可通过 `SIMUBOARD_SIGNING_IDENTITY="Developer ID Application: ..." ./scripts/build-dmg.sh` 指定。打包脚本会拒绝退回 ad-hoc 签名，防止更新再次悄悄破坏输入监控授权。
 

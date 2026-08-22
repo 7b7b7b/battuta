@@ -47,6 +47,200 @@ private struct HarnessResults {
     }
 }
 
+private struct PCM16MonoWave {
+    let sampleRate: Int
+    let channels: Int
+    let bitsPerSample: Int
+    let samples: [Int16]
+
+    init(contentsOf url: URL) throws {
+        let bytes = [UInt8](try Data(contentsOf: url))
+        guard bytes.count >= 12,
+              Array(bytes[0..<4]) == Array("RIFF".utf8),
+              Array(bytes[8..<12]) == Array("WAVE".utf8) else {
+            throw HarnessFailure.assertion("invalid RIFF/WAVE header: \(url.path)")
+        }
+
+        func uint16(at offset: Int) -> UInt16 {
+            UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8)
+        }
+
+        func uint32(at offset: Int) -> UInt32 {
+            UInt32(bytes[offset])
+                | (UInt32(bytes[offset + 1]) << 8)
+                | (UInt32(bytes[offset + 2]) << 16)
+                | (UInt32(bytes[offset + 3]) << 24)
+        }
+
+        var format: (audioFormat: UInt16, channels: UInt16, sampleRate: UInt32, bits: UInt16)?
+        var sampleBytes: ArraySlice<UInt8>?
+        var offset = 12
+        while offset <= bytes.count - 8 {
+            let chunkID = String(bytes: bytes[offset..<(offset + 4)], encoding: .ascii)
+            let chunkSize = Int(uint32(at: offset + 4))
+            let payloadStart = offset + 8
+            guard chunkSize <= bytes.count - payloadStart else {
+                throw HarnessFailure.assertion("truncated WAV chunk in \(url.path)")
+            }
+            let payloadEnd = payloadStart + chunkSize
+
+            switch chunkID {
+            case "fmt ":
+                guard chunkSize >= 16 else {
+                    throw HarnessFailure.assertion("short WAV format chunk: \(url.path)")
+                }
+                format = (
+                    audioFormat: uint16(at: payloadStart),
+                    channels: uint16(at: payloadStart + 2),
+                    sampleRate: uint32(at: payloadStart + 4),
+                    bits: uint16(at: payloadStart + 14)
+                )
+            case "data":
+                sampleBytes = bytes[payloadStart..<payloadEnd]
+            default:
+                break
+            }
+
+            offset = payloadEnd + (chunkSize & 1)
+        }
+
+        guard let format, let sampleBytes,
+              format.audioFormat == 1,
+              format.channels == 1,
+              format.bits == 16,
+              sampleBytes.count.isMultiple(of: 2) else {
+            throw HarnessFailure.assertion("pointer WAV must be mono 16-bit PCM: \(url.path)")
+        }
+
+        var decoded = [Int16]()
+        decoded.reserveCapacity(sampleBytes.count / 2)
+        var sampleOffset = sampleBytes.startIndex
+        while sampleOffset < sampleBytes.endIndex {
+            let bits = UInt16(sampleBytes[sampleOffset])
+                | (UInt16(sampleBytes[sampleOffset + 1]) << 8)
+            decoded.append(Int16(bitPattern: bits))
+            sampleOffset += 2
+        }
+        guard !decoded.isEmpty else {
+            throw HarnessFailure.assertion("pointer WAV has no samples: \(url.path)")
+        }
+
+        sampleRate = Int(format.sampleRate)
+        channels = Int(format.channels)
+        bitsPerSample = Int(format.bits)
+        samples = decoded
+    }
+}
+
+private struct PointerSpectrumMetrics {
+    let peakAmplitude: Double
+    let rmsAmplitude: Double
+    let tailRMSDBFS: Double
+    let centroidHz: Double
+    let energyAbove8KHz: Double
+
+    init(wave: PCM16MonoWave) {
+        let normalized = wave.samples.map { Double($0) / 32_768 }
+        peakAmplitude = normalized.lazy.map(abs).max() ?? 0
+        rmsAmplitude = sqrt(normalized.lazy.map { $0 * $0 }.reduce(0, +) / Double(normalized.count))
+
+        let tailCount = min(max(wave.sampleRate / 1_000, 1), normalized.count)
+        let tailEnergy = normalized.suffix(tailCount).lazy.map { $0 * $0 }.reduce(0, +)
+            / Double(tailCount)
+        let tailRMS = sqrt(tailEnergy)
+        tailRMSDBFS = tailRMS > 0 ? 20 * log10(tailRMS) : -.infinity
+
+        var fftSize = 1
+        while fftSize < normalized.count {
+            fftSize <<= 1
+        }
+        fftSize = max(fftSize, 2)
+
+        var real = [Double](repeating: 0, count: fftSize)
+        var imaginary = [Double](repeating: 0, count: fftSize)
+        let windowDenominator = Double(max(normalized.count - 1, 1))
+        for index in normalized.indices {
+            let hann = 0.5 - 0.5 * cos(2 * .pi * Double(index) / windowDenominator)
+            real[index] = normalized[index] * hann
+        }
+        Self.radix2FFT(real: &real, imaginary: &imaginary)
+
+        let binWidth = Double(wave.sampleRate) / Double(fftSize)
+        var totalEnergy = 0.0
+        var weightedFrequency = 0.0
+        var highFrequencyEnergy = 0.0
+        for bin in 0...fftSize / 2 {
+            let energy = real[bin] * real[bin] + imaginary[bin] * imaginary[bin]
+            let frequency = Double(bin) * binWidth
+            totalEnergy += energy
+            weightedFrequency += frequency * energy
+            if frequency >= 8_000 {
+                highFrequencyEnergy += energy
+            }
+        }
+        centroidHz = totalEnergy > 0 ? weightedFrequency / totalEnergy : 0
+        energyAbove8KHz = totalEnergy > 0 ? highFrequencyEnergy / totalEnergy : 0
+    }
+
+    private static func radix2FFT(real: inout [Double], imaginary: inout [Double]) {
+        precondition(real.count == imaginary.count && real.count.isPowerOfTwo)
+        let count = real.count
+
+        var reversed = 0
+        if count > 1 {
+            for index in 1..<count {
+                var bit = count >> 1
+                while reversed & bit != 0 {
+                    reversed ^= bit
+                    bit >>= 1
+                }
+                reversed ^= bit
+                if index < reversed {
+                    real.swapAt(index, reversed)
+                    imaginary.swapAt(index, reversed)
+                }
+            }
+        }
+
+        var length = 2
+        while length <= count {
+            let angle = -2 * Double.pi / Double(length)
+            let stepReal = cos(angle)
+            let stepImaginary = sin(angle)
+            let halfLength = length / 2
+            var blockStart = 0
+            while blockStart < count {
+                var twiddleReal = 1.0
+                var twiddleImaginary = 0.0
+                for offset in 0..<halfLength {
+                    let even = blockStart + offset
+                    let odd = even + halfLength
+                    let oddReal = real[odd] * twiddleReal - imaginary[odd] * twiddleImaginary
+                    let oddImaginary = real[odd] * twiddleImaginary + imaginary[odd] * twiddleReal
+                    let evenReal = real[even]
+                    let evenImaginary = imaginary[even]
+                    real[even] = evenReal + oddReal
+                    imaginary[even] = evenImaginary + oddImaginary
+                    real[odd] = evenReal - oddReal
+                    imaginary[odd] = evenImaginary - oddImaginary
+
+                    let nextTwiddleReal = twiddleReal * stepReal - twiddleImaginary * stepImaginary
+                    twiddleImaginary = twiddleReal * stepImaginary + twiddleImaginary * stepReal
+                    twiddleReal = nextTwiddleReal
+                }
+                blockStart += length
+            }
+            length <<= 1
+        }
+    }
+}
+
+private extension Int {
+    var isPowerOfTwo: Bool {
+        self > 0 && (self & (self - 1)) == 0
+    }
+}
+
 private final class LockedClock: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Date
@@ -233,14 +427,26 @@ private struct DIYCoreHarness {
         try results.check(!initial.isPointerSoundEnabled, "pointer sounds should be opt-in")
         try results.check(initial.selectedPointerProfile == .classic, "classic should be the default pointer profile")
         try results.check(initial.playsPointerReleaseSound, "pointer release sound should default to enabled")
+        try results.check(
+            abs(initial.pointerVolume - (0.42 * 0.65)) < 0.000_001,
+            "a new pointer volume should start at 65% of the keyboard volume"
+        )
+        try results.check(
+            abs(defaults.double(forKey: "pointerVolume") - initial.pointerVolume) < 0.000_001,
+            "the migrated pointer volume should be persisted immediately"
+        )
 
         initial.isPointerSoundEnabled = true
         initial.selectedPointerProfile = .glass
         initial.playsPointerReleaseSound = false
+        initial.volume = 0.78
+        initial.pointerVolume = 0.24
         let reloaded = AppSettings(defaults: defaults)
         try results.check(reloaded.isPointerSoundEnabled, "pointer enabled state should persist")
         try results.check(reloaded.selectedPointerProfile == .glass, "pointer profile should persist")
         try results.check(!reloaded.playsPointerReleaseSound, "pointer release preference should persist")
+        try results.check(abs(reloaded.volume - 0.78) < 0.000_001, "keyboard volume should persist independently")
+        try results.check(abs(reloaded.pointerVolume - 0.24) < 0.000_001, "pointer volume should persist independently")
 
         defaults.set("missing-future-profile", forKey: "selectedPointerProfile")
         let repaired = AppSettings(defaults: defaults)
@@ -253,12 +459,39 @@ private struct DIYCoreHarness {
             "pointer profile normalization should repair persisted storage"
         )
 
+        let migrationSuiteName = "SimuBoard.DIYCoreHarness.PointerVolumeMigration.\(UUID().uuidString)"
+        guard let migrationDefaults = UserDefaults(suiteName: migrationSuiteName) else {
+            throw HarnessFailure.assertion("could not create pointer-volume migration UserDefaults")
+        }
+        defer { migrationDefaults.removePersistentDomain(forName: migrationSuiteName) }
+        migrationDefaults.set(0.8, forKey: "volume")
+        let migrated = AppSettings(defaults: migrationDefaults)
+        try results.check(
+            abs(migrated.pointerVolume - 0.52) < 0.000_001,
+            "an existing keyboard volume should seed pointer volume at 65% exactly once"
+        )
+        migrated.volume = 0.4
+        let migratedReloaded = AppSettings(defaults: migrationDefaults)
+        try results.check(
+            abs(migratedReloaded.volume - 0.4) < 0.000_001
+                && abs(migratedReloaded.pointerVolume - 0.52) < 0.000_001,
+            "changing keyboard volume after migration must not change pointer volume"
+        )
+
         let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let pointerRoot = projectRoot.appendingPathComponent(
             "SimuBoardMac/SimuBoardMac/Resources/Audio/pointer",
             isDirectory: true
         )
+        let spectralLimits: [PointerSoundProfile: (centroidHz: Double, energyAbove8KHz: Double)] = [
+            .heavy: (4_250, 0.005),
+            .silent: (4_800, 0.010),
+            .classic: (6_200, 0.090),
+            .crisp: (6_750, 0.130),
+            .glass: (7_200, 0.200),
+        ]
         var expectedPaths = Set<String>()
+        var spectra: [PointerSoundProfile: [PointerSpectrumMetrics]] = [:]
         for profile in PointerSoundProfile.allCases {
             for phase in PointerSoundPhase.allCases {
                 let relativePath = "\(profile.rawValue)/\(phase.rawValue)/PRIMARY.wav"
@@ -269,6 +502,36 @@ private struct DIYCoreHarness {
                     (0.02...0.15).contains(info.durationSeconds),
                     "pointer sample duration should remain click-like: \(relativePath)"
                 )
+
+                let wave = try PCM16MonoWave(contentsOf: sampleURL)
+                try results.check(
+                    wave.sampleRate == 48_000 && wave.channels == 1 && wave.bitsPerSample == 16,
+                    "pointer WAV must remain 48 kHz mono signed 16-bit PCM: \(relativePath)"
+                )
+                let spectrum = PointerSpectrumMetrics(wave: wave)
+                try results.check(
+                    spectrum.peakAmplitude > 0.001 && spectrum.rmsAmplitude > 0.000_1,
+                    "pointer WAV must not become silent: \(relativePath)"
+                )
+                try results.check(
+                    spectrum.peakAmplitude < 0.95,
+                    "pointer WAV peak must retain clipping headroom: \(relativePath)"
+                )
+                try results.check(
+                    wave.samples.last == 0,
+                    "pointer WAV must end at an exact zero crossing: \(relativePath)"
+                )
+                try results.check(
+                    spectrum.tailRMSDBFS < -60,
+                    "pointer WAV final 1 ms must stay below -60 dBFS: \(relativePath)"
+                )
+                try results.check(
+                    spectrum.centroidHz.isFinite && spectrum.centroidHz > 0
+                        && spectrum.energyAbove8KHz.isFinite
+                        && (0...1).contains(spectrum.energyAbove8KHz),
+                    "pointer WAV spectrum must be finite and non-empty: \(relativePath)"
+                )
+                spectra[profile, default: []].append(spectrum)
             }
         }
 
@@ -277,6 +540,50 @@ private struct DIYCoreHarness {
         try results.check(
             Set(bundledPaths) == expectedPaths,
             "pointer resource tree should contain exactly one press/release pair per profile"
+        )
+
+        var centroidByProfile: [PointerSoundProfile: Double] = [:]
+        var highFrequencyEnergyByProfile: [PointerSoundProfile: Double] = [:]
+        for profile in PointerSoundProfile.allCases {
+            guard let profileSpectra = spectra[profile], profileSpectra.count == PointerSoundPhase.allCases.count,
+                  let limits = spectralLimits[profile] else {
+                throw HarnessFailure.assertion("missing pointer spectrum fixtures for \(profile.rawValue)")
+            }
+            let meanCentroid = profileSpectra.map(\.centroidHz).reduce(0, +) / Double(profileSpectra.count)
+            let meanHighFrequencyEnergy = profileSpectra.map(\.energyAbove8KHz).reduce(0, +)
+                / Double(profileSpectra.count)
+            centroidByProfile[profile] = meanCentroid
+            highFrequencyEnergyByProfile[profile] = meanHighFrequencyEnergy
+            try results.check(
+                meanCentroid < limits.centroidHz,
+                "\(profile.rawValue) mean spectral centroid is too sharp: "
+                    + String(format: "%.0f Hz (limit %.0f Hz)", meanCentroid, limits.centroidHz)
+            )
+            try results.check(
+                meanHighFrequencyEnergy < limits.energyAbove8KHz,
+                "\(profile.rawValue) mean energy above 8 kHz is too high: "
+                    + String(
+                        format: "%.2f%% (limit %.2f%%)",
+                        meanHighFrequencyEnergy * 100,
+                        limits.energyAbove8KHz * 100
+                    )
+            )
+        }
+
+        let toneOrder: [PointerSoundProfile] = [.heavy, .silent, .classic, .crisp, .glass]
+        let orderedCentroids = toneOrder.compactMap { centroidByProfile[$0] }
+        let orderedHighFrequencyEnergy = toneOrder.compactMap { highFrequencyEnergyByProfile[$0] }
+        try results.check(
+            zip(orderedCentroids, orderedCentroids.dropFirst()).allSatisfy(<),
+            "pointer profiles should retain their low-to-bright spectral-centroid order"
+        )
+        try results.check(
+            zip(orderedHighFrequencyEnergy, orderedHighFrequencyEnergy.dropFirst()).allSatisfy(<),
+            "pointer profiles should retain their low-to-bright high-frequency energy order"
+        )
+        try results.check(
+            orderedCentroids.sorted()[orderedCentroids.count / 2] < 6_000,
+            "the median pointer profile must remain comfortably below a 6 kHz spectral centroid"
         )
     }
 
@@ -800,6 +1107,30 @@ private struct DIYCoreHarness {
             appModelSource.contains("guard audioEngine.load(pointerProfile: profile) else")
                 && appModelSource.contains("rollBackPointerSelection(to: fallback)"),
             "pointer profile loading must roll back the UI selection after resource failure"
+        )
+        guard let keyboardHandlerStart = appModelSource.range(
+            of: "private func handle(_ event: KeyboardEvent)"
+        )?.lowerBound,
+        let pointerHandlerStart = appModelSource.range(
+            of: "private func handle(_ event: PointerEvent)"
+        )?.lowerBound,
+        let pointerHandlerEnd = appModelSource.range(
+            of: "private func loadPointerSoundProfile",
+            range: pointerHandlerStart..<appModelSource.endIndex
+        )?.lowerBound else {
+            throw HarnessFailure.assertion("could not isolate keyboard and pointer audio routing")
+        }
+        let keyboardHandlerSource = appModelSource[keyboardHandlerStart..<pointerHandlerStart]
+        let pointerHandlerSource = appModelSource[pointerHandlerStart..<pointerHandlerEnd]
+        try results.check(
+            keyboardHandlerSource.contains("volume: settings.volume")
+                && !keyboardHandlerSource.contains("settings.pointerVolume"),
+            "keyboard events must use only the keyboard volume"
+        )
+        try results.check(
+            pointerHandlerSource.contains("volume: settings.pointerVolume")
+                && !pointerHandlerSource.contains("volume: settings.volume"),
+            "pointer events must use only the pointer volume"
         )
     }
 

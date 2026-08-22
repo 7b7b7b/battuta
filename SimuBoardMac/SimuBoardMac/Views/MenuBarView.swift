@@ -195,19 +195,19 @@ struct MenuBarView: View {
             VStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("音量")
+                        Text("键盘音量")
                         Spacer()
                         Text("\(Int(settings.volume * 100))%")
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                     }
                     Slider(value: $settings.volume, in: 0...1, step: 0.01)
-                        .accessibilityLabel("音量")
+                        .accessibilityLabel("键盘音量")
                 }
 
                 Divider()
-                Toggle("播放按键回弹音", isOn: $settings.playsReleaseSound)
-                Toggle("加入轻微音高变化", isOn: $settings.usesPitchVariation)
+                Toggle("播放键盘回弹音", isOn: $settings.playsReleaseSound)
+                Toggle("为键盘与点击音加入轻微音高变化", isOn: $settings.usesPitchVariation)
             }
             .font(.subheadline)
             .padding(.top, 4)
@@ -295,7 +295,22 @@ private struct PointerSoundSection: View {
 
                 Divider()
 
-                Text("触控板轻点、物理点按和鼠标点击共用这套配置。macOS 不会向本功能公开设备型号，因此无法自动识别不同鼠标；音量和音高变化沿用上方设置。")
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("点击音量")
+                        Spacer()
+                        Text("\(Int(settings.pointerVolume * 100))%")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $settings.pointerVolume, in: 0...1, step: 0.01)
+                        .accessibilityLabel("鼠标与触控板点击音量")
+                }
+                .disabled(!settings.isPointerSoundEnabled)
+
+                Divider()
+
+                Text("触控板轻点、物理点按和鼠标点击共用这套配置。macOS 不会向本功能公开设备型号，因此无法自动识别不同鼠标；点击音量可单独调整，轻微音高变化使用上方的共用开关。")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

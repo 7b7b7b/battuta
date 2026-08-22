@@ -11,6 +11,7 @@ final class AppSettings: ObservableObject {
         static let pitchVariation = "pitchVariation"
         static let pointerSoundEnabled = "pointerSoundEnabled"
         static let selectedPointerProfile = "selectedPointerProfile"
+        static let pointerVolume = "pointerVolume"
         static let pointerReleaseSound = "pointerReleaseSound"
     }
 
@@ -44,6 +45,10 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(selectedPointerProfileID, forKey: Key.selectedPointerProfile) }
     }
 
+    @Published var pointerVolume: Double {
+        didSet { defaults.set(pointerVolume, forKey: Key.pointerVolume) }
+    }
+
     @Published var playsPointerReleaseSound: Bool {
         didSet { defaults.set(playsPointerReleaseSound, forKey: Key.pointerReleaseSound) }
     }
@@ -62,7 +67,8 @@ final class AppSettings: ObservableObject {
         self.defaults = defaults
         isEnabled = defaults.object(forKey: Key.enabled) as? Bool ?? true
         selectedProfileID = defaults.string(forKey: Key.selectedProfile) ?? SwitchProfile.holyPanda.rawValue
-        volume = defaults.object(forKey: Key.volume) as? Double ?? 0.42
+        let storedKeyboardVolume = defaults.object(forKey: Key.volume) as? Double ?? 0.42
+        volume = storedKeyboardVolume
         playsReleaseSound = defaults.object(forKey: Key.releaseSound) as? Bool ?? true
         usesPitchVariation = defaults.object(forKey: Key.pitchVariation) as? Bool ?? true
         isPointerSoundEnabled = defaults.object(forKey: Key.pointerSoundEnabled) as? Bool ?? false
@@ -71,9 +77,15 @@ final class AppSettings: ObservableObject {
         selectedPointerProfileID = PointerSoundProfile(rawValue: storedPointerProfileID) == nil
             ? PointerSoundProfile.classic.rawValue
             : storedPointerProfileID
+        let storedPointerVolume = defaults.object(forKey: Key.pointerVolume) as? Double
+        let resolvedPointerVolume = storedPointerVolume ?? storedKeyboardVolume * 0.65
+        pointerVolume = min(max(resolvedPointerVolume, 0), 1)
         playsPointerReleaseSound = defaults.object(forKey: Key.pointerReleaseSound) as? Bool ?? true
         if selectedPointerProfileID != storedPointerProfileID {
             defaults.set(selectedPointerProfileID, forKey: Key.selectedPointerProfile)
+        }
+        if storedPointerVolume == nil || storedPointerVolume != pointerVolume {
+            defaults.set(pointerVolume, forKey: Key.pointerVolume)
         }
     }
 }

@@ -15,7 +15,7 @@ is bundled with SimuBoard. Derived files are trimmed and/or resampled to
 | Keychron Red Linear | [Typing on Keychron V1 Ultra (Red Linear Switch)](https://commons.wikimedia.org/wiki/File:Typing_on_Keychron_V1_Ultra_(Red_Linear_Switch).wav) by C40115 | Wikimedia file revision available on the source page | CC BY 4.0 | Five 180 ms excerpts selected from the original 48 kHz WAV and downmixed to mono; each complete keystroke is separated into press/release samples, with later neighboring keystrokes excluded |
 | Kailh Low-profile Blue | [Fast Typing on Mechanical Keyboard](https://freesound.org/people/HeinzBBQ/sounds/502653/) by HeinzBBQ | Freesound ID `502653` | CC0 1.0 | Five 220 ms excerpts selected from the public HQ preview, downmixed and resampled; click and bottom-out remain in press while the later release event is separated and neighboring keystrokes are excluded |
 | Cherry MX Clear | [Mechanical keyboard clicking. Different keys (4)](https://freesound.org/people/humi74/sounds/412926/) by humi74 | Freesound ID `412926` | CC0 1.0 | Five 220 ms excerpts selected from the public HQ preview, downmixed and resampled, then separated at the audited energy valley before release; one excerpt without a usable release reuses the closest clean release variation from the same recording |
-| Pointer Classic, Silent, Crisp, Heavy, and Glass | [Kenney UI Audio](https://kenney.nl/assets/ui-audio) by Kenney Vleugels | Archive downloaded 2026-08-22; original files `mouseclick1.ogg` and `mouserelease1.ogg` | CC0 1.0 | The matched press/release recordings are downmixed and rendered as five generic simulated tonal treatments: neutral gain reduction, quieter low-pass filtering, bright pitch-up filtering, deep pitch-down filtering, and a light high-frequency treatment. Leading signal below −45 dBFS is removed while retaining up to 2 ms of pre-roll; all outputs have a 4 ms tail fade and are 48 kHz mono 16-bit PCM WAV. The profile names do not identify or claim to reproduce a particular mouse brand or switch. |
+| Pointer Classic, Silent, Crisp, Heavy, and Glass | [Kenney UI Audio](https://kenney.nl/assets/ui-audio) by Kenney Vleugels | Archive downloaded 2026-08-22; original files `mouseclick1.ogg` and `mouserelease1.ogg` | CC0 1.0 | The matched press/release recordings are downmixed and rendered as five generic simulated tonal treatments. Each phase is pitch-lowered with compensation for the associated tempo change, then receives profile-specific low-pass filtering, restrained midrange EQ and level adjustment; Crisp and Glass retain a gentle low cut for definition without the former high-frequency boost. Leading signal below −45 dBFS is removed while retaining up to 2 ms of pre-roll; all outputs have a 4 ms tail fade and are 48 kHz mono 16-bit PCM WAV. The profile names do not identify or claim to reproduce a particular mouse brand or switch. |
 
 The imported files can be reproduced with:
 
@@ -38,11 +38,16 @@ Kenney UI Audio archive with:
 
 The pointer importer verifies SHA-256 for both source OGG files and Kenney's
 pack license before rendering ten files. The source files are stereo Vorbis at
-44.1 kHz; the importer downmixes them, applies only the documented generic
-tonal and level treatments, retains conservative headroom, and writes 48 kHz
-mono 16-bit PCM WAV files. It removes only the leading floor below −45 dBFS
-while retaining up to 2 ms before the first measurable click signal, reducing
-playback latency without cutting the press/release transient.
+44.1 kHz; the importer downmixes them, lowers pitch while compensating the
+associated tempo change,
+and applies press/release-specific low-pass, EQ, low-cut and level treatments.
+It retains conservative headroom and writes 48 kHz mono 16-bit PCM WAV files.
+It removes only the leading floor below −45 dBFS while retaining up to 2 ms
+before the first measurable click signal, reducing playback latency without
+cutting the press/release transient. Relative to the 0.5.0 masters, the 0.5.1
+set lowers median spectral centroid by about 40%, median energy above 8 kHz by
+about 91%, and median energy from 6–14 kHz by about 72%. Consecutive imports
+are verified byte-for-byte identical.
 
 The importer rejects a different Git revision, a modified source directory, or
 any of the 13 downloaded files whose SHA-256 does not match this audited import.
