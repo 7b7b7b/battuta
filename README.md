@@ -7,9 +7,9 @@ SimuBoard 目前包含两个版本：
 
 ## macOS 系统级版本
 
-Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。当前版本打包后位于 `SimuBoardMac/build/SimuBoard-0.3.2-unnotarized.dmg`；之前输入监控已稳定工作的 0.3.1 DMG 和代码提交仍可作为回退基线。
+Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。0.4.0 构建产物位于 `SimuBoardMac/build/SimuBoard-0.4.0-unnotarized.dmg`；已发布的 v0.3.2 标签和 DMG 仍是稳定回退基线。
 
-此版本使用 macOS“输入监控”读取硬件键码，不读取字符内容；支持 20 种音色和 227 段录音，并提供按下/回弹音、音量与轻微音高变化。五组原本包含完整击键过程的录音已根据瞬态和能量低谷切成独立按下/抬起样本。当前 DMG 使用长期固定的本地自签名身份来保持升级后的输入监控身份稳定，但未使用 Developer ID，也未经过 Apple 公证；该证书在其他 Mac 上不受信任，用户仍需手动通过 Gatekeeper 并授予输入监控。
+此版本使用 macOS“输入监控”读取硬件键码，不读取字符内容；支持 20 种内置音色和 227 段录音，并提供按下/回弹音、音量与轻微音高变化。0.4.0 新增独立 DIY 编辑器，可上传音频、自动拆分完整击键、设置通用音、R1–R4、特殊键和单键按下/回弹，并导入或导出 `.simuboardpack`。应用还可以在用户同意后自动检查新版本（最多每 24 小时一次）；手动检查仅在用户点击时访问 GitHub，不上传按键或设置。当前 DMG 使用长期固定的本地自签名身份来保持升级后的输入监控身份稳定，但未使用 Developer ID，也未经过 Apple 公证；该证书在其他 Mac 上不受信任，用户仍需手动通过 Gatekeeper 并授予输入监控。
 
 ## 浏览器插件
 

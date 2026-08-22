@@ -18,6 +18,23 @@
 		A1000000000000000000000A /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* Audio */; };
 		A1000000000000000000000B /* THIRD_PARTY_NOTICES.txt in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* Assets.xcassets */; };
+		A20000000000000000000001 /* KeyboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* KeyboardLayout.swift */; };
+		A20000000000000000000002 /* SoundPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* SoundPack.swift */; };
+		A20000000000000000000003 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* SemanticVersion.swift */; };
+		A20000000000000000000004 /* ReleaseSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* ReleaseSummary.swift */; };
+		A20000000000000000000005 /* SoundPackLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000005 /* SoundPackLibrary.swift */; };
+		A20000000000000000000006 /* SoundPackResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000006 /* SoundPackResolver.swift */; };
+		A20000000000000000000007 /* AudioImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000007 /* AudioImportService.swift */; };
+		A20000000000000000000008 /* SoundPackArchiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000008 /* SoundPackArchiveService.swift */; };
+		A20000000000000000000009 /* AudioSplitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000009 /* AudioSplitService.swift */; };
+		A2000000000000000000000A /* GitHubReleaseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000A /* GitHubReleaseClient.swift */; };
+		A2000000000000000000000B /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000B /* UpdateController.swift */; };
+		A2000000000000000000000C /* UpdateSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000C /* UpdateSection.swift */; };
+		A30000000000000000000001 /* SoundPackEditorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000001 /* SoundPackEditorModel.swift */; };
+		A30000000000000000000002 /* SoundPackEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* SoundPackEditorView.swift */; };
+		A30000000000000000000003 /* SoundPackKeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000003 /* SoundPackKeyboardView.swift */; };
+		A30000000000000000000004 /* AudioSplitEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000004 /* AudioSplitEditorSheet.swift */; };
+		A30000000000000000000005 /* SoundPackEditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000005 /* SoundPackEditorWindowController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +52,23 @@
 		B1000000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B1000000000000000000000D /* SimuBoard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimuBoard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B20000000000000000000001 /* KeyboardLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardLayout.swift; sourceTree = "<group>"; };
+		B20000000000000000000002 /* SoundPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPack.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 /* SemanticVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticVersion.swift; sourceTree = "<group>"; };
+		B20000000000000000000004 /* ReleaseSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseSummary.swift; sourceTree = "<group>"; };
+		B20000000000000000000005 /* SoundPackLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackLibrary.swift; sourceTree = "<group>"; };
+		B20000000000000000000006 /* SoundPackResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackResolver.swift; sourceTree = "<group>"; };
+		B20000000000000000000007 /* AudioImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioImportService.swift; sourceTree = "<group>"; };
+		B20000000000000000000008 /* SoundPackArchiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackArchiveService.swift; sourceTree = "<group>"; };
+		B20000000000000000000009 /* AudioSplitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSplitService.swift; sourceTree = "<group>"; };
+		B2000000000000000000000A /* GitHubReleaseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubReleaseClient.swift; sourceTree = "<group>"; };
+		B2000000000000000000000B /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
+		B2000000000000000000000C /* UpdateSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateSection.swift; sourceTree = "<group>"; };
+		B30000000000000000000001 /* SoundPackEditorModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackEditorModel.swift; sourceTree = "<group>"; };
+		B30000000000000000000002 /* SoundPackEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackEditorView.swift; sourceTree = "<group>"; };
+		B30000000000000000000003 /* SoundPackKeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackKeyboardView.swift; sourceTree = "<group>"; };
+		B30000000000000000000004 /* AudioSplitEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSplitEditorSheet.swift; sourceTree = "<group>"; };
+		B30000000000000000000005 /* SoundPackEditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackEditorWindowController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +109,10 @@
 				B10000000000000000000002 /* SwitchProfile.swift */,
 				B10000000000000000000003 /* KeySound.swift */,
 				B10000000000000000000004 /* AppSettings.swift */,
+				B20000000000000000000001 /* KeyboardLayout.swift */,
+				B20000000000000000000002 /* SoundPack.swift */,
+				B20000000000000000000003 /* SemanticVersion.swift */,
+				B20000000000000000000004 /* ReleaseSummary.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -86,6 +124,15 @@
 				B10000000000000000000006 /* KeyboardAudioEngine.swift */,
 				B10000000000000000000007 /* InputMonitoringPermissionManager.swift */,
 				B10000000000000000000008 /* AppModel.swift */,
+				B20000000000000000000005 /* SoundPackLibrary.swift */,
+				B20000000000000000000006 /* SoundPackResolver.swift */,
+				B20000000000000000000007 /* AudioImportService.swift */,
+				B20000000000000000000008 /* SoundPackArchiveService.swift */,
+				B20000000000000000000009 /* AudioSplitService.swift */,
+				B2000000000000000000000A /* GitHubReleaseClient.swift */,
+				B2000000000000000000000B /* UpdateController.swift */,
+				B30000000000000000000001 /* SoundPackEditorModel.swift */,
+				B30000000000000000000005 /* SoundPackEditorWindowController.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -94,6 +141,10 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000009 /* MenuBarView.swift */,
+				B2000000000000000000000C /* UpdateSection.swift */,
+				B30000000000000000000002 /* SoundPackEditorView.swift */,
+				B30000000000000000000003 /* SoundPackKeyboardView.swift */,
+				B30000000000000000000004 /* AudioSplitEditorSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -186,6 +237,23 @@
 				A10000000000000000000007 /* InputMonitoringPermissionManager.swift in Sources */,
 				A10000000000000000000008 /* AppModel.swift in Sources */,
 				A10000000000000000000009 /* MenuBarView.swift in Sources */,
+				A20000000000000000000001 /* KeyboardLayout.swift in Sources */,
+				A20000000000000000000002 /* SoundPack.swift in Sources */,
+				A20000000000000000000003 /* SemanticVersion.swift in Sources */,
+				A20000000000000000000004 /* ReleaseSummary.swift in Sources */,
+				A20000000000000000000005 /* SoundPackLibrary.swift in Sources */,
+				A20000000000000000000006 /* SoundPackResolver.swift in Sources */,
+				A20000000000000000000007 /* AudioImportService.swift in Sources */,
+				A20000000000000000000008 /* SoundPackArchiveService.swift in Sources */,
+				A20000000000000000000009 /* AudioSplitService.swift in Sources */,
+				A2000000000000000000000A /* GitHubReleaseClient.swift in Sources */,
+				A2000000000000000000000B /* UpdateController.swift in Sources */,
+				A2000000000000000000000C /* UpdateSection.swift in Sources */,
+				A30000000000000000000001 /* SoundPackEditorModel.swift in Sources */,
+				A30000000000000000000002 /* SoundPackEditorView.swift in Sources */,
+				A30000000000000000000003 /* SoundPackKeyboardView.swift in Sources */,
+				A30000000000000000000004 /* AudioSplitEditorSheet.swift in Sources */,
+				A30000000000000000000005 /* SoundPackEditorWindowController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -235,14 +303,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.3.2;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = SimuBoard;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -257,14 +325,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.3.2;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = SimuBoard;
 				SWIFT_STRICT_CONCURRENCY = complete;

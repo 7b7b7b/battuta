@@ -12,42 +12,65 @@ enum KeyboardMonitoringState: Equatable {
 final class AppModel: ObservableObject {
     let settings: AppSettings
     let permission: InputMonitoringPermissionManager
+    let updates: UpdateController
+    let soundPackLibrary: SoundPackLibrary
     @Published private(set) var monitoringState: KeyboardMonitoringState = .stopped
     @Published private(set) var audioError: String?
+    @Published private(set) var soundPackError: String?
+    @Published private(set) var soundPacks: [SoundPackDescriptor] = SoundPackDescriptor.bundledDefaults
 
     private let audioEngine: KeyboardAudioEngine
     private let keyboardMonitor: KeyboardMonitor
     private var cancellables: Set<AnyCancellable> = []
+    private var selectionLoadTask: Task<Void, Never>?
+    private var libraryRefreshTask: Task<Void, Never>?
+    private var selectionGeneration: UInt64 = 0
+    private var soundPackEditorWindowController: SoundPackEditorWindowController?
+
+    var selectedSoundPack: SoundPackDescriptor {
+        soundPacks.first { $0.id == settings.selectedProfileID }
+            ?? SoundPackDescriptor.bundledDefaults.first { $0.id == SwitchProfile.holyPanda.rawValue }!
+    }
 
     init(
         settings: AppSettings = AppSettings(),
         permission: InputMonitoringPermissionManager = InputMonitoringPermissionManager(),
+        updates: UpdateController = UpdateController(),
+        soundPackLibrary: SoundPackLibrary = SoundPackLibrary(),
         audioEngine: KeyboardAudioEngine = KeyboardAudioEngine(),
         keyboardMonitor: KeyboardMonitor = KeyboardMonitor(),
         startsServices: Bool = true
     ) {
         self.settings = settings
         self.permission = permission
+        self.updates = updates
+        self.soundPackLibrary = soundPackLibrary
         self.audioEngine = audioEngine
         self.keyboardMonitor = keyboardMonitor
 
-        audioEngine.load(profile: settings.selectedProfile)
+        if let profile = SwitchProfile(rawValue: settings.selectedProfileID) {
+            audioEngine.load(profile: profile)
+        } else {
+            audioEngine.load(profile: .holyPanda)
+        }
         if startsServices {
             audioEngine.warmUp()
         }
         syncAudioError()
-        guard startsServices else { return }
-        startKeyboardMonitor()
-
         settings.$selectedProfileID
             .removeDuplicates()
             .dropFirst()
             .sink { [weak self] profileID in
-                guard let profile = SwitchProfile(rawValue: profileID) else { return }
-                self?.audioEngine.load(profile: profile)
-                self?.syncAudioError()
+                guard let self else { return }
+                selectionGeneration &+= 1
+                loadSoundPack(selectionID: profileID)
             }
             .store(in: &cancellables)
+
+        guard startsServices else { return }
+        refreshSoundPacks()
+        startKeyboardMonitor()
+        updates.scheduleAutomaticCheck()
 
         permission.$isGranted
             .removeDuplicates()
@@ -75,27 +98,99 @@ final class AppModel: ObservableObject {
         startKeyboardMonitor()
     }
 
+    func activateSoundPack(_ selectionID: String) {
+        guard soundPacks.contains(where: { $0.id == selectionID }) else { return }
+        if settings.selectedProfileID == selectionID {
+            loadSoundPack(selectionID: selectionID)
+        } else {
+            settings.selectedProfileID = selectionID
+        }
+    }
+
+    func refreshSoundPacks(selecting selectionID: String? = nil) {
+        libraryRefreshTask?.cancel()
+        let library = soundPackLibrary
+        let selectionGenerationAtStart = selectionGeneration
+        libraryRefreshTask = Task { [weak self] in
+            do {
+                let descriptors = try await library.descriptors()
+                try Task.checkCancellation()
+                guard let self else { return }
+                soundPacks = descriptors
+                soundPackError = nil
+
+                let requestedID = if let selectionID,
+                                     selectionGeneration == selectionGenerationAtStart {
+                    selectionID
+                } else {
+                    settings.selectedProfileID
+                }
+                if descriptors.contains(where: { $0.id == requestedID }) {
+                    if settings.selectedProfileID == requestedID {
+                        loadSoundPack(selectionID: requestedID)
+                    } else {
+                        settings.selectedProfileID = requestedID
+                    }
+                } else {
+                    settings.selectedProfileID = SwitchProfile.holyPanda.rawValue
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self else { return }
+                soundPackError = "无法读取 DIY 音色库：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    func reloadSelectedSoundPack() {
+        refreshSoundPacks(selecting: settings.selectedProfileID)
+    }
+
+    func openSoundPackEditor() {
+        let controller: SoundPackEditorWindowController
+        if let existing = soundPackEditorWindowController {
+            controller = existing
+        } else {
+            controller = SoundPackEditorWindowController(appModel: self)
+            soundPackEditorWindowController = controller
+        }
+        controller.present()
+    }
+
+    func soundPackEditorWindowDidClose(_ controller: SoundPackEditorWindowController) {
+        guard soundPackEditorWindowController === controller else { return }
+        soundPackEditorWindowController = nil
+    }
+
+    func applicationShouldTerminate(
+        _ application: NSApplication
+    ) -> NSApplication.TerminateReply {
+        soundPackEditorWindowController?.applicationShouldTerminate(application)
+            ?? .terminateNow
+    }
+
     func preview() {
-        let profile = settings.selectedProfile
-        if audioEngine.loadedProfile != profile { audioEngine.load(profile: profile) }
+        preview(keyCode: 0, phase: .press)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.075) { [weak self] in
+            guard let self else { return }
+            self.preview(keyCode: 0, phase: .release)
+        }
+    }
+
+    func preview(keyCode: UInt16, phase: KeySoundPhase) {
         audioEngine.play(
-            sample: .genericR2,
-            phase: .press,
+            keyCode: keyCode,
+            phase: phase,
             volume: settings.volume,
             pitchVariation: settings.usesPitchVariation
         )
         syncAudioError()
-        guard profile.supportsReleaseSound else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.075) { [weak self] in
-            guard let self else { return }
-            self.audioEngine.play(
-                sample: profile.hasRowSpecificReleaseSamples ? .genericR2 : .generic,
-                phase: .release,
-                volume: self.settings.volume,
-                pitchVariation: self.settings.usesPitchVariation
-            )
-            self.syncAudioError()
-        }
+    }
+
+    func preview(audioAt url: URL) {
+        audioEngine.preview(audioAt: url, volume: settings.volume)
+        syncAudioError()
     }
 
     private func startKeyboardMonitor() {
@@ -116,19 +211,62 @@ final class AppModel: ObservableObject {
         if event.kind == .keyUp, !settings.playsReleaseSound { return }
 
         let phase: KeySoundPhase = event.kind == .keyDown ? .press : .release
-        guard let sample = KeySoundMapper.sample(
-            for: event.keyCode,
-            phase: phase,
-            profile: settings.selectedProfile
-        ) else { return }
-
         audioEngine.play(
-            sample: sample,
+            keyCode: event.keyCode,
             phase: phase,
             volume: settings.volume,
             pitchVariation: settings.usesPitchVariation
         )
         syncAudioError()
+    }
+
+    private func loadSoundPack(selectionID: String) {
+        selectionLoadTask?.cancel()
+        if let profile = SwitchProfile(rawValue: selectionID) {
+            audioEngine.load(profile: profile)
+            soundPackError = nil
+            syncAudioError()
+            return
+        }
+
+        guard let packID = Self.customPackID(from: selectionID) else {
+            audioEngine.load(profile: .holyPanda)
+            soundPackError = "无法识别所选 DIY 音色。"
+            syncAudioError()
+            return
+        }
+
+        let library = soundPackLibrary
+        selectionLoadTask = Task { [weak self] in
+            do {
+                let document = try await library.loadCustomPack(id: packID)
+                try Task.checkCancellation()
+                guard let self, settings.selectedProfileID == selectionID else { return }
+                if audioEngine.load(document: document) {
+                    soundPackError = nil
+                } else {
+                    let reason = audioEngine.lastError ?? "自定义音频资源不完整。"
+                    let fallback = document.manifest.baseProfileID
+                        .flatMap(SwitchProfile.init(rawValue:)) ?? .holyPanda
+                    audioEngine.load(profile: fallback)
+                    soundPackError = "DIY 音色载入失败，已回退到 \(fallback.displayName)：\(reason)"
+                }
+                syncAudioError()
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self, settings.selectedProfileID == selectionID else { return }
+                soundPackError = "无法载入 DIY 音色：\(error.localizedDescription)"
+                audioEngine.load(profile: .holyPanda)
+                syncAudioError()
+            }
+        }
+    }
+
+    private static func customPackID(from selectionID: String) -> UUID? {
+        let prefix = "custom:"
+        guard selectionID.hasPrefix(prefix) else { return nil }
+        return UUID(uuidString: String(selectionID.dropFirst(prefix.count)))
     }
 
     private func syncAudioError() {
@@ -137,6 +275,8 @@ final class AppModel: ObservableObject {
     }
 
     isolated deinit {
+        selectionLoadTask?.cancel()
+        libraryRefreshTask?.cancel()
         keyboardMonitor.stop()
     }
 }

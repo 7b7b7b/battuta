@@ -6,7 +6,6 @@ PROJECT_DIR=${SCRIPT_DIR:h}
 DERIVED_DIR="$PROJECT_DIR/build/DerivedData"
 OUTPUT_DIR="$PROJECT_DIR/build"
 APP_PATH="$DERIVED_DIR/Build/Products/Release/SimuBoard.app"
-DMG_PATH="$OUTPUT_DIR/SimuBoard-0.3.2-unnotarized.dmg"
 STAGE_DIR=$(mktemp -d /private/tmp/simuboard-dmg.XXXXXX)
 LOCAL_SIGNING_COMMON_NAME="SimuBoard Local Code Signing"
 LOCAL_SIGNING_KEYCHAIN=${SIMUBOARD_SIGNING_KEYCHAIN:-"$HOME/Library/Keychains/SimuBoardRelease.keychain-db"}
@@ -28,6 +27,15 @@ xcodebuild \
   -derivedDataPath "$DERIVED_DIR" \
   CODE_SIGNING_ALLOWED=NO \
   clean build
+
+SIMUBOARD_BUILD_VERSION=$(
+  /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist"
+)
+if [[ ! "$SIMUBOARD_BUILD_VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
+  print -u2 "Invalid SimuBoard version in built app: $SIMUBOARD_BUILD_VERSION"
+  exit 1
+fi
+DMG_PATH="$OUTPUT_DIR/SimuBoard-$SIMUBOARD_BUILD_VERSION-unnotarized.dmg"
 
 cp -R "$APP_PATH" "$STAGE_DIR/SimuBoard.app"
 # The workspace may attach File Provider/Finder metadata. Stage outside it,

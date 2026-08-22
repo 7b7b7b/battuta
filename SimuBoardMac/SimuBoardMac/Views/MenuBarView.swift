@@ -14,27 +14,35 @@ struct MenuBarView: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
-            header
+        ScrollView {
+            VStack(spacing: 14) {
+                header
 
-            if !permission.isGranted {
-                permissionCard
+                if !permission.isGranted {
+                    permissionCard
+                }
+
+                if let message = monitoringFailureMessage {
+                    monitoringFailureCard(message)
+                }
+
+                if let message = model.audioError {
+                    audioFailureCard(message)
+                }
+
+                if let message = model.soundPackError {
+                    audioFailureCard(message)
+                }
+
+                profileSection
+                soundSection
+                UpdateSection(controller: model.updates)
+                footer
             }
-
-            if let message = monitoringFailureMessage {
-                monitoringFailureCard(message)
-            }
-
-            if let message = model.audioError {
-                audioFailureCard(message)
-            }
-
-            profileSection
-            soundSection
-            footer
+            .padding(16)
         }
-        .padding(16)
         .frame(width: 340)
+        .frame(maxHeight: 720)
         .tint(Color(red: 0.72, green: 0.88, blue: 0.33))
     }
 
@@ -128,18 +136,18 @@ struct MenuBarView: View {
     private var profileSection: some View {
         GroupBox("轴体音色") {
             VStack(alignment: .leading, spacing: 10) {
-                Picker("轴体", selection: $settings.selectedProfileID) {
-                    ForEach(SwitchProfile.allCases) { profile in
-                        Text("\(profile.displayName) · \(profile.family)")
-                            .tag(profile.rawValue)
+                Picker("音色", selection: $settings.selectedProfileID) {
+                    ForEach(model.soundPacks) { soundPack in
+                        Text("\(soundPack.name) · \(soundPack.family)")
+                            .tag(soundPack.id)
                     }
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
 
                 HStack(spacing: 6) {
-                    Text(settings.selectedProfile.family)
-                    Text(settings.selectedProfile.tone)
+                    Text(model.selectedSoundPack.family)
+                    Text(model.selectedSoundPack.tone)
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -151,6 +159,17 @@ struct MenuBarView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+
+                Divider()
+
+                Button {
+                    model.openSoundPackEditor()
+                    dismiss()
+                } label: {
+                    Label("DIY 音色编辑器", systemImage: "slider.horizontal.3")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
             }
             .padding(.top, 4)
         }
@@ -173,13 +192,6 @@ struct MenuBarView: View {
 
                 Divider()
                 Toggle("播放按键回弹音", isOn: $settings.playsReleaseSound)
-                    .disabled(!settings.selectedProfile.supportsReleaseSound)
-                if !settings.selectedProfile.supportsReleaseSound {
-                    Text("此音色来自单次完整按键录音，没有独立回弹片段。")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
                 Toggle("加入轻微音高变化", isOn: $settings.usesPitchVariation)
             }
             .font(.subheadline)

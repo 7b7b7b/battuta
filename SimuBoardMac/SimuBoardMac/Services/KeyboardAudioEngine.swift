@@ -23,9 +23,12 @@ final class KeyboardAudioEngine {
     )!
     private var voices: [Voice] = []
     private var buffers: [BufferKey: AVAudioPCMBuffer] = [:]
+    private var customBuffers: [SoundPackAssetID: AVAudioPCMBuffer] = [:]
+    private var customResolver: SoundPackResolver?
     private var voiceCursor = 0
     private var configurationObserver: NSObjectProtocol?
     private(set) var loadedProfile: SwitchProfile = .holyPanda
+    private(set) var loadedSelectionID: String = SwitchProfile.holyPanda.rawValue
     private(set) var engineError: String?
     private(set) var resourceError: String?
 
@@ -61,9 +64,99 @@ final class KeyboardAudioEngine {
         _ = startEngineIfNeeded()
     }
 
-    func load(profile: SwitchProfile) {
-        var nextBuffers: [BufferKey: AVAudioPCMBuffer] = [:]
+    @discardableResult
+    func load(profile: SwitchProfile) -> Bool {
         resourceError = nil
+        guard let nextBuffers = makeBuiltInBuffers(profile: profile) else { return false }
+        loadedProfile = profile
+        loadedSelectionID = profile.rawValue
+        buffers = nextBuffers
+        customBuffers = [:]
+        customResolver = nil
+        return true
+    }
+
+    @discardableResult
+    func load(document: SoundPackDocument) -> Bool {
+        resourceError = nil
+        let baseProfile = document.manifest.baseProfileID
+            .flatMap(SwitchProfile.init(rawValue:)) ?? .holyPanda
+        guard let nextBuiltInBuffers = makeBuiltInBuffers(profile: baseProfile) else { return false }
+
+        var nextCustomBuffers: [SoundPackAssetID: AVAudioPCMBuffer] = [:]
+        for assetID in document.manifest.referencedAssetIDs.sorted(by: { $0.rawValue < $1.rawValue }) {
+            do {
+                let url = try document.assetURL(for: assetID)
+                guard let buffer = loadBuffer(at: url) else {
+                    if resourceError == nil {
+                        resourceError = "无法预载自定义音频 \(url.lastPathComponent)。"
+                    }
+                    return false
+                }
+                nextCustomBuffers[assetID] = buffer
+            } catch {
+                resourceError = "无法读取自定义音频：\(error.localizedDescription)"
+                return false
+            }
+        }
+
+        loadedProfile = baseProfile
+        loadedSelectionID = document.id
+        buffers = nextBuiltInBuffers
+        customBuffers = nextCustomBuffers
+        customResolver = SoundPackResolver(manifest: document.manifest)
+        return true
+    }
+
+    func play(
+        keyCode: UInt16,
+        phase: KeySoundPhase,
+        volume: Double,
+        pitchVariation: Bool
+    ) {
+        if let customResolver {
+            switch customResolver.resolution(for: keyCode, phase: phase) {
+            case let .asset(assetID, _):
+                guard let buffer = customBuffers[assetID] else { return }
+                play(buffer: buffer, volume: volume, pitchVariation: pitchVariation)
+                return
+            case .silent:
+                return
+            case .missing:
+                break
+            }
+        }
+
+        guard let sample = KeySoundMapper.sample(
+            for: keyCode,
+            phase: phase,
+            profile: loadedProfile
+        ) else { return }
+        play(
+            sample: sample,
+            phase: phase,
+            volume: volume,
+            pitchVariation: pitchVariation
+        )
+    }
+
+    func preview(
+        audioAt url: URL,
+        volume: Double,
+        pitchVariation: Bool = false
+    ) {
+        resourceError = nil
+        guard let buffer = loadBuffer(at: url) else {
+            if resourceError == nil {
+                resourceError = "无法读取 \(url.lastPathComponent)。"
+            }
+            return
+        }
+        play(buffer: buffer, volume: volume, pitchVariation: pitchVariation)
+    }
+
+    private func makeBuiltInBuffers(profile: SwitchProfile) -> [BufferKey: AVAudioPCMBuffer]? {
+        var nextBuffers: [BufferKey: AVAudioPCMBuffer] = [:]
 
         let genericPressSamples: [KeySoundSample] = [
             .genericR0, .genericR1, .genericR2, .genericR3, .genericR4
@@ -99,10 +192,9 @@ final class KeyboardAudioEngine {
             if resourceError == nil {
                 resourceError = "\(profile.displayName) 的音频资源不完整（\(nextBuffers.count)/\(expectedBufferCount)）。"
             }
-            return
+            return nil
         }
-        loadedProfile = profile
-        buffers = nextBuffers
+        return nextBuffers
     }
 
     func play(
@@ -111,9 +203,6 @@ final class KeyboardAudioEngine {
         volume: Double,
         pitchVariation: Bool
     ) {
-        guard startEngineIfNeeded() else { return }
-        guard !voices.isEmpty else { return }
-
         let fallback: KeySoundSample = if phase == .release {
             loadedProfile.hasRowSpecificReleaseSamples ? .genericR2 : .generic
         } else {
@@ -121,6 +210,17 @@ final class KeyboardAudioEngine {
         }
         guard let buffer = buffers[BufferKey(phase: phase, sample: sample)]
             ?? buffers[BufferKey(phase: phase, sample: fallback)] else { return }
+
+        play(buffer: buffer, volume: volume, pitchVariation: pitchVariation)
+    }
+
+    private func play(
+        buffer: AVAudioPCMBuffer,
+        volume: Double,
+        pitchVariation: Bool
+    ) {
+        guard startEngineIfNeeded() else { return }
+        guard !voices.isEmpty else { return }
 
         let voice = voices[voiceCursor]
         voiceCursor = (voiceCursor + 1) % voices.count
@@ -159,6 +259,14 @@ final class KeyboardAudioEngine {
             )
         }).first else { return nil }
 
+        return loadBuffer(at: url)
+    }
+
+    private func loadBuffer(at url: URL) -> AVAudioPCMBuffer? {
+        let didStartSecurityScope = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartSecurityScope { url.stopAccessingSecurityScopedResource() }
+        }
         do {
             let file = try AVAudioFile(forReading: url)
             guard let buffer = AVAudioPCMBuffer(
@@ -179,6 +287,7 @@ final class KeyboardAudioEngine {
 
     private func convertToPlaybackFormat(_ source: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
         guard source.frameLength > 0 else { return nil }
+        if source.format == playbackFormat { return source }
         guard let converter = AVAudioConverter(from: source.format, to: playbackFormat) else {
             return nil
         }

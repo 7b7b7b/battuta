@@ -28,5 +28,28 @@
   <true/>
   <key>NSHumanReadableCopyright</key>
   <string>Copyright © 2026 SimuBoard contributors</string>
+  <key>UTExportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>com.apple.package</string>
+        <string>public.data</string>
+      </array>
+      <key>UTTypeDescription</key>
+      <string>SimuBoard Sound Pack</string>
+      <key>UTTypeIdentifier</key>
+      <string>com.simuboard.soundpack</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>simuboardpack</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/vnd.simuboard.soundpack</string>
+      </dict>
+    </dict>
+  </array>
 </dict>
 </plist>

@@ -22,11 +22,7 @@ enum KeySoundMapper {
     private static let row1: Set<UInt16> = [12, 13, 14, 15, 16, 17, 30, 31, 32, 33, 34, 35, 42]
     private static let row2: Set<UInt16> = [0, 1, 2, 3, 4, 5, 37, 38, 39, 40, 41]
     private static let row3: Set<UInt16> = [6, 7, 8, 9, 11, 43, 44, 45, 46, 47]
-    private static let ignored: Set<UInt16> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
-
     static func sample(for keyCode: UInt16, phase: KeySoundPhase, profile: SwitchProfile) -> KeySoundSample? {
-        guard !ignored.contains(keyCode) else { return nil }
-
         let special: KeySoundSample? = switch keyCode {
         case 49: .space
         case 36, 76: .enter

@@ -21,6 +21,7 @@ final class KeyboardMonitor {
 
     private var runState: RunState?
     private var handler: (@MainActor (KeyboardEvent) -> Void)?
+    private var pressedModifierKeyCodes: Set<UInt16> = []
 
     @discardableResult
     func start(handler: @escaping @MainActor (KeyboardEvent) -> Void) -> Bool {
@@ -29,7 +30,8 @@ final class KeyboardMonitor {
 
         let keyDownMask = CGEventMask(1) << CGEventType.keyDown.rawValue
         let keyUpMask = CGEventMask(1) << CGEventType.keyUp.rawValue
-        let eventMask = keyDownMask | keyUpMask
+        let flagsChangedMask = CGEventMask(1) << CGEventType.flagsChanged.rawValue
+        let eventMask = keyDownMask | keyUpMask | flagsChangedMask
         let userInfo = Unmanaged.passUnretained(self).toOpaque()
 
         guard let port = CGEvent.tapCreate(
@@ -51,6 +53,7 @@ final class KeyboardMonitor {
     }
 
     func stop() {
+        pressedModifierKeyCodes.removeAll()
         guard let runState else {
             handler = nil
             return
@@ -66,14 +69,19 @@ final class KeyboardMonitor {
         guard let userInfo else { return Unmanaged.passUnretained(event) }
         let monitor = Unmanaged<KeyboardMonitor>.fromOpaque(userInfo).takeUnretainedValue()
         let wasDisabled = type == .tapDisabledByTimeout || type == .tapDisabledByUserInput
+        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
         let payload: KeyboardEvent? = if type == .keyDown || type == .keyUp {
             KeyboardEvent(
                 kind: type == .keyDown ? .keyDown : .keyUp,
-                keyCode: UInt16(event.getIntegerValueField(.keyboardEventKeycode)),
+                keyCode: keyCode,
                 isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
             )
         } else {
             nil
+        }
+        let modifierKeyCode = type == .flagsChanged ? keyCode : nil
+        let modifierIsDown = modifierKeyCode.map {
+            CGEventSource.keyState(.combinedSessionState, key: CGKeyCode($0))
         }
 
         precondition(Thread.isMainThread)
@@ -82,18 +90,37 @@ final class KeyboardMonitor {
                 monitor.reenableTap()
             } else if let payload {
                 monitor.receive(payload)
+            } else if let modifierKeyCode, let modifierIsDown {
+                monitor.receiveModifierChange(
+                    keyCode: modifierKeyCode,
+                    isDown: modifierIsDown
+                )
             }
         }
         return Unmanaged.passUnretained(event)
     }
 
     private func reenableTap() {
+        pressedModifierKeyCodes.removeAll()
         if let port = runState?.port { CGEvent.tapEnable(tap: port, enable: true) }
     }
 
     private func receive(_ payload: KeyboardEvent) {
         guard let handler else { return }
         handler(payload)
+    }
+
+    private func receiveModifierChange(keyCode: UInt16, isDown: Bool) {
+        let wasDown = pressedModifierKeyCodes.contains(keyCode)
+        guard wasDown != isDown else { return }
+
+        if isDown {
+            pressedModifierKeyCodes.insert(keyCode)
+        } else {
+            pressedModifierKeyCodes.remove(keyCode)
+        }
+        let kind: KeyboardEvent.Kind = isDown ? .keyDown : .keyUp
+        receive(KeyboardEvent(kind: kind, keyCode: keyCode, isRepeat: false))
     }
 
     isolated deinit {

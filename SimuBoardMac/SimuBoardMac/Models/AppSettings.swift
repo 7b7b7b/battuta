@@ -46,8 +46,5 @@ final class AppSettings: ObservableObject {
         playsReleaseSound = defaults.object(forKey: Key.releaseSound) as? Bool ?? true
         usesPitchVariation = defaults.object(forKey: Key.pitchVariation) as? Bool ?? true
 
-        if SwitchProfile(rawValue: selectedProfileID) == nil {
-            selectedProfileID = SwitchProfile.holyPanda.rawValue
-        }
     }
 }
