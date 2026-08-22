@@ -6,7 +6,7 @@ PROJECT_DIR=${SCRIPT_DIR:h}
 DERIVED_DIR="$PROJECT_DIR/build/DerivedData"
 OUTPUT_DIR="$PROJECT_DIR/build"
 APP_PATH="$DERIVED_DIR/Build/Products/Release/SimuBoard.app"
-DMG_PATH="$OUTPUT_DIR/SimuBoard-0.2.3-unnotarized.dmg"
+DMG_PATH="$OUTPUT_DIR/SimuBoard-0.3.0-unnotarized.dmg"
 STAGE_DIR=$(mktemp -d /private/tmp/simuboard-dmg.XXXXXX)
 
 cleanup() {

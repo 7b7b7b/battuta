@@ -7,15 +7,15 @@ SimuBoard 目前包含两个版本：
 
 ## macOS 系统级版本
 
-Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。当前低延迟纯声音版位于 `SimuBoardMac/build/SimuBoard-0.2.3-unnotarized.dmg`，稳定基线包位于 `SimuBoardMac/build/SimuBoard-0.1.0-unnotarized.dmg`。
+Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。当前版本打包后位于 `SimuBoardMac/build/SimuBoard-0.3.0-unnotarized.dmg`，之前的 0.2.3 低延迟版本仍可作为回退基线。
 
-此版本使用 macOS“输入监控”读取硬件键码，不读取字符内容；支持 13 种音色、按下/回弹音、音量与轻微音高变化。当前 DMG 未使用 Developer ID，也未经过 Apple 公证，因此不需要开发者账号即可自行构建和分享，但其他用户首次运行时必须手动允许。
+此版本使用 macOS“输入监控”读取硬件键码，不读取字符内容；支持 20 种音色和 202 段录音，并提供按下/回弹音、音量与轻微音高变化。部分开放资源是一次完整按键录音，没有可拆分的回弹片段，此时界面会自动停用回弹音开关。当前 DMG 未使用 Developer ID，也未经过 Apple 公证，因此不需要开发者账号即可自行构建和分享，但其他用户首次运行时必须手动允许。
 
 ## 浏览器插件
 
 浏览器版无需构建步骤。在网页中按键时播放机械键盘声音，可切换 13 种轴体或键盘音色。
 
-## 功能
+## 浏览器插件功能
 
 - 13 种音色：Holy Panda、MX Brown、MX Blue、BOX Navy、Blue Alps、Cream、Alpaca、Black Ink、Red Ink、MX Black、Turquoise Tealios、Topre、Buckling Spring
 - 区分键盘行以及空格、回车、退格等大键声音
@@ -43,6 +43,6 @@ npm test
 
 ## 音频来源与许可
 
-音频样本来自 Thomas Lai 的 [kbsim](https://github.com/tplai/kbsim)，依照 MIT License 再分发。完整声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+浏览器版音频样本来自 Thomas Lai 的 [kbsim](https://github.com/tplai/kbsim)，依照 MIT License 再分发。macOS 版另外收录了可追溯至 MIT、CC0 和 CC BY 4.0 来源的开放录音。完整许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，逐项来源、处理方式和未采用候选见 [SimuBoardMac/AUDIO_SOURCES.md](SimuBoardMac/AUDIO_SOURCES.md)。
 
 请勿直接复制 YouTube、Keyboard Simulators 或许可不明确站点的声音用于公开发布版本。

@@ -1,6 +1,8 @@
 # SimuBoard for macOS
 
-原生 macOS 菜单栏键盘音效应用，最低支持 macOS 13。内置 13 种轴体/键盘音色和 151 段按键录音，在浏览器、编辑器、聊天软件等桌面应用中均可工作。应用启动时会预热音频引擎，并在加载轴体时把样本预转换为 48 kHz PCM，避免首次按键再启动引擎，也避免在 48 kHz 输出链路中实时转换资源采样率。
+原生 macOS 菜单栏键盘音效应用，最低支持 macOS 13。内置 20 种轴体/键盘音色和 202 段按键录音，在浏览器、编辑器、聊天软件等桌面应用中均可工作。应用启动时会预热音频引擎，并在加载轴体时把样本预转换为 48 kHz PCM，避免首次按键再启动引擎，也避免在 48 kHz 输出链路中实时转换资源采样率。
+
+新增音色包括 Cherry MX Clear、Logitech G915 TKL Brown、Kailh BOX White、Kailh Low-profile Blue、Keychron Red Linear，以及 Studio Tactile / Studio Clicky。部分开放资源是一次完整按键录音，没有独立的 key-up 片段；选择这类音色时，应用会停用“播放按键回弹音”开关。逐项来源、许可和导入方式见 [`AUDIO_SOURCES.md`](AUDIO_SOURCES.md)。
 
 ## 在 Xcode 中运行
 
@@ -20,7 +22,7 @@
 ./scripts/build-dmg.sh
 ```
 
-输出位于 `build/SimuBoard-0.2.3-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App，使用免费的 ad-hoc 本地签名，并未使用 Developer ID 或 Apple 公证；构建它不需要 Apple Developer 账号。
+输出位于 `build/SimuBoard-0.3.0-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App，使用免费的 ad-hoc 本地签名，并未使用 Developer ID 或 Apple 公证；构建它不需要 Apple Developer 账号。
 
 ## 安装未公证版本
 

@@ -169,6 +169,13 @@ struct MenuBarView: View {
 
                 Divider()
                 Toggle("播放按键回弹音", isOn: $settings.playsReleaseSound)
+                    .disabled(!settings.selectedProfile.supportsReleaseSound)
+                if !settings.selectedProfile.supportsReleaseSound {
+                    Text("此音色来自单次完整按键录音，没有独立回弹片段。")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 Toggle("加入轻微音高变化", isOn: $settings.usesPitchVariation)
             }
             .font(.subheadline)

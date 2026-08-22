@@ -85,10 +85,11 @@ final class AppModel: ObservableObject {
             pitchVariation: settings.usesPitchVariation
         )
         syncAudioError()
+        guard profile.supportsReleaseSound else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.075) { [weak self] in
             guard let self else { return }
             self.audioEngine.play(
-                sample: .generic,
+                sample: profile.hasRowSpecificReleaseSamples ? .genericR2 : .generic,
                 phase: .release,
                 volume: self.settings.volume,
                 pitchVariation: self.settings.usesPitchVariation

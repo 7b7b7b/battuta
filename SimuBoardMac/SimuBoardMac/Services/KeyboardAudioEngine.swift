@@ -65,12 +65,23 @@ final class KeyboardAudioEngine {
         var nextBuffers: [BufferKey: AVAudioPCMBuffer] = [:]
         resourceError = nil
 
-        let pressSamples: [KeySoundSample] = profile.usesOnlyGenericSamples
-            ? [.genericR0, .genericR1, .genericR2, .genericR3, .genericR4]
-            : [.genericR0, .genericR1, .genericR2, .genericR3, .genericR4, .space, .enter, .backspace]
-        let releaseSamples: [KeySoundSample] = profile.usesOnlyGenericSamples
-            ? [.generic]
-            : [.generic, .space, .enter, .backspace]
+        let genericPressSamples: [KeySoundSample] = [
+            .genericR0, .genericR1, .genericR2, .genericR3, .genericR4
+        ]
+        let pressSamples = profile.hasDedicatedSpecialKeySamples
+            ? genericPressSamples + [.space, .enter, .backspace]
+            : genericPressSamples
+        let releaseSamples: [KeySoundSample] = if !profile.supportsReleaseSound {
+            []
+        } else if profile.hasRowSpecificReleaseSamples {
+            profile.hasDedicatedSpecialKeySamples
+                ? genericPressSamples + [.space, .enter, .backspace]
+                : genericPressSamples
+        } else if profile.hasDedicatedSpecialKeySamples {
+            [.generic, .space, .enter, .backspace]
+        } else {
+            [.generic]
+        }
 
         for sample in pressSamples {
             if let buffer = loadBuffer(profile: profile, phase: .press, sample: sample) {
@@ -83,8 +94,11 @@ final class KeyboardAudioEngine {
             }
         }
 
-        guard !nextBuffers.isEmpty else {
-            resourceError = "没有找到 \(profile.displayName) 的音频资源。"
+        let expectedBufferCount = pressSamples.count + releaseSamples.count
+        guard nextBuffers.count == expectedBufferCount else {
+            if resourceError == nil {
+                resourceError = "\(profile.displayName) 的音频资源不完整（\(nextBuffers.count)/\(expectedBufferCount)）。"
+            }
             return
         }
         loadedProfile = profile
@@ -100,7 +114,11 @@ final class KeyboardAudioEngine {
         guard startEngineIfNeeded() else { return }
         guard !voices.isEmpty else { return }
 
-        let fallback: KeySoundSample = phase == .release ? .generic : .genericR2
+        let fallback: KeySoundSample = if phase == .release {
+            loadedProfile.hasRowSpecificReleaseSamples ? .genericR2 : .generic
+        } else {
+            .genericR2
+        }
         guard let buffer = buffers[BufferKey(phase: phase, sample: sample)]
             ?? buffers[BufferKey(phase: phase, sample: fallback)] else { return }
 
@@ -132,11 +150,14 @@ final class KeyboardAudioEngine {
         sample: KeySoundSample
     ) -> AVAudioPCMBuffer? {
         let directory = "Audio/\(profile.rawValue)/\(phase.rawValue)"
-        guard let url = Bundle.main.url(
-            forResource: sample.rawValue,
-            withExtension: "mp3",
-            subdirectory: directory
-        ) else { return nil }
+        let supportedExtensions = ["wav", "mp3"]
+        guard let url = supportedExtensions.lazy.compactMap({ fileExtension in
+            Bundle.main.url(
+                forResource: sample.rawValue,
+                withExtension: fileExtension,
+                subdirectory: directory
+            )
+        }).first else { return nil }
 
         do {
             let file = try AVAudioFile(forReading: url)

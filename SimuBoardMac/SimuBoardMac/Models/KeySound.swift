@@ -35,9 +35,18 @@ enum KeySoundMapper {
         }
 
         if phase == .release {
-            return profile.usesOnlyGenericSamples ? .generic : (special ?? .generic)
+            guard profile.supportsReleaseSound else { return nil }
+            if profile.hasDedicatedSpecialKeySamples, let special { return special }
+            if profile.hasRowSpecificReleaseSamples {
+                return genericSample(for: keyCode)
+            }
+            return .generic
         }
-        if !profile.usesOnlyGenericSamples, let special { return special }
+        if profile.hasDedicatedSpecialKeySamples, let special { return special }
+        return genericSample(for: keyCode)
+    }
+
+    private static func genericSample(for keyCode: UInt16) -> KeySoundSample {
         if row0.contains(keyCode) { return .genericR0 }
         if row1.contains(keyCode) { return .genericR1 }
         if row2.contains(keyCode) { return .genericR2 }
