@@ -30,6 +30,7 @@ struct MenuBarView: View {
 
             profileSection
             soundSection
+            hapticSection
             footer
         }
         .padding(16)
@@ -160,6 +161,32 @@ struct MenuBarView: View {
                 Divider()
                 Toggle("播放按键回弹音", isOn: $settings.playsReleaseSound)
                 Toggle("加入轻微音高变化", isOn: $settings.usesPitchVariation)
+            }
+            .font(.subheadline)
+            .padding(.top, 4)
+        }
+    }
+
+    private var hapticSection: some View {
+        GroupBox("触觉反馈（实验）") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: $settings.isHapticFeedbackEnabled) {
+                    Label("随真实按键触发", systemImage: "hand.tap.fill")
+                }
+
+                Text("测试时请将一根手指轻放在 Force Touch 触控板上。力度由 macOS 控制；外接键盘本体不会振动。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    model.testHapticFeedback()
+                } label: {
+                    Label("测试触觉", systemImage: "waveform")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!settings.isHapticFeedbackEnabled)
             }
             .font(.subheadline)
             .padding(.top, 4)

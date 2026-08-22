@@ -16,6 +16,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var audioError: String?
 
     private let audioEngine: KeyboardAudioEngine
+    private let hapticFeedback: KeyboardHapticFeedback
     private let keyboardMonitor: KeyboardMonitor
     private var cancellables: Set<AnyCancellable> = []
 
@@ -23,12 +24,14 @@ final class AppModel: ObservableObject {
         settings: AppSettings = AppSettings(),
         permission: InputMonitoringPermissionManager = InputMonitoringPermissionManager(),
         audioEngine: KeyboardAudioEngine = KeyboardAudioEngine(),
+        hapticFeedback: KeyboardHapticFeedback = KeyboardHapticFeedback(),
         keyboardMonitor: KeyboardMonitor = KeyboardMonitor(),
         startsServices: Bool = true
     ) {
         self.settings = settings
         self.permission = permission
         self.audioEngine = audioEngine
+        self.hapticFeedback = hapticFeedback
         self.keyboardMonitor = keyboardMonitor
 
         audioEngine.load(profile: settings.selectedProfile)
@@ -74,6 +77,9 @@ final class AppModel: ObservableObject {
 
     func preview() {
         let profile = settings.selectedProfile
+        if settings.isHapticFeedbackEnabled {
+            hapticFeedback.performTest()
+        }
         if audioEngine.loadedProfile != profile { audioEngine.load(profile: profile) }
         audioEngine.play(
             sample: .genericR2,
@@ -94,6 +100,11 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func testHapticFeedback() {
+        guard settings.isHapticFeedbackEnabled else { return }
+        hapticFeedback.performTest()
+    }
+
     private func startKeyboardMonitor() {
         guard permission.isGranted else {
             keyboardMonitor.stop()
@@ -107,8 +118,12 @@ final class AppModel: ObservableObject {
     }
 
     private func handle(_ event: KeyboardEvent) {
-        guard settings.isEnabled, permission.isGranted else { return }
+        guard permission.isGranted else { return }
         if event.kind == .keyDown, event.isRepeat { return }
+        if event.kind == .keyDown, settings.isHapticFeedbackEnabled {
+            hapticFeedback.performKeyPress()
+        }
+        guard settings.isEnabled else { return }
         if event.kind == .keyUp, !settings.playsReleaseSound { return }
 
         let phase: KeySoundPhase = event.kind == .keyDown ? .press : .release

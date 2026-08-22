@@ -9,6 +9,7 @@ final class AppSettings: ObservableObject {
         static let volume = "volume"
         static let releaseSound = "releaseSound"
         static let pitchVariation = "pitchVariation"
+        static let hapticFeedback = "hapticFeedback"
     }
 
     private let defaults: UserDefaults
@@ -33,6 +34,10 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(usesPitchVariation, forKey: Key.pitchVariation) }
     }
 
+    @Published var isHapticFeedbackEnabled: Bool {
+        didSet { defaults.set(isHapticFeedbackEnabled, forKey: Key.hapticFeedback) }
+    }
+
     var selectedProfile: SwitchProfile {
         get { SwitchProfile(rawValue: selectedProfileID) ?? .holyPanda }
         set { selectedProfileID = newValue.rawValue }
@@ -45,6 +50,7 @@ final class AppSettings: ObservableObject {
         volume = defaults.object(forKey: Key.volume) as? Double ?? 0.42
         playsReleaseSound = defaults.object(forKey: Key.releaseSound) as? Bool ?? true
         usesPitchVariation = defaults.object(forKey: Key.pitchVariation) as? Bool ?? true
+        isHapticFeedbackEnabled = defaults.object(forKey: Key.hapticFeedback) as? Bool ?? false
 
         if SwitchProfile(rawValue: selectedProfileID) == nil {
             selectedProfileID = SwitchProfile.holyPanda.rawValue

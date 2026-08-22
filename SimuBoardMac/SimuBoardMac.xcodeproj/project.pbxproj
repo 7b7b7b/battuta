@@ -18,6 +18,7 @@
 		A1000000000000000000000A /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* Audio */; };
 		A1000000000000000000000B /* THIRD_PARTY_NOTICES.txt in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* Assets.xcassets */; };
+		A1000000000000000000000D /* KeyboardHapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000F /* KeyboardHapticFeedback.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +36,7 @@
 		B1000000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B1000000000000000000000D /* SimuBoard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimuBoard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B1000000000000000000000F /* KeyboardHapticFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardHapticFeedback.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +86,7 @@
 			children = (
 				B10000000000000000000005 /* KeyboardMonitor.swift */,
 				B10000000000000000000006 /* KeyboardAudioEngine.swift */,
+				B1000000000000000000000F /* KeyboardHapticFeedback.swift */,
 				B10000000000000000000007 /* InputMonitoringPermissionManager.swift */,
 				B10000000000000000000008 /* AppModel.swift */,
 			);
@@ -186,6 +189,7 @@
 				A10000000000000000000007 /* InputMonitoringPermissionManager.swift in Sources */,
 				A10000000000000000000008 /* AppModel.swift in Sources */,
 				A10000000000000000000009 /* MenuBarView.swift in Sources */,
+				A1000000000000000000000D /* KeyboardHapticFeedback.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -235,14 +239,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = SimuBoard;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -257,14 +261,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = SimuBoard;
 				SWIFT_STRICT_CONCURRENCY = complete;
