@@ -99,6 +99,10 @@ struct MenuBarView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Text("如果系统开关已经打开但这里仍显示等待，请选中旧 SimuBoard，点列表下方“−”删除，再重新添加 /Applications/SimuBoard.app。完成后退出并重新打开应用。")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("请求授权") {
                     model.requestInputMonitoring()

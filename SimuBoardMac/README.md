@@ -16,13 +16,23 @@
 
 ## 构建未公证 DMG
 
-运行：
+首次构建前只运行一次：
+
+```bash
+./scripts/create-local-signing-identity.sh
+```
+
+它会创建一张有效期十年的 `SimuBoard Local Code Signing` 自签名证书，保存在专用的 `~/Library/Keychains/SimuBoardRelease.keychain-db`。随机钥匙串密码只保存在本机 `~/Library/Application Support/SimuBoardBuild/signing-keychain-password`，权限为 600；打包脚本只在签名时短暂解锁，完成后会重新锁定。之后每个版本必须一直使用同一张证书；请安全备份这两个文件，且绝不要把它们提交到 Git。
+
+然后运行：
 
 ```bash
 ./scripts/build-dmg.sh
 ```
 
-输出位于 `build/SimuBoard-0.3.0-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App，使用免费的 ad-hoc 本地签名，并未使用 Developer ID 或 Apple 公证；构建它不需要 Apple Developer 账号。
+输出位于 `build/SimuBoard-0.3.1-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
+
+如有正式证书，可通过 `SIMUBOARD_SIGNING_IDENTITY="Developer ID Application: ..." ./scripts/build-dmg.sh` 指定。打包脚本会拒绝退回 ad-hoc 签名，防止更新再次悄悄破坏输入监控授权。
 
 ## 安装未公证版本
 
@@ -32,4 +42,6 @@
 4. 在“系统设置 → 隐私与安全性 → 输入监控”中打开 SimuBoard。
 5. 退出并重新打开 SimuBoard，然后确认菜单底部显示“输入监控正在运行”。
 
-ad-hoc 签名不提供 Apple 的开发者身份与公证担保。应用更新或移动路径后，macOS 可能要求重新允许或重新授予输入监控；面向大量普通用户发布时，Developer ID 签名与公证仍是更顺滑的方案。
+如果从 0.3.0 或更早的 ad-hoc 版本升级，系统设置中的蓝色开关仍可能绑定旧代码身份。请先完全退出 SimuBoard，在“输入监控”列表中选中 SimuBoard 并点击下方“−”删除旧条目，再重新添加 `/Applications/SimuBoard.app`、开启并重启 App。只把开关关掉再打开不会替换旧代码身份。
+
+自签名只用于让 SimuBoard 各版本保持同一代码身份，不提供 Apple 的开发者身份或公证担保。面向大量普通用户发布时，Developer ID 签名与公证仍是更顺滑的方案。

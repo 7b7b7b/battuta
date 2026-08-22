@@ -1,0 +1,16 @@
+[req]
+distinguished_name = subject
+prompt = no
+x509_extensions = code_signing
+
+[subject]
+CN = SimuBoard Local Code Signing
+O = SimuBoard Local
+C = CN
+
+[code_signing]
+basicConstraints = critical, CA:false
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, codeSigning
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
