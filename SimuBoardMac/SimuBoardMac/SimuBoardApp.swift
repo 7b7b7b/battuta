@@ -18,7 +18,10 @@ struct SimuBoardApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuBarView(model: model)
-                .onAppear { appDelegate.model = model }
+                .onAppear {
+                    appDelegate.model = model
+                    model.updates.scheduleAutomaticCheck(after: 0)
+                }
         } label: {
             Image(systemName: "keyboard.badge.ellipsis")
                 .accessibilityLabel("SimuBoard")

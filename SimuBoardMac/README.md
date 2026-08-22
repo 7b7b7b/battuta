@@ -27,7 +27,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 
 ## 更新检查
 
-首次使用时可自行决定是否允许启动后检查更新。开启后，SimuBoard 自动检查最多每 24 小时访问一次公开 GitHub Release API，并使用 ETag 避免重复下载版本信息；手动检查仅在点击时访问，且至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；SimuBoard 不上传按键、输入内容、音色设置或设备标识。
+首次使用时可自行决定是否允许自动检查更新。开启后，每次打开菜单都会触发更新判断，自动联网访问公开 GitHub Release API 至少间隔 5 分钟，并使用 ETag 避免重复下载版本信息；手动检查至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；SimuBoard 不上传按键、输入内容、音色设置或设备标识。
 
 ## 验证 DIY 核心
 
@@ -63,7 +63,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 ./scripts/build-dmg.sh
 ```
 
-输出位于 `build/SimuBoard-0.5.1-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
+输出位于 `build/SimuBoard-0.5.2-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
 
 如有正式证书，可通过 `SIMUBOARD_SIGNING_IDENTITY="Developer ID Application: ..." ./scripts/build-dmg.sh` 指定。打包脚本会拒绝退回 ad-hoc 签名，防止更新再次悄悄破坏输入监控授权。
 

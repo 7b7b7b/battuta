@@ -26,6 +26,7 @@ struct UpdateCheckSnapshot: Equatable, Sendable {
 enum UpdateCheckFailure: Equatable, Sendable {
     case offline
     case timedOut
+    case requestedTooSoon(retryAt: Date)
     case rateLimited(retryAt: Date)
     case noPublishedRelease
     case apiVersionRetired
@@ -68,8 +69,10 @@ final class UpdateController: ObservableObject {
     private var inFlightTrigger: UpdateCheckTrigger?
     private var scheduledAutomaticTask: Task<Void, Never>?
 
-    private static let successTimeToLive: TimeInterval = 24 * 60 * 60
-    private static let failureCooldown: TimeInterval = 60 * 60
+    // Opening the menu always asks whether a refresh is due, but automatic
+    // network requests remain sparse enough for GitHub's unauthenticated,
+    // per-IP quota and for users who open the panel repeatedly.
+    private static let automaticRequestSpacing: TimeInterval = 5 * 60
     // Unauthenticated GitHub REST requests share a small per-IP quota. Keep
     // repeated manual checks comfortably below one request per minute.
     private static let manualRequestSpacing: TimeInterval = 65
@@ -165,6 +168,12 @@ final class UpdateController: ObservableObject {
         case .manual:
             if let lastAttemptAt = cache.lastAttemptAt,
                currentDate.timeIntervalSince(lastAttemptAt) < Self.manualRequestSpacing {
+                state = .failed(
+                    .requestedTooSoon(
+                        retryAt: lastAttemptAt.addingTimeInterval(Self.manualRequestSpacing)
+                    ),
+                    cached: cachedSnapshot
+                )
                 return
             }
         }
@@ -265,12 +274,8 @@ final class UpdateController: ObservableObject {
     }
 
     private func automaticCheckIsDue(at date: Date) -> Bool {
-        if let lastSuccessfulCheckAt = cache.lastSuccessfulCheckAt,
-           date.timeIntervalSince(lastSuccessfulCheckAt) < Self.successTimeToLive {
-            return false
-        }
-        if let lastFailedCheckAt = cache.lastFailedCheckAt,
-           date.timeIntervalSince(lastFailedCheckAt) < Self.failureCooldown {
+        if let lastAttemptAt = cache.lastAttemptAt,
+           date.timeIntervalSince(lastAttemptAt) < Self.automaticRequestSpacing {
             return false
         }
         return true

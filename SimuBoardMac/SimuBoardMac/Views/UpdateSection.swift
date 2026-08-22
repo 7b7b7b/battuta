@@ -26,7 +26,7 @@ struct UpdateSection: View {
         switch controller.automaticCheckPreference {
         case .undecided:
             VStack(alignment: .leading, spacing: 8) {
-                Label("允许启动时检查更新？", systemImage: "arrow.triangle.2.circlepath")
+                Label("允许打开菜单时检查更新？", systemImage: "arrow.triangle.2.circlepath")
                     .font(.subheadline.weight(.semibold))
                 privacyText
                 HStack {
@@ -39,14 +39,14 @@ struct UpdateSection: View {
 
         case .enabled, .disabled:
             VStack(alignment: .leading, spacing: 6) {
-                Toggle("启动时自动检查更新", isOn: automaticCheckBinding)
+                Toggle("打开菜单时自动检查更新", isOn: automaticCheckBinding)
                 privacyText
             }
         }
     }
 
     private var privacyText: some View {
-        Text("自动检查最多每 24 小时访问一次 GitHub；手动检查仅在点击时访问，并限制为至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；SimuBoard 不会上传按键、输入内容、音色设置或设备标识。")
+        Text("开启后，每次打开菜单都会触发更新判断，自动联网请求至少间隔 5 分钟；手动检查至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；SimuBoard 不会上传按键、输入内容、音色设置或设备标识。")
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -118,6 +118,13 @@ struct UpdateSection: View {
         case .timedOut:
             Label("连接 GitHub 超时，稍后可重试", systemImage: "clock.badge.exclamationmark")
                 .failureCaptionStyle()
+        case let .requestedTooSoon(retryAt):
+            Label {
+                Text("刚刚检查过，可于 \(retryAt, style: .time) 后再次手动检查")
+            } icon: {
+                Image(systemName: "clock.arrow.circlepath")
+            }
+            .failureCaptionStyle()
         case let .rateLimited(retryAt):
             Label {
                 Text("GitHub 暂时限制请求，可于 \(retryAt, style: .time) 后重试")

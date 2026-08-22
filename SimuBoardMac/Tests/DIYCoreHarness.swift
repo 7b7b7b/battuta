@@ -1136,6 +1136,18 @@ private struct DIYCoreHarness {
 
     @MainActor
     private static func testUpdateCachingAndThrottling(_ results: inout HarnessResults) async throws {
+        let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let appSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/SimuBoardApp.swift"
+            ),
+            encoding: .utf8
+        )
+        try results.check(
+            appSource.contains("model.updates.scheduleAutomaticCheck(after: 0)"),
+            "opening the menu must schedule an automatic update check"
+        )
+
         let release = try ReleaseSummary(
             tagName: "v0.4.1",
             releaseURL: URL(string: "https://github.com/7b7b7b/simuboard/releases/tag/v0.4.1")!,
@@ -1167,6 +1179,12 @@ private struct DIYCoreHarness {
             defaults: defaults,
             now: clock.now
         )
+        await controller.check(trigger: .automatic)
+        let disabledAutomaticCallCount = await recorder.callCount
+        try results.check(
+            disabledAutomaticCallCount == 0,
+            "menu-open automatic checks must remain disabled until the user opts in"
+        )
         controller.enableAutomaticChecks(checkImmediately: false)
         await controller.check(trigger: .manual)
         let firstManualCallCount = await recorder.callCount
@@ -1177,6 +1195,14 @@ private struct DIYCoreHarness {
         await controller.check(trigger: .manual)
         let spacedManualCallCount = await recorder.callCount
         try results.check(spacedManualCallCount == 1, "manual checks within 65 seconds should be suppressed")
+        guard case let .failed(.requestedTooSoon(manualRetryAt), cached) = controller.state else {
+            throw HarnessFailure.assertion("a throttled manual check should explain when retry is allowed")
+        }
+        try results.check(
+            manualRetryAt == clock.now().addingTimeInterval(60)
+                && cached?.result == .updateAvailable(release),
+            "manual spacing feedback should retain the cached update and expose the exact retry time"
+        )
 
         clock.advance(61)
         await controller.check(trigger: .manual)
@@ -1196,12 +1222,18 @@ private struct DIYCoreHarness {
         try results.check(relaunched.availableRelease?.version == SemanticVersion("0.4.1"), "cached result should survive relaunch")
         await relaunched.check(trigger: .automatic)
         let cachedAutomaticCallCount = await relaunchedRecorder.callCount
-        try results.check(cachedAutomaticCallCount == 0, "successful automatic check cache should live for 24 hours")
+        try results.check(
+            cachedAutomaticCallCount == 0,
+            "reopening the menu within five minutes should reuse the cached result"
+        )
 
-        clock.advance(24 * 60 * 60 + 1)
+        clock.advance(5 * 60 + 1)
         await relaunched.check(trigger: .automatic)
         let expiredAutomaticCallCount = await relaunchedRecorder.callCount
-        try results.check(expiredAutomaticCallCount == 1, "automatic check should resume after TTL")
+        try results.check(
+            expiredAutomaticCallCount == 1,
+            "reopening the menu should refresh after the five-minute spacing window"
+        )
         let relaunchedETags = await relaunchedRecorder.etags
         try results.check(relaunchedETags == ["etag-041"], "relaunch should retain ETag cache")
 
@@ -1226,14 +1258,20 @@ private struct DIYCoreHarness {
         await failures.check(trigger: .automatic)
         let firstFailureCallCount = await failureRecorder.callCount
         try results.check(firstFailureCallCount == 1, "first automatic failure should fetch once")
-        failureClock.advance(30 * 60)
+        failureClock.advance(4 * 60)
         await failures.check(trigger: .automatic)
         let cooldownCallCount = await failureRecorder.callCount
-        try results.check(cooldownCallCount == 1, "automatic failures should cool down for one hour")
-        failureClock.advance(31 * 60)
+        try results.check(
+            cooldownCallCount == 1,
+            "failed menu-open checks should still respect the five-minute spacing window"
+        )
+        failureClock.advance(61)
         await failures.check(trigger: .automatic)
         let expiredCooldownCallCount = await failureRecorder.callCount
-        try results.check(expiredCooldownCallCount == 2, "automatic failure cooldown should expire")
+        try results.check(
+            expiredCooldownCallCount == 2,
+            "a failed menu-open check should be retryable after five minutes"
+        )
 
         let limitSuite = "SimuBoard.DIYCoreHarness.UpdateRateLimit.\(UUID().uuidString)"
         guard let limitDefaults = UserDefaults(suiteName: limitSuite) else {
