@@ -14,7 +14,7 @@ struct MenuBarView: View {
     }
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical) {
             VStack(spacing: 14) {
                 header
 
@@ -42,7 +42,10 @@ struct MenuBarView: View {
             .padding(16)
         }
         .frame(width: 340)
-        .frame(maxHeight: 720)
+        // MenuBarExtra can propose a near-zero height to a root ScrollView.
+        // Keep a real sizing range so AppKit cannot collapse the popover to
+        // only its scroller when the content becomes taller.
+        .frame(minHeight: 560, idealHeight: 660, maxHeight: 720)
         .tint(Color(red: 0.72, green: 0.88, blue: 0.33))
     }
 
