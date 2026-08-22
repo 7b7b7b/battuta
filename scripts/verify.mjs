@@ -73,4 +73,4 @@ assert.deepEqual(played, [
   "chrome-extension://test/audio/holypanda/release/GENERIC.mp3"
 ]);
 
-console.log(`Verified SimuBoard ${manifest.version}: ${profiles.length} profiles, audio assets, and keyboard playback routing.`);
+console.log(`Verified Battuta ${manifest.version}: ${profiles.length} profiles, audio assets, and keyboard playback routing.`);

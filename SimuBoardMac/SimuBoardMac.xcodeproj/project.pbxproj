@@ -36,6 +36,13 @@
 		A30000000000000000000004 /* AudioSplitEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000004 /* AudioSplitEditorSheet.swift */; };
 		A30000000000000000000005 /* SoundPackEditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000005 /* SoundPackEditorWindowController.swift */; };
 		A40000000000000000000001 /* PointerSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000001 /* PointerSound.swift */; };
+		A50000000000000000000001 /* TypingStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000001 /* TypingStats.swift */; };
+		A50000000000000000000002 /* TypingStatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000002 /* TypingStatsStore.swift */; };
+		A50000000000000000000003 /* TypingStatsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000003 /* TypingStatsModel.swift */; };
+		A50000000000000000000004 /* TypingStatsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000004 /* TypingStatsWindowController.swift */; };
+		A50000000000000000000005 /* TypingStatsSummarySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000005 /* TypingStatsSummarySection.swift */; };
+		A50000000000000000000006 /* TypingStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000006 /* TypingStatsView.swift */; };
+		A50000000000000000000007 /* TypingStatsKeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000007 /* TypingStatsKeyboardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,7 +58,7 @@
 		B1000000000000000000000A /* Audio */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Audio; sourceTree = "<group>"; };
 		B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = THIRD_PARTY_NOTICES.txt; sourceTree = "<group>"; };
 		B1000000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		B1000000000000000000000D /* SimuBoard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimuBoard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B1000000000000000000000D /* Battuta.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Battuta.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B20000000000000000000001 /* KeyboardLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardLayout.swift; sourceTree = "<group>"; };
 		B20000000000000000000002 /* SoundPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPack.swift; sourceTree = "<group>"; };
@@ -71,6 +78,13 @@
 		B30000000000000000000004 /* AudioSplitEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSplitEditorSheet.swift; sourceTree = "<group>"; };
 		B30000000000000000000005 /* SoundPackEditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPackEditorWindowController.swift; sourceTree = "<group>"; };
 		B40000000000000000000001 /* PointerSound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointerSound.swift; sourceTree = "<group>"; };
+		B50000000000000000000001 /* TypingStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStats.swift; sourceTree = "<group>"; };
+		B50000000000000000000002 /* TypingStatsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsStore.swift; sourceTree = "<group>"; };
+		B50000000000000000000003 /* TypingStatsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsModel.swift; sourceTree = "<group>"; };
+		B50000000000000000000004 /* TypingStatsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsWindowController.swift; sourceTree = "<group>"; };
+		B50000000000000000000005 /* TypingStatsSummarySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsSummarySection.swift; sourceTree = "<group>"; };
+		B50000000000000000000006 /* TypingStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsView.swift; sourceTree = "<group>"; };
+		B50000000000000000000007 /* TypingStatsKeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsKeyboardView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -116,6 +130,7 @@
 				B20000000000000000000002 /* SoundPack.swift */,
 				B20000000000000000000003 /* SemanticVersion.swift */,
 				B20000000000000000000004 /* ReleaseSummary.swift */,
+				B50000000000000000000001 /* TypingStats.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -136,6 +151,9 @@
 				B2000000000000000000000B /* UpdateController.swift */,
 				B30000000000000000000001 /* SoundPackEditorModel.swift */,
 				B30000000000000000000005 /* SoundPackEditorWindowController.swift */,
+				B50000000000000000000002 /* TypingStatsStore.swift */,
+				B50000000000000000000003 /* TypingStatsModel.swift */,
+				B50000000000000000000004 /* TypingStatsWindowController.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -148,6 +166,9 @@
 				B30000000000000000000002 /* SoundPackEditorView.swift */,
 				B30000000000000000000003 /* SoundPackKeyboardView.swift */,
 				B30000000000000000000004 /* AudioSplitEditorSheet.swift */,
+				B50000000000000000000005 /* TypingStatsSummarySection.swift */,
+				B50000000000000000000006 /* TypingStatsView.swift */,
+				B50000000000000000000007 /* TypingStatsKeyboardView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -164,7 +185,7 @@
 		D10000000000000000000007 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B1000000000000000000000D /* SimuBoard.app */,
+				B1000000000000000000000D /* Battuta.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -183,8 +204,8 @@
 			buildRules = ();
 			dependencies = ();
 			name = SimuBoardMac;
-			productName = SimuBoard;
-			productReference = B1000000000000000000000D /* SimuBoard.app */;
+			productName = Battuta;
+			productReference = B1000000000000000000000D /* Battuta.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -258,6 +279,13 @@
 				A30000000000000000000003 /* SoundPackKeyboardView.swift in Sources */,
 				A30000000000000000000004 /* AudioSplitEditorSheet.swift in Sources */,
 				A30000000000000000000005 /* SoundPackEditorWindowController.swift in Sources */,
+				A50000000000000000000001 /* TypingStats.swift in Sources */,
+				A50000000000000000000002 /* TypingStatsStore.swift in Sources */,
+				A50000000000000000000003 /* TypingStatsModel.swift in Sources */,
+				A50000000000000000000004 /* TypingStatsWindowController.swift in Sources */,
+				A50000000000000000000005 /* TypingStatsSummarySection.swift in Sources */,
+				A50000000000000000000006 /* TypingStatsView.swift in Sources */,
+				A50000000000000000000007 /* TypingStatsKeyboardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -307,16 +335,16 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.5.2;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
-				PRODUCT_NAME = SimuBoard;
+				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 			};
@@ -329,16 +357,16 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.5.2;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
-				PRODUCT_NAME = SimuBoard;
+				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 			};

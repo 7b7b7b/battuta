@@ -87,12 +87,12 @@ struct SoundPackEditorView: View {
             isPresented: $isConfirmingDeletion,
             titleVisibility: .visible
         ) {
-            Button("移到 SimuBoard 废纸篓", role: .destructive) {
+            Button("移到 Battuta 废纸篓", role: .destructive) {
                 Task { await editor.deleteSelectedPack() }
             }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("音色包不会被永久删除，可从 SimuBoard 音色目录的 .Trash 中恢复。")
+            Text("音色包不会被永久删除，可从 Battuta 音色目录的 .Trash 中恢复。")
         }
         .confirmationDialog(
             "当前音色有未保存的更改",

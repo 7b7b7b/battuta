@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
     let permission: InputMonitoringPermissionManager
     let updates: UpdateController
     let soundPackLibrary: SoundPackLibrary
+    let typingStats: TypingStatsModel
     @Published private(set) var monitoringState: KeyboardMonitoringState = .stopped
     @Published private(set) var audioError: String?
     @Published private(set) var pointerSoundError: String?
@@ -28,6 +29,9 @@ final class AppModel: ObservableObject {
     private var selectionGeneration: UInt64 = 0
     private var isRollingBackPointerSelection = false
     private var soundPackEditorWindowController: SoundPackEditorWindowController?
+    private var typingStatsWindowController: TypingStatsWindowController?
+    private var frontmostApplication: TypingApplicationIdentity = .unknown
+    private var isPreparingStatsTermination = false
 
     var selectedSoundPack: SoundPackDescriptor {
         soundPacks.first { $0.id == settings.selectedProfileID }
@@ -39,6 +43,7 @@ final class AppModel: ObservableObject {
         permission: InputMonitoringPermissionManager = InputMonitoringPermissionManager(),
         updates: UpdateController = UpdateController(),
         soundPackLibrary: SoundPackLibrary = SoundPackLibrary(),
+        typingStats: TypingStatsModel = TypingStatsModel(),
         audioEngine: KeyboardAudioEngine = KeyboardAudioEngine(),
         keyboardMonitor: KeyboardMonitor = KeyboardMonitor(),
         startsServices: Bool = true
@@ -47,6 +52,7 @@ final class AppModel: ObservableObject {
         self.permission = permission
         self.updates = updates
         self.soundPackLibrary = soundPackLibrary
+        self.typingStats = typingStats
         self.audioEngine = audioEngine
         self.keyboardMonitor = keyboardMonitor
 
@@ -70,6 +76,9 @@ final class AppModel: ObservableObject {
             audioEngine.warmUp()
         }
         syncAudioError()
+        frontmostApplication = Self.typingApplicationIdentity(
+            from: NSWorkspace.shared.frontmostApplication
+        )
         settings.$selectedProfileID
             .removeDuplicates()
             .dropFirst()
@@ -93,6 +102,17 @@ final class AppModel: ObservableObject {
             .store(in: &cancellables)
 
         guard startsServices else { return }
+        NSWorkspace.shared.notificationCenter.publisher(
+            for: NSWorkspace.didActivateApplicationNotification
+        )
+        .compactMap { notification in
+            notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+        }
+        .sink { [weak self] application in
+            self?.frontmostApplication = Self.typingApplicationIdentity(from: application)
+        }
+        .store(in: &cancellables)
+
         refreshSoundPacks()
         startKeyboardMonitor()
         updates.scheduleAutomaticCheck()
@@ -188,11 +208,42 @@ final class AppModel: ObservableObject {
         soundPackEditorWindowController = nil
     }
 
+    func openTypingStats() {
+        let controller: TypingStatsWindowController
+        if let existing = typingStatsWindowController {
+            controller = existing
+        } else {
+            controller = TypingStatsWindowController(appModel: self)
+            typingStatsWindowController = controller
+        }
+        controller.present()
+    }
+
+    func typingStatsWindowDidClose(_ controller: TypingStatsWindowController) {
+        guard typingStatsWindowController === controller else { return }
+        typingStatsWindowController = nil
+    }
+
     func applicationShouldTerminate(
         _ application: NSApplication
     ) -> NSApplication.TerminateReply {
-        soundPackEditorWindowController?.applicationShouldTerminate(application)
+        let editorReply = soundPackEditorWindowController?.applicationShouldTerminate(application)
             ?? .terminateNow
+        switch editorReply {
+        case .terminateNow:
+            return beginStatsTermination(application)
+        case .terminateCancel, .terminateLater:
+            return editorReply
+        @unknown default:
+            return .terminateCancel
+        }
+    }
+
+    /// Used both by the normal quit path and by the DIY editor's deferred quit path.
+    /// Failure to persist is reported in the statistics UI but must not trap the user in the app.
+    func flushTypingStatsBeforeTermination() async {
+        keyboardMonitor.stop()
+        _ = await typingStats.flushPending()
     }
 
     func preview() {
@@ -227,7 +278,21 @@ final class AppModel: ObservableObject {
         let started = keyboardMonitor.start { [weak self] event in self?.handle(event) }
         monitoringState = started
             ? .running
-            : .failed("无法启动全局键盘与点击监听。请退出并重新打开 SimuBoard 后再试。")
+            : .failed("无法启动全局键盘与点击监听。请退出并重新打开 Battuta 后再试。")
+    }
+
+    private func beginStatsTermination(
+        _ application: NSApplication
+    ) -> NSApplication.TerminateReply {
+        guard !isPreparingStatsTermination else { return .terminateLater }
+        isPreparingStatsTermination = true
+        Task { @MainActor [weak self, weak application] in
+            guard let self, let application else { return }
+            await flushTypingStatsBeforeTermination()
+            isPreparingStatsTermination = false
+            application.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     private func handle(_ event: GlobalInputEvent) {
@@ -241,18 +306,31 @@ final class AppModel: ObservableObject {
     }
 
     private func handle(_ event: KeyboardEvent) {
-        guard settings.isEnabled else { return }
-        if event.kind == .keyDown, event.isRepeat { return }
-        if event.kind == .keyUp, !settings.playsReleaseSound { return }
+        let occurredAt = Date()
+        let shouldPlaySound = settings.isEnabled
+            && !(event.kind == .keyDown && event.isRepeat)
+            && !(event.kind == .keyUp && !settings.playsReleaseSound)
 
-        let phase: KeySoundPhase = event.kind == .keyDown ? .press : .release
-        audioEngine.play(
-            keyCode: event.keyCode,
-            phase: phase,
-            volume: settings.volume,
-            pitchVariation: settings.usesPitchVariation
-        )
-        syncAudioError()
+        if shouldPlaySound {
+            let phase: KeySoundPhase = event.kind == .keyDown ? .press : .release
+            audioEngine.play(
+                keyCode: event.keyCode,
+                phase: phase,
+                volume: settings.volume,
+                pitchVariation: settings.usesPitchVariation
+            )
+            syncAudioError()
+        }
+
+        if event.kind == .keyDown, settings.isTypingStatsEnabled {
+            typingStats.recordKeyDown(
+                keyCode: event.keyCode,
+                isRepeat: event.isRepeat,
+                isShortcutModified: event.isShortcutModified,
+                application: frontmostApplication,
+                at: occurredAt
+            )
+        }
     }
 
     private func handle(_ event: PointerEvent) {
@@ -291,6 +369,25 @@ final class AppModel: ObservableObject {
         guard settings.selectedPointerProfileID != profile.rawValue else { return }
         isRollingBackPointerSelection = true
         settings.selectedPointerProfileID = profile.rawValue
+    }
+
+    private static func typingApplicationIdentity(
+        from application: NSRunningApplication?
+    ) -> TypingApplicationIdentity {
+        guard let application else { return .unknown }
+        let bundleIdentifier = application.bundleIdentifier
+        let processName = application.executableURL?.deletingPathExtension().lastPathComponent
+            ?? application.localizedName
+            ?? "unknown"
+        let displayName = application.localizedName ?? processName
+        let processKey = bundleIdentifier
+            ?? "process:\(processName.lowercased())"
+        return TypingApplicationIdentity(
+            processKey: processKey,
+            displayName: displayName,
+            processName: processName,
+            bundleIdentifier: bundleIdentifier
+        )
     }
 
     private func loadSoundPack(selectionID: String) {

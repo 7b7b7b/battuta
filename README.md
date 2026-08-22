@@ -1,15 +1,15 @@
-# SimuBoard 轴体音效
+# Battuta 轴体音效
 
-SimuBoard 目前包含两个版本：
+Battuta（原 SimuBoard）目前包含两个版本：
 
 - 原生 macOS 菜单栏应用：在任意应用中打字都能播放声音。
 - Chrome / Edge Manifest V3 插件：只在普通网页中播放声音。
 
 ## macOS 系统级版本
 
-Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。0.5.2 构建产物位于 `SimuBoardMac/build/SimuBoard-0.5.2-unnotarized.dmg`；0.5.1 DMG 是本地回退基线，已发布的 v0.5.0 标签仍是公开回退基线。
+Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。0.6.0 构建产物位于 `SimuBoardMac/build/Battuta-0.6.0-unnotarized.dmg`；旧的 SimuBoard DMG 仍作为本地回退基线。
 
-此版本使用 macOS“输入监控”读取硬件键码、鼠标按钮类型和按下/抬起状态，不读取字符内容或点击位置；支持 20 种键盘音色、5 种鼠标/触控板点击风格和共 237 段录音，并提供独立的按下/回弹开关、键盘音量、点击音量与共用的轻微音高变化。0.4.0 新增独立 DIY 编辑器；0.5.0 新增触控板和鼠标点击音；0.5.1 将两类音量完全分离，并重新母带处理点击音以削弱刺耳高频；0.5.2 改为每次打开菜单都触发更新判断。自动联网请求至少间隔 5 分钟；手动检查至少间隔 65 秒，不上传按键、指针位置或设置。当前 DMG 使用长期固定的本地自签名身份来保持升级后的输入监控身份稳定，但未使用 Developer ID，也未经过 Apple 公证；该证书在其他 Mac 上不受信任，用户仍需手动通过 Gatekeeper 并授予输入监控。
+此版本使用 macOS“输入监控”读取硬件键码、鼠标按钮类型和按下/抬起状态，不读取字符内容或点击位置；支持 20 种键盘音色、5 种鼠标/触控板点击风格和共 237 段录音，并提供 DIY 音色、本地输入统计和逐键热力图。0.6.0 将产品名更新为 Battuta；为保留现有设置、音色包、统计数据和输入监控代码身份，内部 Bundle Identifier 与兼容性标识仍延用旧值。当前 DMG 使用长期固定的本地自签名身份，未使用 Developer ID，也未经过 Apple 公证。
 
 ## 浏览器插件
 
@@ -29,7 +29,7 @@ Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoard
 2. 开启“开发者模式”。
 3. 选择“加载已解压的扩展程序”。
 4. 选择本项目根目录 `simuboard`。
-5. 打开一个普通网页并刷新，然后点击工具栏中的 SimuBoard 选择轴体。
+5. 打开一个普通网页并刷新，然后点击工具栏中的 Battuta 选择轴体。
 
 浏览器内置页面、扩展商店和部分受保护页面不允许内容脚本运行，因此这些页面不会播放声音。浏览器插件也无法监听 VS Code、微信、Word 等桌面应用；系统级版本需要单独的 macOS / Windows 应用与辅助功能权限。
 

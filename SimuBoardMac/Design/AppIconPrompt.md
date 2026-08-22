@@ -1,10 +1,10 @@
-# SimuBoard AppIcon generation brief
+# Battuta AppIcon generation brief
 
 Generated with the built-in ImageGen workflow, then integrated into the macOS asset catalog.
 
 ## Base prompt
 
-Create a production macOS app icon for SimuBoard, a mechanical-keyboard typing sound app. Use one vivid fluorescent lime keycap seated in a compact deep-charcoal rounded-square switch base. Use simplified dimensional 3D, vector-clean geometry, a strong centered silhouette, soft upper-left studio lighting, and a genuinely transparent outer background. Keep the palette limited to charcoal, fluorescent lime, and near-black. Use one keycap only, generous safety margins, no words, no full keyboard, no thin details, and no watermark. It must remain recognizable at 16 px.
+Create a production macOS app icon for Battuta, a mechanical-keyboard typing sound and input-statistics app. Use one vivid fluorescent lime keycap seated in a compact deep-charcoal rounded-square switch base. Use simplified dimensional 3D, vector-clean geometry, a strong centered silhouette, soft upper-left studio lighting, and a genuinely transparent outer background. Keep the palette limited to charcoal, fluorescent lime, and near-black. Use one keycap only, generous safety margins, no words, no full keyboard, no thin details, and no watermark. It must remain recognizable at 16 px.
 
 ## Symbol refinement
 

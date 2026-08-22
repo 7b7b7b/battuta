@@ -1,6 +1,6 @@
-# SimuBoard DIY 音色包
+# Battuta DIY 音色包
 
-`.simuboardpack` 是一个 macOS package 目录，用来在 SimuBoard 之间导入、导出自定义键盘音色。用户通常会在 Finder 中把它当作一个文件看到。
+`.simuboardpack` 是 Battuta 继续支持的兼容性 macOS package 格式，用来导入、导出自定义键盘音色。用户通常会在 Finder 中把它当作一个文件看到。
 
 ## 映射优先级
 

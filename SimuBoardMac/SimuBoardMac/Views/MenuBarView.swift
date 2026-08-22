@@ -38,6 +38,14 @@ struct MenuBarView: View {
                     audioFailureCard(message)
                 }
 
+                TypingStatsSummarySection(
+                    model: model.typingStats,
+                    settings: settings
+                ) {
+                    model.openTypingStats()
+                    dismiss()
+                }
+
                 profileSection
                 soundSection
                 PointerSoundSection(settings: settings)
@@ -63,7 +71,7 @@ struct MenuBarView: View {
                 .background(Color(red: 0.82, green: 1, blue: 0.42), in: RoundedRectangle(cornerRadius: 11))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("SimuBoard")
+                Text("Battuta")
                     .font(.headline)
                 Text(headerStatusText)
                     .font(.caption)
@@ -118,11 +126,11 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("需要输入监控权限", systemImage: "keyboard.badge.eye")
                 .font(.subheadline.weight(.semibold))
-            Text("SimuBoard 只读取按键编号、鼠标按钮类型和按下/抬起状态来播放声音，不读取或保存文字、点击位置或输入内容。")
+            Text("Battuta 使用按键编号播放声音，并可在你主动开启后于本机统计字符数量、物理按键次数和前台应用；不读取或保存文字、点击位置或输入内容。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("如果系统开关已经打开但这里仍显示等待，请选中旧 SimuBoard，点列表下方“−”删除，再重新添加 /Applications/SimuBoard.app。完成后退出并重新打开应用。")
+            Text("如果系统开关已经打开但这里仍显示等待，请选中旧的 SimuBoard 或 Battuta，点列表下方“−”删除，再重新添加 /Applications/Battuta.app。完成后退出并重新打开应用。")
                 .font(.caption2)
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
@@ -232,14 +240,21 @@ struct MenuBarView: View {
     }
 
     private var headerStatusText: String {
-        guard settings.isEnabled || settings.isPointerSoundEnabled else { return "键盘与点击音已暂停" }
         switch model.monitoringState {
         case .running:
+            if !settings.isTypingStatsEnabled {
+                switch (settings.isEnabled, settings.isPointerSoundEnabled) {
+                case (true, true): return "正在监听键盘与点击 · 统计已暂停"
+                case (true, false): return "正在监听键盘 · 统计已暂停"
+                case (false, true): return "点击音已开启 · 统计已暂停"
+                case (false, false): return "声音与统计均已暂停"
+                }
+            }
             switch (settings.isEnabled, settings.isPointerSoundEnabled) {
-            case (true, true): return "正在监听键盘与点击"
-            case (true, false): return "正在监听键盘"
-            case (false, true): return "正在监听鼠标与触控板点击"
-            case (false, false): return "键盘与点击音已暂停"
+            case (true, true): return "正在监听键盘与点击 · 统计已开启"
+            case (true, false): return "正在监听键盘 · 统计已开启"
+            case (false, true): return "正在统计输入 · 点击音已开启"
+            case (false, false): return "正在统计输入 · 声音已暂停"
             }
         case .waitingForPermission: return "等待输入监控授权"
         case .failed: return "键盘与点击监听启动失败"

@@ -5,7 +5,7 @@ SCRIPT_DIR=${0:A:h}
 PROJECT_DIR=${SCRIPT_DIR:h}
 DERIVED_DIR="$PROJECT_DIR/build/DerivedData"
 OUTPUT_DIR="$PROJECT_DIR/build"
-APP_PATH="$DERIVED_DIR/Build/Products/Release/SimuBoard.app"
+APP_PATH="$DERIVED_DIR/Build/Products/Release/Battuta.app"
 STAGE_DIR=$(mktemp -d /private/tmp/simuboard-dmg.XXXXXX)
 LOCAL_SIGNING_COMMON_NAME="SimuBoard Local Code Signing"
 LOCAL_SIGNING_KEYCHAIN=${SIMUBOARD_SIGNING_KEYCHAIN:-"$HOME/Library/Keychains/SimuBoardRelease.keychain-db"}
@@ -28,19 +28,19 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=NO \
   clean build
 
-SIMUBOARD_BUILD_VERSION=$(
+APP_BUILD_VERSION=$(
   /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist"
 )
-if [[ ! "$SIMUBOARD_BUILD_VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
-  print -u2 "Invalid SimuBoard version in built app: $SIMUBOARD_BUILD_VERSION"
+if [[ ! "$APP_BUILD_VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
+  print -u2 "Invalid Battuta version in built app: $APP_BUILD_VERSION"
   exit 1
 fi
-DMG_PATH="$OUTPUT_DIR/SimuBoard-$SIMUBOARD_BUILD_VERSION-unnotarized.dmg"
+DMG_PATH="$OUTPUT_DIR/Battuta-$APP_BUILD_VERSION-unnotarized.dmg"
 
-cp -R "$APP_PATH" "$STAGE_DIR/SimuBoard.app"
+cp -R "$APP_PATH" "$STAGE_DIR/Battuta.app"
 # The workspace may attach File Provider/Finder metadata. Stage outside it,
 # strip metadata from the copy, then sign the exact app placed in the DMG.
-xattr -cr "$STAGE_DIR/SimuBoard.app"
+xattr -cr "$STAGE_DIR/Battuta.app"
 
 SIGNING_IDENTITY=${SIMUBOARD_SIGNING_IDENTITY:-}
 SIGNING_KEYCHAIN_ARGS=()
@@ -73,10 +73,10 @@ codesign \
   --sign "$SIGNING_IDENTITY" \
   "${SIGNING_KEYCHAIN_ARGS[@]}" \
   --timestamp=none \
-  "$STAGE_DIR/SimuBoard.app"
+  "$STAGE_DIR/Battuta.app"
 
-codesign --verify --deep --strict --verbose=2 "$STAGE_DIR/SimuBoard.app"
-DESIGNATED_REQUIREMENT=$(codesign -d -r- "$STAGE_DIR/SimuBoard.app" 2>&1)
+codesign --verify --deep --strict --verbose=2 "$STAGE_DIR/Battuta.app"
+DESIGNATED_REQUIREMENT=$(codesign -d -r- "$STAGE_DIR/Battuta.app" 2>&1)
 if [[ "$DESIGNATED_REQUIREMENT" == *"cdhash"* ]]; then
   print -u2 "Refusing to package an ad-hoc identity because it breaks Input Monitoring after updates."
   print -u2 "$DESIGNATED_REQUIREMENT"
@@ -91,7 +91,7 @@ ln -s /Applications "$STAGE_DIR/Applications"
 
 mkdir -p "$OUTPUT_DIR"
 hdiutil create \
-  -volname SimuBoard \
+  -volname Battuta \
   -srcfolder "$STAGE_DIR" \
   -ov \
   -format UDZO \

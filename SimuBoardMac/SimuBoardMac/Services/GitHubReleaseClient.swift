@@ -36,7 +36,7 @@ struct GitHubReleaseClient: Sendable {
             request.cachePolicy = .reloadIgnoringLocalCacheData
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.setValue("2026-03-10", forHTTPHeaderField: "X-GitHub-Api-Version")
-            request.setValue("SimuBoard-macOS", forHTTPHeaderField: "User-Agent")
+            request.setValue("Battuta-macOS", forHTTPHeaderField: "User-Agent")
             if let etag, !etag.isEmpty {
                 request.setValue(etag, forHTTPHeaderField: "If-None-Match")
             }

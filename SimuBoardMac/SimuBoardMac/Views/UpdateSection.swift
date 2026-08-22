@@ -46,7 +46,7 @@ struct UpdateSection: View {
     }
 
     private var privacyText: some View {
-        Text("开启后，每次打开菜单都会触发更新判断，自动联网请求至少间隔 5 分钟；手动检查至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；SimuBoard 不会上传按键、输入内容、音色设置或设备标识。")
+        Text("开启后，每次打开菜单都会触发更新判断，自动联网请求至少间隔 5 分钟；手动检查至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；Battuta 不会上传按键、输入内容、音色设置或设备标识。")
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)

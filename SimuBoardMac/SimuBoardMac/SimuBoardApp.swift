@@ -13,18 +13,23 @@ final class SimuBoardAppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 struct SimuBoardApp: App {
     @NSApplicationDelegateAdaptor(SimuBoardAppDelegate.self) private var appDelegate
-    @StateObject private var model = AppModel()
+    @StateObject private var model: AppModel
+
+    init() {
+        let model = AppModel()
+        _model = StateObject(wrappedValue: model)
+        appDelegate.model = model
+    }
 
     var body: some Scene {
         MenuBarExtra {
             MenuBarView(model: model)
                 .onAppear {
-                    appDelegate.model = model
                     model.updates.scheduleAutomaticCheck(after: 0)
                 }
         } label: {
             Image(systemName: "keyboard.badge.ellipsis")
-                .accessibilityLabel("SimuBoard")
+                .accessibilityLabel("Battuta")
         }
         .menuBarExtraStyle(.window)
     }

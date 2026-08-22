@@ -10,6 +10,19 @@ struct KeyboardEvent: Equatable, Sendable {
     let kind: Kind
     let keyCode: UInt16
     let isRepeat: Bool
+    let isShortcutModified: Bool
+
+    init(
+        kind: Kind,
+        keyCode: UInt16,
+        isRepeat: Bool,
+        isShortcutModified: Bool = false
+    ) {
+        self.kind = kind
+        self.keyCode = keyCode
+        self.isRepeat = isRepeat
+        self.isShortcutModified = isShortcutModified
+    }
 }
 
 @MainActor
@@ -110,7 +123,9 @@ final class KeyboardMonitor {
             let keyboardEvent = KeyboardEvent(
                 kind: type == .keyDown ? .keyDown : .keyUp,
                 keyCode: UInt16(event.getIntegerValueField(.keyboardEventKeycode)),
-                isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+                isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
+                isShortcutModified: event.flags.contains(.maskCommand)
+                    || event.flags.contains(.maskControl)
             )
             return .keyboard(keyboardEvent)
         case .leftMouseDown, .leftMouseUp:

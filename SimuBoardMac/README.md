@@ -1,4 +1,4 @@
-# SimuBoard for macOS
+# Battuta for macOS
 
 原生 macOS 菜单栏输入音效应用，最低支持 macOS 13。内置 20 种轴体/键盘音色、5 种鼠标与触控板点击风格，共 237 段按下/抬起录音，在浏览器、编辑器、聊天软件等桌面应用中均可工作。应用启动时会预热音频引擎，并在加载音色时把样本预转换为 48 kHz PCM，避免首次输入再启动引擎，也避免在 48 kHz 输出链路中实时转换资源采样率。
 
@@ -27,7 +27,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 
 ## 更新检查
 
-首次使用时可自行决定是否允许自动检查更新。开启后，每次打开菜单都会触发更新判断，自动联网访问公开 GitHub Release API 至少间隔 5 分钟，并使用 ETag 避免重复下载版本信息；手动检查至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；SimuBoard 不上传按键、输入内容、音色设置或设备标识。
+首次使用时可自行决定是否允许自动检查更新。开启后，每次打开菜单都会触发更新判断，自动联网访问公开 GitHub Release API 至少间隔 5 分钟，并使用 ETag 避免重复下载版本信息；手动检查至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；Battuta 不上传按键、输入内容、音色设置或设备标识。
 
 ## 验证 DIY 核心
 
@@ -43,7 +43,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 2. 选择 `SimuBoardMac` scheme 和 `My Mac`。
 3. 点击 Run。
 4. 点击菜单栏键盘图标，在弹窗中选择“请求授权”。
-5. 在“系统设置 → 隐私与安全性 → 输入监控”中启用 SimuBoard；如果没有立即生效，退出后重新运行。
+5. 在“系统设置 → 隐私与安全性 → 输入监控”中启用 Battuta；如果没有立即生效，退出后重新运行。
 
 应用只使用硬件按键编号、鼠标按钮类型和按下/抬起状态选择声音，不读取字符内容或点击位置。密码、输入文本和指针位置不会被记录、保存或上传。
 
@@ -55,7 +55,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 ./scripts/create-local-signing-identity.sh
 ```
 
-它会创建一张有效期十年的 `SimuBoard Local Code Signing` 自签名证书，保存在专用的 `~/Library/Keychains/SimuBoardRelease.keychain-db`。随机钥匙串密码只保存在本机 `~/Library/Application Support/SimuBoardBuild/signing-keychain-password`，权限为 600；打包脚本只在签名时短暂解锁，完成后会重新锁定。之后每个版本必须一直使用同一张证书；请安全备份这两个文件，且绝不要把它们提交到 Git。
+它会创建一张有效期十年的 `SimuBoard Local Code Signing` 自签名证书，保存在专用的 `~/Library/Keychains/SimuBoardRelease.keychain-db`。这两个旧名称是升级兼容标识，Battuta 仍必须复用它们，不要重新创建另一张证书。随机钥匙串密码只保存在本机 `~/Library/Application Support/SimuBoardBuild/signing-keychain-password`，权限为 600；打包脚本只在签名时短暂解锁，完成后会重新锁定。
 
 然后运行：
 
@@ -63,18 +63,18 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 ./scripts/build-dmg.sh
 ```
 
-输出位于 `build/SimuBoard-0.5.2-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
+输出位于 `build/Battuta-0.6.0-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
 
 如有正式证书，可通过 `SIMUBOARD_SIGNING_IDENTITY="Developer ID Application: ..." ./scripts/build-dmg.sh` 指定。打包脚本会拒绝退回 ad-hoc 签名，防止更新再次悄悄破坏输入监控授权。
 
 ## 安装未公证版本
 
-1. 打开 DMG，把 `SimuBoard.app` 拖到其中的 `Applications` 快捷方式；不要直接从 DMG 运行。
-2. 在“应用程序”中按住 Control 点击 SimuBoard，选择“打开”。如果仍被阻止，到“系统设置 → 隐私与安全性”点击“仍要打开”。
+1. 打开 DMG，把 `Battuta.app` 拖到其中的 `Applications` 快捷方式；不要直接从 DMG 运行。首次从 SimuBoard 升级时，请先退出并移除旧的 `/Applications/SimuBoard.app`，避免两个菜单栏进程同时运行。
+2. 在“应用程序”中按住 Control 点击 Battuta，选择“打开”。如果仍被阻止，到“系统设置 → 隐私与安全性”点击“仍要打开”。
 3. 点击菜单栏键盘图标，再点击“请求授权”。
-4. 在“系统设置 → 隐私与安全性 → 输入监控”中打开 SimuBoard。
-5. 退出并重新打开 SimuBoard，然后确认菜单底部显示“输入监控正在运行”。
+4. 在“系统设置 → 隐私与安全性 → 输入监控”中打开 Battuta。
+5. 退出并重新打开 Battuta，然后确认菜单底部显示“输入监控正在运行”。
 
-如果从 0.3.0 或更早的 ad-hoc 版本升级，系统设置中的蓝色开关仍可能绑定旧代码身份。请先完全退出 SimuBoard，在“输入监控”列表中选中 SimuBoard 并点击下方“−”删除旧条目，再重新添加 `/Applications/SimuBoard.app`、开启并重启 App。只把开关关掉再打开不会替换旧代码身份。
+如果从 0.3.0 或更早的 ad-hoc 版本升级，系统设置中的蓝色开关仍可能绑定旧代码身份。请先完全退出应用，在“输入监控”列表中选中旧的 SimuBoard 或 Battuta 并点击下方“−”删除，再重新添加 `/Applications/Battuta.app`、开启并重启 App。只把开关关掉再打开不会替换旧代码身份。
 
-自签名只用于让 SimuBoard 各版本保持同一代码身份，不提供 Apple 的开发者身份或公证担保。面向大量普通用户发布时，Developer ID 签名与公证仍是更顺滑的方案。
+自签名只用于让 Battuta 各版本保持同一代码身份，不提供 Apple 的开发者身份或公证担保。面向大量普通用户发布时，Developer ID 签名与公证仍是更顺滑的方案。

@@ -12,7 +12,7 @@ The following bundled recordings are redistributed under the MIT License:
   https://github.com/keyboard-sounds/keyboardsounds-pro/tree/main/desktop/bundled-profiles/logitech-g915-tkl-brown
   Copyright (c) 2025 Nathan Fiscaletti
 
-SimuBoard resampled the G915 recordings to 48 kHz mono PCM, trimmed leading
+Battuta resampled the G915 recordings to 48 kHz mono PCM, trimmed leading
 room tone while retaining a short pre-roll, applied profile gain compensation
 (with extra gain for the quieter alternate large-key release), and added a 4 ms
 tail fade.
@@ -47,24 +47,24 @@ recorded here for provenance.
 - **Studio Tactile / Studio Clicky** — Ten single-key recordings by StavSounds,
   Freesound pack [Mechanical Keyboards](https://freesound.org/people/StavSounds/packs/42151/),
   sound IDs 766625, 766632–766635, 766605–766606, and 766622–766624.
-  SimuBoard uses the public HQ preview renditions, trims leading room tone while
+  Battuta uses the public HQ preview renditions, trims leading room tone while
   retaining a short pre-roll, downmixes to mono, resamples to 48 kHz PCM, and
   separates each complete keystroke into press and release at an audited energy
   valley, with short boundary fades.
 - **Kailh Low-profile Blue** — “Fast Typing on Mechanical Keyboard” by
   [HeinzBBQ](https://freesound.org/people/HeinzBBQ/sounds/502653/), Freesound
-  sound 502653. SimuBoard selects five excerpts from the public HQ preview,
+  sound 502653. Battuta selects five excerpts from the public HQ preview,
   downmixes them to mono, resamples them to 48 kHz PCM, separates the press and
   release events, and excludes neighboring keystrokes from the release samples.
 - **Cherry MX Clear** — “Mechanical keyboard clicking. Different keys (4)” by
   [humi74](https://freesound.org/people/humi74/sounds/412926/), Freesound sound
-  412926. SimuBoard selects five excerpts from the public HQ preview, downmixes
+  412926. Battuta selects five excerpts from the public HQ preview, downmixes
   them to mono, resamples them to 48 kHz PCM, and separates the press and
   release events. One excerpt without a usable release reuses the closest clean
   release variation from the same source recording.
 - **Pointer Classic, Silent, Crisp, Heavy, and Glass** —
   [Kenney UI Audio](https://kenney.nl/assets/ui-audio) by Kenney Vleugels. The
-  source archive was downloaded on 2026-08-22. SimuBoard derives all five
+  source archive was downloaded on 2026-08-22. Battuta derives all five
   generic simulated styles from the matched `mouseclick1.ogg` press recording
   and `mouserelease1.ogg` release recording. Each phase is pitch-lowered with
   compensation for the associated tempo change, then receives profile-specific
@@ -83,7 +83,7 @@ recorded here for provenance.
 by Wikimedia Commons user **C40115**, licensed under
 [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
 
-SimuBoard selected five 180 ms excerpts, downmixed the stereo recording to
+Battuta selected five 180 ms excerpts, downmixed the stereo recording to
 mono, retained the original 48 kHz rate, and separated each press/release event
 while excluding neighboring keystrokes. No endorsement by the original author
 is implied.

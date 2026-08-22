@@ -302,7 +302,7 @@ final class SoundPackEditorModel: ObservableObject {
                 await discardTemporaryAudioResources(reportFailure: true)
                 installBlankDraft()
             }
-            statusMessage = "音色包已移入 SimuBoard 的可恢复废纸篓"
+            statusMessage = "音色包已移入 Battuta 的可恢复废纸篓"
         }
     }
 
@@ -338,7 +338,7 @@ final class SoundPackEditorModel: ObservableObject {
     func exportSelectedPack() async {
         guard !isWorking, !isDirty, let id = persistedPackID, let manifest else { return }
         let panel = NSSavePanel()
-        panel.title = "导出 SimuBoard 音色包"
+        panel.title = "导出 Battuta 音色包"
         panel.nameFieldStringValue = Self.safeFilename(manifest.name) + ".simuboardpack"
         panel.canCreateDirectories = true
         panel.allowedContentTypes = [.simuBoardSoundPack]
@@ -832,7 +832,7 @@ final class SoundPackEditorModel: ObservableObject {
         let invalid = CharacterSet(charactersIn: "/:\\?%*|\"<>")
         let cleaned = value.components(separatedBy: invalid).joined(separator: "-")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty ? "SimuBoard-Sound-Pack" : cleaned
+        return cleaned.isEmpty ? "Battuta-Sound-Pack" : cleaned
     }
 }
 

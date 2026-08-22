@@ -13,6 +13,7 @@ final class AppSettings: ObservableObject {
         static let selectedPointerProfile = "selectedPointerProfile"
         static let pointerVolume = "pointerVolume"
         static let pointerReleaseSound = "pointerReleaseSound"
+        static let typingStatsEnabled = "typingStatsEnabled"
     }
 
     private let defaults: UserDefaults
@@ -53,6 +54,11 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(playsPointerReleaseSound, forKey: Key.pointerReleaseSound) }
     }
 
+    /// Opt-in because this persists aggregate key/app activity rather than only playing sound.
+    @Published var isTypingStatsEnabled: Bool {
+        didSet { defaults.set(isTypingStatsEnabled, forKey: Key.typingStatsEnabled) }
+    }
+
     var selectedProfile: SwitchProfile {
         get { SwitchProfile(rawValue: selectedProfileID) ?? .holyPanda }
         set { selectedProfileID = newValue.rawValue }
@@ -81,6 +87,7 @@ final class AppSettings: ObservableObject {
         let resolvedPointerVolume = storedPointerVolume ?? storedKeyboardVolume * 0.65
         pointerVolume = min(max(resolvedPointerVolume, 0), 1)
         playsPointerReleaseSound = defaults.object(forKey: Key.pointerReleaseSound) as? Bool ?? true
+        isTypingStatsEnabled = defaults.object(forKey: Key.typingStatsEnabled) as? Bool ?? false
         if selectedPointerProfileID != storedPointerProfileID {
             defaults.set(selectedPointerProfileID, forKey: Key.selectedPointerProfile)
         }

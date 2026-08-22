@@ -28,7 +28,7 @@ final class SoundPackEditorWindowController: NSWindowController, NSWindowDelegat
         let content = SoundPackEditorView(editor: editor)
         let hostingController = NSHostingController(rootView: content)
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "SimuBoard · DIY 音色编辑器"
+        window.title = "Battuta · DIY 音色编辑器"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.setContentSize(NSSize(width: 1_180, height: 720))
         window.minSize = NSSize(width: 1_080, height: 640)
@@ -104,7 +104,7 @@ final class SoundPackEditorWindowController: NSWindowController, NSWindowDelegat
             if let window {
                 presentBusyExplanation(
                     on: window,
-                    message: "当前音频操作完成后才能退出 SimuBoard。"
+                    message: "当前音频操作完成后才能退出 Battuta。"
                 )
             }
             return .terminateCancel
@@ -121,7 +121,7 @@ final class SoundPackEditorWindowController: NSWindowController, NSWindowDelegat
         present()
         isShowingCloseConfirmation = true
         let alert = makeUnsavedChangesAlert(
-            message: "退出 SimuBoard 会丢失尚未保存的音频映射。"
+            message: "退出 Battuta 会丢失尚未保存的音频映射。"
         )
         alert.beginSheetModal(for: window) { [weak self, weak application] response in
             Task { @MainActor in
@@ -185,6 +185,9 @@ final class SoundPackEditorWindowController: NSWindowController, NSWindowDelegat
                 }
             }
             let cleaned = await self.editor.prepareForClosing()
+            if cleaned {
+                await self.appModel?.flushTypingStatsBeforeTermination()
+            }
             self.isPreparingTermination = false
             application.reply(toApplicationShouldTerminate: cleaned)
         }

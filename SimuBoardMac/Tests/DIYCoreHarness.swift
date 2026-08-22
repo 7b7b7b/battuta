@@ -364,6 +364,23 @@ private struct DIYCoreHarness {
             "keyboard decoding should retain key code and repeat state"
         )
 
+        keyboardEvent.flags = [.maskCommand]
+        guard case let .keyboard(decodedShortcut)? = KeyboardMonitor.decodedInputEvent(
+            type: .keyDown,
+            event: keyboardEvent
+        ) else {
+            throw HarnessFailure.assertion("shortcut key-down should decode as keyboard input")
+        }
+        try results.check(
+            decodedShortcut == KeyboardEvent(
+                kind: .keyDown,
+                keyCode: 12,
+                isRepeat: true,
+                isShortcutModified: true
+            ),
+            "keyboard decoding should retain Command/Control shortcut state"
+        )
+
         let pointerFixtures: [(CGEventType, CGMouseButton, Int64?, PointerEvent)] = [
             (.leftMouseDown, .left, nil, PointerEvent(phase: .press, button: .primary)),
             (.leftMouseUp, .left, nil, PointerEvent(phase: .release, button: .primary)),
@@ -425,6 +442,7 @@ private struct DIYCoreHarness {
 
         let initial = AppSettings(defaults: defaults)
         try results.check(!initial.isPointerSoundEnabled, "pointer sounds should be opt-in")
+        try results.check(!initial.isTypingStatsEnabled, "persistent input statistics should be opt-in")
         try results.check(initial.selectedPointerProfile == .classic, "classic should be the default pointer profile")
         try results.check(initial.playsPointerReleaseSound, "pointer release sound should default to enabled")
         try results.check(
@@ -441,12 +459,14 @@ private struct DIYCoreHarness {
         initial.playsPointerReleaseSound = false
         initial.volume = 0.78
         initial.pointerVolume = 0.24
+        initial.isTypingStatsEnabled = true
         let reloaded = AppSettings(defaults: defaults)
         try results.check(reloaded.isPointerSoundEnabled, "pointer enabled state should persist")
         try results.check(reloaded.selectedPointerProfile == .glass, "pointer profile should persist")
         try results.check(!reloaded.playsPointerReleaseSound, "pointer release preference should persist")
         try results.check(abs(reloaded.volume - 0.78) < 0.000_001, "keyboard volume should persist independently")
         try results.check(abs(reloaded.pointerVolume - 0.24) < 0.000_001, "pointer volume should persist independently")
+        try results.check(reloaded.isTypingStatsEnabled, "typing statistics opt-in should persist")
 
         defaults.set("missing-future-profile", forKey: "selectedPointerProfile")
         let repaired = AppSettings(defaults: defaults)

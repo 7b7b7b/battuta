@@ -4,3 +4,4 @@ xcuserdata/
 
 SimuBoardMac/build/*
 !SimuBoardMac/build/SimuBoard-*.dmg
+!SimuBoardMac/build/Battuta-*.dmg

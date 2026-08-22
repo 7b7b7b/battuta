@@ -1,12 +1,12 @@
-# SimuBoard audio sources
+# Battuta audio sources
 
 This inventory records the provenance and redistribution status of audio that
-is bundled with SimuBoard. Derived files are trimmed and/or resampled to
+is bundled with Battuta. Derived files are trimmed and/or resampled to
 48 kHz mono PCM WAV unless noted otherwise.
 
 ## Bundled sources
 
-| SimuBoard profiles | Upstream | Upstream revision | License | Processing |
+| Battuta profiles | Upstream | Upstream revision | License | Processing |
 | --- | --- | --- | --- | --- |
 | Original 13 profiles | [tplai/kbsim](https://github.com/tplai/kbsim) | See the original import history | MIT | Existing MP3 samples; decoded and resampled to 48 kHz in memory |
 | Kailh BOX White | [Mange/clicketyclack](https://github.com/Mange/clicketyclack) | `bb87dc501a18a082675e51193a8a06134deb2a56` | MIT | Five matched press/release recordings resampled; upstream README says contributed switch sounds must be self-recorded and not taken from elsewhere |
@@ -71,12 +71,12 @@ The copyright notices and license terms required for redistribution are in
 | --- | --- |
 | [hainguyents13/mechvibes](https://github.com/hainguyents13/mechvibes) built-in Cherry ABS/PBT and Everglide packs | The repository has a root MIT license, but most audio packs have no pack-level author/provenance statement. The official licensing guide also warns that community packs can be licensed only by the recording rightsholder. Excluded from the DMG pending written confirmation from the maintainer. |
 | [sahaj-b/wayvibes](https://github.com/sahaj-b/wayvibes) | 1,456 audio files inspected. Most packs have no pack-level license and several are credited only to Discord/community sources, so they are not redistributed. |
-| Wayvibes Banana Split, MX Speed Silver, and Razer Green packs | Pack-local GPL-3.0 text exists. Excluded to keep SimuBoard's bundled audio set permissive and simple to redistribute. |
+| Wayvibes Banana Split, MX Speed Silver, and Razer Green packs | Pack-local GPL-3.0 text exists. Excluded to keep Battuta's bundled audio set permissive and simple to redistribute. |
 | [Nesdood007/kde-plasma-ringtones](https://github.com/Nesdood007/kde-plasma-ringtones) | Author-recorded IBM Model M audio is CC BY-SA 4.0, but it overlaps the existing buckling-spring profile and adds ShareAlike obligations. |
 | [webdevcody/type-joy](https://github.com/webdevcody/type-joy) | MIT and technically usable, but the switch/keyboard model is not identified. Kept out of the axis-specific picker. |
 | Other Freesound CC0 candidates | Hako Violet, Alps Orange, lubricated Gateron Yellow, Cherry MX Red, Kailh White, and BOX Pale Blue were catalogued. Their original files require a Freesound account, so no original-file download endpoint was bypassed. |
 
 Repository-level software licenses do not automatically clear unrelated or
-uncredited community audio. SimuBoard therefore does not bundle YouTube rips,
+uncredited community audio. Battuta therefore does not bundle YouTube rips,
 unlicensed community packs, or resources whose original license cannot be
 traced.
