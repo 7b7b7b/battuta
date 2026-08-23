@@ -7,9 +7,9 @@ Battuta（原 SimuBoard）目前包含两个版本：
 
 ## macOS 系统级版本
 
-Xcode 工程、运行说明和 DMG 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。0.9.0 构建产物位于 `SimuBoardMac/build/Battuta-0.9.0-unnotarized.dmg`；旧版本 DMG 仍作为本地回退基线。
+Xcode 工程、运行说明、DMG 与 Sparkle appcast 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。1.0.0 加入四配方键盘音色轮换、前导静音优化和经过 Ed25519 验签的应用内一键更新；构建产物位于 `SimuBoardMac/build/Battuta-1.0.0-unnotarized.dmg`。
 
-此版本使用 macOS“输入监控”读取硬件键码、鼠标按钮类型和按下/抬起状态，不读取字符内容或点击位置；支持 20 种键盘音色、5 种鼠标/触控板点击风格和共 237 段录音，并提供 DIY 音色、本地输入统计、逐键热力图和默认开启的登录时自动启动。0.6.0 将产品名更新为 Battuta，0.6.1 将统计与 DIY 键盘统一为 Apple 紧凑型 Magic Keyboard 的 14.5U US ANSI 物理布局，0.6.2 将自动更新源迁移至 `7b7b7b/battuta`，0.7.0 统一了原生液态玻璃视觉层级、压缩统计页空白并为 DIY 补齐可映射的扩展键区，0.7.1 将菜单页标题图标替换为随应用资源同步的 Battuta App Icon；为保留现有设置、音色包、统计数据和输入监控代码身份，内部 Bundle Identifier 与兼容性标识仍延用旧值。当前 DMG 使用长期固定的本地自签名身份，未使用 Developer ID，也未经过 Apple 公证。
+此版本使用 macOS“输入监控”读取硬件键码、鼠标按钮类型和按下/抬起状态，不读取字符内容或点击位置；支持 20 种键盘音色、5 种鼠标/触控板点击风格和共 237 段录音，并提供 DIY 音色、本地输入统计、逐键热力图和默认开启的登录时自动启动。开启自然变化后，每段键盘录音会在四种轻微配方间均衡轮换，所有变化共享一份 PCM。为保留现有设置、音色包、统计数据和输入监控代码身份，内部 Bundle Identifier 与兼容性标识仍延用旧值。当前 DMG 使用长期固定的本地自签名身份，未使用 Developer ID，也未经过 Apple 公证。
 
 ## 浏览器插件
 

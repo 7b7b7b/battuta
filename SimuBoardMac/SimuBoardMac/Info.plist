@@ -28,6 +28,16 @@
   <true/>
   <key>NSHumanReadableCopyright</key>
   <string>Copyright © 2026 Battuta contributors</string>
+  <key>SUEnableAutomaticChecks</key>
+  <false/>
+  <key>SUFeedURL</key>
+  <string>https://github.com/7b7b7b/battuta/releases/latest/download/appcast.xml</string>
+  <key>SUPublicEDKey</key>
+  <string>g/H7zg/iYaS/eZ9EpTQ5bJopimhagvvbRZ0uSyBs9a8=</string>
+  <key>SUSendProfileInfo</key>
+  <false/>
+  <key>SUVerifyUpdateBeforeExtraction</key>
+  <true/>
   <key>UTExportedTypeDeclarations</key>
   <array>
     <dict>

@@ -54,14 +54,59 @@ enum UpdateCheckState: Equatable, Sendable {
     }
 }
 
+enum AppUpdateInstallerUnavailability: Equatable, Sendable {
+    case developmentBuild
+    case notConfigured
+    case invalidConfiguration
+    case startupFailed(String)
+}
+
+enum AppUpdateInstallationState: Equatable, Sendable {
+    case unavailable(AppUpdateInstallerUnavailability)
+    case ready
+    case checking
+    case downloading(progress: Double?)
+    case extracting(progress: Double?)
+    case installing
+    case failed(String)
+
+    var isActive: Bool {
+        switch self {
+        case .checking, .downloading, .extracting, .installing:
+            true
+        case .unavailable, .ready, .failed:
+            false
+        }
+    }
+
+    var canStart: Bool {
+        switch self {
+        case .ready, .failed:
+            true
+        case .unavailable, .checking, .downloading, .extracting, .installing:
+            false
+        }
+    }
+}
+
+@MainActor
+protocol AppUpdateInstalling: AnyObject {
+    var state: AppUpdateInstallationState { get }
+    var stateDidChange: ((AppUpdateInstallationState) -> Void)? { get set }
+
+    func installLatestRelease()
+}
+
 @MainActor
 final class UpdateController: ObservableObject {
     @Published private(set) var automaticCheckPreference: AutomaticUpdateCheckPreference
     @Published private(set) var state: UpdateCheckState
+    @Published private(set) var installationState: AppUpdateInstallationState
 
     let installedVersion: SemanticVersion?
 
     private let client: GitHubReleaseClient
+    private let installer: (any AppUpdateInstalling)?
     private let defaults: UserDefaults
     private let now: @Sendable () -> Date
     private var cache: UpdateCache
@@ -83,12 +128,16 @@ final class UpdateController: ObservableObject {
         client: GitHubReleaseClient = .live(),
         installedVersion: SemanticVersion? = UpdateController.bundledVersion(),
         defaults: UserDefaults = .standard,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        installer: (any AppUpdateInstalling)? = nil
     ) {
         self.client = client
         self.installedVersion = installedVersion
         self.defaults = defaults
         self.now = now
+        let installer = installer ?? Self.defaultInstaller()
+        self.installer = installer
+        installationState = installer?.state ?? .unavailable(.notConfigured)
 
         let cache = Self.loadCache(from: defaults)
         self.cache = cache
@@ -96,12 +145,24 @@ final class UpdateController: ObservableObject {
             .flatMap(AutomaticUpdateCheckPreference.init(rawValue:))
             ?? .undecided
         state = .idle(cached: Self.snapshot(from: cache, installedVersion: installedVersion))
+        installer?.stateDidChange = { [weak self] state in
+            self?.installationState = state
+        }
     }
 
     var availableRelease: ReleaseSummary? {
         guard let snapshot = state.snapshot,
               case let .updateAvailable(release) = snapshot.result else { return nil }
         return release
+    }
+
+    var canInstallAvailableUpdate: Bool {
+        availableRelease != nil && installationState.canStart
+    }
+
+    func installAvailableUpdate() {
+        guard availableRelease != nil else { return }
+        installer?.installLatestRelease()
     }
 
     func enableAutomaticChecks(checkImmediately: Bool = true) {
@@ -304,6 +365,14 @@ final class UpdateController: ObservableObject {
         return SemanticVersion(value)
     }
 
+    private static func defaultInstaller() -> (any AppUpdateInstalling)? {
+        #if canImport(Sparkle)
+        SparkleUpdateService()
+        #else
+        nil
+        #endif
+    }
+
     private static func loadCache(from defaults: UserDefaults) -> UpdateCache {
         guard let data = defaults.data(forKey: cacheKey),
               let cache = try? JSONDecoder().decode(UpdateCache.self, from: data) else {
@@ -369,6 +438,7 @@ extension UpdateController {
     static func preview(
         state: UpdateCheckState,
         preference: AutomaticUpdateCheckPreference = .enabled,
+        installationState: AppUpdateInstallationState = .ready,
         installedVersion: SemanticVersion = SemanticVersion(major: 0, minor: 3, patch: 2)
     ) -> UpdateController {
         let suiteName = "SimuBoard.UpdateController.Preview.\(UUID().uuidString)"
@@ -380,6 +450,7 @@ extension UpdateController {
         )
         controller.automaticCheckPreference = preference
         controller.state = state
+        controller.installationState = installationState
         return controller
     }
 }

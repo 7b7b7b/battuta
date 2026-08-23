@@ -1,6 +1,93 @@
 import AVFAudio
 import Foundation
 
+struct KeyboardPlaybackVariant: Equatable, Hashable, Sendable {
+    let gain: Float
+    let rate: Float
+
+    static let original = KeyboardPlaybackVariant(gain: 1, rate: 1)
+}
+
+struct KeyboardPlaybackVariantCycle: Sendable {
+    static let variants: [KeyboardPlaybackVariant] = [
+        .original,
+        KeyboardPlaybackVariant(gain: 0.975, rate: 0.978),
+        KeyboardPlaybackVariant(gain: 0.99, rate: 1.018),
+        KeyboardPlaybackVariant(gain: 1.02, rate: 0.992),
+    ]
+
+    // Four balanced passes in different orders. The final entry also differs from
+    // the first so wrapping the cycle cannot repeat the same variant.
+    static let playbackOrder = [
+        0, 2, 1, 3,
+        1, 0, 3, 2,
+        3, 1, 2, 0,
+        2, 3, 0, 1,
+    ]
+
+    private(set) var cursor = 0
+
+    mutating func next(variationEnabled: Bool) -> KeyboardPlaybackVariant {
+        guard variationEnabled else { return .original }
+        let variant = Self.variants[Self.playbackOrder[cursor]]
+        cursor = (cursor + 1) % Self.playbackOrder.count
+        return variant
+    }
+}
+
+enum KeyboardLeadingSilenceTrimmer {
+    private static let silenceThreshold: Float = 0.0008
+    private static let maximumScanDuration = 0.25
+    private static let preservedPrerollDuration = 0.00015
+    private static let minimumTrimDuration = 0.0005
+
+    static func trim(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer {
+        guard buffer.frameLength > 0,
+              buffer.format.commonFormat == .pcmFormatFloat32,
+              !buffer.format.isInterleaved,
+              let sourceChannels = buffer.floatChannelData else { return buffer }
+
+        let sampleRate = buffer.format.sampleRate
+        let totalFrameCount = Int(buffer.frameLength)
+        let scanFrameCount = min(
+            totalFrameCount,
+            Int(ceil(sampleRate * maximumScanDuration))
+        )
+        let channelCount = Int(buffer.format.channelCount)
+        var firstAudibleFrame: Int?
+
+        frameSearch: for frame in 0..<scanFrameCount {
+            for channel in 0..<channelCount
+            where abs(sourceChannels[channel][frame]) >= silenceThreshold {
+                firstAudibleFrame = frame
+                break frameSearch
+            }
+        }
+
+        guard let firstAudibleFrame else { return buffer }
+        let prerollFrameCount = Int(ceil(sampleRate * preservedPrerollDuration))
+        let trimFrameCount = max(0, firstAudibleFrame - prerollFrameCount)
+        let minimumTrimFrameCount = Int(ceil(sampleRate * minimumTrimDuration))
+        guard trimFrameCount >= minimumTrimFrameCount,
+              trimFrameCount < totalFrameCount else { return buffer }
+
+        let remainingFrameCount = totalFrameCount - trimFrameCount
+        guard let trimmed = AVAudioPCMBuffer(
+            pcmFormat: buffer.format,
+            frameCapacity: AVAudioFrameCount(remainingFrameCount)
+        ), let destinationChannels = trimmed.floatChannelData else { return buffer }
+
+        for channel in 0..<channelCount {
+            destinationChannels[channel].update(
+                from: sourceChannels[channel].advanced(by: trimFrameCount),
+                count: remainingFrameCount
+            )
+        }
+        trimmed.frameLength = AVAudioFrameCount(remainingFrameCount)
+        return trimmed
+    }
+}
+
 @MainActor
 final class KeyboardAudioEngine {
     private static let playbackSampleRate = 48_000.0
@@ -26,15 +113,28 @@ final class KeyboardAudioEngine {
         let speed: AVAudioUnitVarispeed
     }
 
+    private final class PreparedKeyboardSample {
+        let buffer: AVAudioPCMBuffer
+        private var variants = KeyboardPlaybackVariantCycle()
+
+        init(buffer: AVAudioPCMBuffer) {
+            self.buffer = buffer
+        }
+
+        func nextVariant(variationEnabled: Bool) -> KeyboardPlaybackVariant {
+            variants.next(variationEnabled: variationEnabled)
+        }
+    }
+
     private let engine = AVAudioEngine()
     private let playbackFormat = AVAudioFormat(
         standardFormatWithSampleRate: playbackSampleRate,
         channels: 1
     )!
     private var voices: [Voice] = []
-    private var buffers: [BufferKey: AVAudioPCMBuffer] = [:]
+    private var buffers: [BufferKey: PreparedKeyboardSample] = [:]
     private var pointerBuffers: [PointerBufferKey: AVAudioPCMBuffer] = [:]
-    private var customBuffers: [SoundPackAssetID: AVAudioPCMBuffer] = [:]
+    private var customBuffers: [SoundPackAssetID: PreparedKeyboardSample] = [:]
     private var customResolver: SoundPackResolver?
     private var voiceCursor = 0
     private var configurationObserver: NSObjectProtocol?
@@ -96,7 +196,7 @@ final class KeyboardAudioEngine {
             .flatMap(SwitchProfile.init(rawValue:)) ?? .holyPanda
         guard let nextBuiltInBuffers = makeBuiltInBuffers(profile: baseProfile) else { return false }
 
-        var nextCustomBuffers: [SoundPackAssetID: AVAudioPCMBuffer] = [:]
+        var nextCustomBuffers: [SoundPackAssetID: PreparedKeyboardSample] = [:]
         for assetID in document.manifest.referencedAssetIDs.sorted(by: { $0.rawValue < $1.rawValue }) {
             do {
                 let url = try document.assetURL(for: assetID)
@@ -106,7 +206,7 @@ final class KeyboardAudioEngine {
                     }
                     return false
                 }
-                nextCustomBuffers[assetID] = buffer
+                nextCustomBuffers[assetID] = prepareKeyboardSample(buffer)
             } catch {
                 resourceError = "无法读取自定义音频：\(error.localizedDescription)"
                 return false
@@ -141,8 +241,8 @@ final class KeyboardAudioEngine {
         if let customResolver {
             switch customResolver.resolution(for: keyCode, phase: phase) {
             case let .asset(assetID, _):
-                guard let buffer = customBuffers[assetID] else { return }
-                play(buffer: buffer, volume: volume, pitchVariation: pitchVariation)
+                guard let sample = customBuffers[assetID] else { return }
+                play(sample: sample, volume: volume, pitchVariation: pitchVariation)
                 return
             case .silent:
                 return
@@ -198,8 +298,8 @@ final class KeyboardAudioEngine {
         play(buffer: buffer, volume: volume, pitchVariation: pitchVariation)
     }
 
-    private func makeBuiltInBuffers(profile: SwitchProfile) -> [BufferKey: AVAudioPCMBuffer]? {
-        var nextBuffers: [BufferKey: AVAudioPCMBuffer] = [:]
+    private func makeBuiltInBuffers(profile: SwitchProfile) -> [BufferKey: PreparedKeyboardSample]? {
+        var nextBuffers: [BufferKey: PreparedKeyboardSample] = [:]
 
         let genericPressSamples: [KeySoundSample] = [
             .genericR0, .genericR1, .genericR2, .genericR3, .genericR4
@@ -221,12 +321,12 @@ final class KeyboardAudioEngine {
 
         for sample in pressSamples {
             if let buffer = loadBuffer(profile: profile, phase: .press, sample: sample) {
-                nextBuffers[BufferKey(phase: .press, sample: sample)] = buffer
+                nextBuffers[BufferKey(phase: .press, sample: sample)] = prepareKeyboardSample(buffer)
             }
         }
         for sample in releaseSamples {
             if let buffer = loadBuffer(profile: profile, phase: .release, sample: sample) {
-                nextBuffers[BufferKey(phase: .release, sample: sample)] = buffer
+                nextBuffers[BufferKey(phase: .release, sample: sample)] = prepareKeyboardSample(buffer)
             }
         }
 
@@ -238,6 +338,12 @@ final class KeyboardAudioEngine {
             return nil
         }
         return nextBuffers
+    }
+
+    private func prepareKeyboardSample(_ buffer: AVAudioPCMBuffer) -> PreparedKeyboardSample {
+        // Every recipe shares this one onset-aligned PCM buffer. Variants never add
+        // a start offset, and large DIY packs therefore do not incur 4x PCM memory.
+        PreparedKeyboardSample(buffer: KeyboardLeadingSilenceTrimmer.trim(buffer))
     }
 
     private func makePointerBuffers(
@@ -275,10 +381,24 @@ final class KeyboardAudioEngine {
         } else {
             .genericR2
         }
-        guard let buffer = buffers[BufferKey(phase: phase, sample: sample)]
+        guard let preparedSample = buffers[BufferKey(phase: phase, sample: sample)]
             ?? buffers[BufferKey(phase: phase, sample: fallback)] else { return }
 
-        play(buffer: buffer, volume: volume, pitchVariation: pitchVariation)
+        play(sample: preparedSample, volume: volume, pitchVariation: pitchVariation)
+    }
+
+    private func play(
+        sample: PreparedKeyboardSample,
+        volume: Double,
+        pitchVariation: Bool
+    ) {
+        let variant = sample.nextVariant(variationEnabled: pitchVariation)
+        play(
+            buffer: sample.buffer,
+            volume: volume * Double(variant.gain),
+            pitchVariation: false,
+            baseRate: variant.rate
+        )
     }
 
     private func play(

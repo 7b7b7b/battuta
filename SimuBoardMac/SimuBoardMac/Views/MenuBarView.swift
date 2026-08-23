@@ -249,7 +249,8 @@ struct MenuBarView: View {
 
             Toggle("播放键盘回弹音", isOn: $settings.playsReleaseSound)
                 .disabled(!settings.isEnabled)
-            Toggle("轻微随机音高（键盘与点击共用）", isOn: $settings.usesPitchVariation)
+            Toggle("自然音色变化（键盘轮换 / 点击音高）", isOn: $settings.usesPitchVariation)
+                .help("键盘在四种轻微变化间轮换；点击音使用轻微随机音高")
         }
         .font(.subheadline)
         .padding(BattutaVisualStyle.cardPadding)

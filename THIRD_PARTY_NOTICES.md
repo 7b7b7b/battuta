@@ -1,4 +1,11 @@
-# Third-party audio notices
+# Third-party notices
+
+## Sparkle update framework
+
+The macOS application embeds [Sparkle 2.9.6](https://github.com/sparkle-project/Sparkle)
+under its MIT license. The complete Sparkle license and notices for its bundled
+components are distributed with the application in
+[`SPARKLE_LICENSE.txt`](SimuBoardMac/SimuBoardMac/Resources/SPARKLE_LICENSE.txt).
 
 ## MIT-licensed recordings
 

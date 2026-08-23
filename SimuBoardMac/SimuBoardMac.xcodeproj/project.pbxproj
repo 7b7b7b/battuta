@@ -18,6 +18,7 @@
 		A1000000000000000000000A /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* Audio */; };
 		A1000000000000000000000B /* THIRD_PARTY_NOTICES.txt in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* Assets.xcassets */; };
+		A90000000000000000000001 /* SPARKLE_LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B90000000000000000000001 /* SPARKLE_LICENSE.txt */; };
 		A20000000000000000000001 /* KeyboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* KeyboardLayout.swift */; };
 		A20000000000000000000002 /* SoundPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* SoundPack.swift */; };
 		A20000000000000000000003 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* SemanticVersion.swift */; };
@@ -49,6 +50,8 @@
 		A60000000000000000000001 /* MacKeyboardLayoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000001 /* MacKeyboardLayoutView.swift */; };
 		A60000000000000000000002 /* BattutaVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000002 /* BattutaVisualStyle.swift */; };
 		A70000000000000000000001 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000001 /* LaunchAtLoginController.swift */; };
+		A8F4710E2A00000000000001 /* SparkleUpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F4710E2A00000000000001 /* SparkleUpdateService.swift */; };
+		A8F4710E2A00000000000002 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = F8F4710E2A00000000000003 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -63,6 +66,7 @@
 		B10000000000000000000009 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		B1000000000000000000000A /* Audio */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Audio; sourceTree = "<group>"; };
 		B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = THIRD_PARTY_NOTICES.txt; sourceTree = "<group>"; };
+		B90000000000000000000001 /* SPARKLE_LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = SPARKLE_LICENSE.txt; sourceTree = "<group>"; };
 		B1000000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B1000000000000000000000D /* Battuta.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Battuta.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -97,13 +101,16 @@
 		B60000000000000000000001 /* MacKeyboardLayoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacKeyboardLayoutView.swift; sourceTree = "<group>"; };
 		B60000000000000000000002 /* BattutaVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattutaVisualStyle.swift; sourceTree = "<group>"; };
 		B70000000000000000000001 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
+		B8F4710E2A00000000000001 /* SparkleUpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdateService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		C10000000000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
-			files = ();
+			files = (
+				A8F4710E2A00000000000002 /* Sparkle in Frameworks */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -162,6 +169,7 @@
 				B20000000000000000000009 /* AudioSplitService.swift */,
 				B2000000000000000000000A /* GitHubReleaseClient.swift */,
 				B2000000000000000000000B /* UpdateController.swift */,
+				B8F4710E2A00000000000001 /* SparkleUpdateService.swift */,
 				B30000000000000000000001 /* SoundPackEditorModel.swift */,
 				B30000000000000000000005 /* SoundPackEditorWindowController.swift */,
 				B50000000000000000000002 /* TypingStatsStore.swift */,
@@ -196,6 +204,7 @@
 			children = (
 				B1000000000000000000000A /* Audio */,
 				B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */,
+				B90000000000000000000001 /* SPARKLE_LICENSE.txt */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -222,6 +231,9 @@
 			buildRules = ();
 			dependencies = ();
 			name = SimuBoardMac;
+			packageProductDependencies = (
+				F8F4710E2A00000000000003 /* Sparkle */,
+			);
 			productName = Battuta;
 			productReference = B1000000000000000000000D /* Battuta.app */;
 			productType = "com.apple.product-type.application";
@@ -245,6 +257,9 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (en, Base, "zh-Hans");
 			mainGroup = D10000000000000000000001;
+			packageReferences = (
+				F8F4710E2A00000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			productRefGroup = D10000000000000000000007 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -259,6 +274,7 @@
 			files = (
 				A1000000000000000000000A /* Audio in Resources */,
 				A1000000000000000000000B /* THIRD_PARTY_NOTICES.txt in Resources */,
+				A90000000000000000000001 /* SPARKLE_LICENSE.txt in Resources */,
 				A1000000000000000000000C /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -292,6 +308,7 @@
 				A20000000000000000000009 /* AudioSplitService.swift in Sources */,
 				A2000000000000000000000A /* GitHubReleaseClient.swift in Sources */,
 				A2000000000000000000000B /* UpdateController.swift in Sources */,
+				A8F4710E2A00000000000001 /* SparkleUpdateService.swift in Sources */,
 				A2000000000000000000000C /* UpdateSection.swift in Sources */,
 				A30000000000000000000001 /* SoundPackEditorModel.swift in Sources */,
 				A30000000000000000000002 /* SoundPackEditorView.swift in Sources */,
@@ -314,6 +331,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F8F4710E2A00000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F8F4710E2A00000000000003 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F8F4710E2A00000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		F10000000000000000000010 /* Debug */ = {
@@ -359,14 +395,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 23;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.9.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -381,14 +417,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 23;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.9.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;
