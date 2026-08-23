@@ -47,23 +47,24 @@ struct SoundPackEditorView: View {
                 onImportPack: { request(.importPack) },
                 onDelete: { request(.deletePack) }
             )
-            .frame(width: 226)
+            .frame(width: 236)
 
-            Divider()
+            BattutaVisualStyle.separator.opacity(0.75).frame(width: 1)
 
             SoundPackKeyboardWorkspace(editor: editor)
-                .frame(minWidth: 570, maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 540, maxWidth: .infinity, maxHeight: .infinity)
 
-            Divider()
+            BattutaVisualStyle.separator.opacity(0.75).frame(width: 1)
 
             SoundPackInspector(
                 editor: editor,
                 onImport: presentImporter(for:)
             )
-            .frame(width: 330)
+            .frame(width: 340)
         }
-        .frame(minWidth: 1_080, idealWidth: 1_180, minHeight: 640, idealHeight: 720)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(minWidth: 1_120, idealWidth: 1_240, minHeight: 660, idealHeight: 760)
+        .battutaWindowGlass()
+        .tint(BattutaVisualStyle.actionAccent)
         .disabled(editor.isWorking)
         .task { await editor.loadInitialState() }
         .fileImporter(
@@ -202,9 +203,20 @@ private struct SoundPackSidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Label("DIY 音色", systemImage: "waveform.badge.plus")
-                    .font(.headline)
+            HStack(spacing: 10) {
+                BattutaIconTile(
+                    symbol: "waveform.badge.plus",
+                    tint: BattutaVisualStyle.accentStrong,
+                    size: 34,
+                    symbolSize: 14
+                )
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("DIY 音色")
+                        .font(.headline)
+                    Text("我的音色包")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 Menu {
                     Button("新建空白音色", action: onCreateBlank)
@@ -212,13 +224,13 @@ private struct SoundPackSidebar: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
+                .buttonStyle(.bordered)
+                .controlSize(.small)
                 .help("新建音色包")
             }
-            .padding(14)
+            .padding(12)
 
-            Divider()
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
             if editor.customPacks.isEmpty {
                 ContentUnavailableViewCompat(
@@ -229,7 +241,7 @@ private struct SoundPackSidebar: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 5) {
+                    LazyVStack(spacing: 4) {
                         ForEach(editor.customPacks) { pack in
                             SoundPackSidebarRow(
                                 pack: pack,
@@ -244,20 +256,18 @@ private struct SoundPackSidebar: View {
                 }
             }
 
-            Divider()
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
-            VStack(spacing: 8) {
+            VStack(spacing: 5) {
                 Button(action: onImportPack) {
-                    Label("导入音色包", systemImage: "square.and.arrow.down")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    sidebarAction("导入音色包", symbol: "square.and.arrow.down")
                 }
                 .buttonStyle(.plain)
 
                 Button {
                     Task { await editor.exportSelectedPack() }
                 } label: {
-                    Label("导出当前音色包", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    sidebarAction("导出当前音色包", symbol: "square.and.arrow.up")
                 }
                 .buttonStyle(.plain)
                 .disabled(!editor.canExport || editor.isWorking || editor.isDirty)
@@ -271,16 +281,23 @@ private struct SoundPackSidebar: View {
                 }
 
                 Button(role: .destructive, action: onDelete) {
-                    Label("移除当前音色包", systemImage: "trash")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    sidebarAction("移除当前音色包", symbol: "trash")
                 }
                 .buttonStyle(.plain)
                 .disabled(!editor.canExport || editor.isWorking)
             }
             .font(.callout)
-            .padding(14)
+            .padding(10)
         }
-        .background(.ultraThinMaterial)
+        .background(Color.clear)
+    }
+
+    private func sidebarAction(_ title: String, symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
     }
 }
 
@@ -295,7 +312,7 @@ private struct SoundPackSidebarRow: View {
             HStack(spacing: 9) {
                 Image(systemName: isSelected ? "waveform.circle.fill" : "waveform.circle")
                     .font(.title3)
-                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                    .foregroundStyle(isSelected ? BattutaVisualStyle.accentStrong : .secondary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(pack.name)
                         .fontWeight(isSelected ? .semibold : .regular)
@@ -312,8 +329,16 @@ private struct SoundPackSidebarRow: View {
             .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.clear)
+                    .fill(isSelected ? BattutaVisualStyle.accentSoft : Color.clear)
             )
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    Capsule()
+                        .fill(BattutaVisualStyle.accentStrong)
+                        .frame(width: 3, height: 24)
+                        .padding(.leading, 2)
+                }
+            }
         }
         .buttonStyle(.plain)
     }
@@ -326,13 +351,13 @@ private struct SoundPackKeyboardWorkspace: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 14) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("键盘映射")
-                        .font(.title2.bold())
-                    Text(instruction)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                BattutaIconTile(
+                    symbol: "keyboard",
+                    tint: BattutaVisualStyle.accentStrong,
+                    size: 38,
+                    symbolSize: 16
+                )
+                BattutaSectionHeading("键盘映射", subtitle: instruction)
                 Spacer()
                 Picker("映射方式", selection: $editor.mappingMode) {
                     ForEach(SoundPackEditorMappingMode.allCases) { mode in
@@ -341,17 +366,17 @@ private struct SoundPackKeyboardWorkspace: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
-                .frame(width: 300)
+                .frame(width: 240)
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 14)
+            .padding(.vertical, 12)
 
-            Divider()
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
             SoundPackKeyboardView(editor: editor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            Divider()
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
             HStack(spacing: 14) {
                 ForEach(KeyboardRowID.allCases, id: \.self) { row in
@@ -371,7 +396,7 @@ private struct SoundPackKeyboardWorkspace: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 11)
+            .padding(.vertical, 10)
         }
     }
 
@@ -391,6 +416,27 @@ private struct SoundPackInspector: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                BattutaIconTile(
+                    symbol: "slider.horizontal.3",
+                    tint: BattutaVisualStyle.accentStrong,
+                    size: 34,
+                    symbolSize: 14
+                )
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("检查器")
+                        .font(.headline)
+                    Text(inspectorContext)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+            }
+            .padding(12)
+
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     packDetails
@@ -405,7 +451,7 @@ private struct SoundPackInspector: View {
                 .padding(16)
             }
 
-            Divider()
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
             VStack(spacing: 9) {
                 if let message = editor.statusMessage {
@@ -420,6 +466,14 @@ private struct SoundPackInspector: View {
                 }
 
                 HStack {
+                    if editor.isDirty {
+                        Label("未保存", systemImage: "circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+
+                    Spacer()
+
                     Button("保存") {
                         Task { await editor.save(enableAfterSaving: false) }
                     }
@@ -430,55 +484,55 @@ private struct SoundPackInspector: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(!editor.hasDraft || editor.isWorking)
-
-                    if editor.isDirty {
-                        Text("未保存")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
                 }
             }
             .padding(14)
-            .background(.ultraThinMaterial)
         }
     }
 
-    private var packDetails: some View {
-        GroupBox("音色包信息") {
-            VStack(alignment: .leading, spacing: 9) {
-                TextField(
-                    "名称",
-                    text: Binding(
-                        get: { editor.manifest?.name ?? "" },
-                        set: editor.setName
-                    )
-                )
-                TextField(
-                    "作者（可选）",
-                    text: Binding(
-                        get: { editor.manifest?.author ?? "" },
-                        set: editor.setAuthor
-                    )
-                )
-                TextField(
-                    "备注（可选）",
-                    text: Binding(
-                        get: { editor.manifest?.notes ?? "" },
-                        set: editor.setNotes
-                    ),
-                    axis: .vertical
-                )
-                .lineLimit(2...4)
-
-                if let baseID = editor.manifest?.baseProfileID,
-                   let profile = SwitchProfile(rawValue: baseID) {
-                    Label("未设置处继承 \(profile.displayName)", systemImage: "arrow.triangle.branch")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.top, 4)
+    private var inspectorContext: String {
+        if editor.mappingMode == .perKey, let key = editor.selectedKey {
+            return "当前按键：\(key.label)"
         }
+        return editor.mappingMode.displayName
+    }
+
+    private var packDetails: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            BattutaSectionHeading("音色包信息", symbol: "info.circle")
+            TextField(
+                "名称",
+                text: Binding(
+                    get: { editor.manifest?.name ?? "" },
+                    set: editor.setName
+                )
+            )
+            TextField(
+                "作者（可选）",
+                text: Binding(
+                    get: { editor.manifest?.author ?? "" },
+                    set: editor.setAuthor
+                )
+            )
+            TextField(
+                "备注（可选）",
+                text: Binding(
+                    get: { editor.manifest?.notes ?? "" },
+                    set: editor.setNotes
+                ),
+                axis: .vertical
+            )
+            .lineLimit(2...4)
+
+            if let baseID = editor.manifest?.baseProfileID,
+               let profile = SwitchProfile(rawValue: baseID) {
+                Label("未设置处继承 \(profile.displayName)", systemImage: "arrow.triangle.branch")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .battutaPanel()
     }
 
     @ViewBuilder
@@ -532,33 +586,33 @@ private struct SoundPackSlotPairEditor: View {
     let onImport: (SoundPackEditorImportPurpose) -> Void
 
     var body: some View {
-        GroupBox(slot.displayName) {
-            VStack(spacing: 10) {
-                SoundPackPhaseAssignmentCard(
-                    editor: editor,
-                    slot: slot,
-                    phase: .press,
-                    onImport: onImport
-                )
-                SoundPackPhaseAssignmentCard(
-                    editor: editor,
-                    slot: slot,
-                    phase: .release,
-                    onImport: onImport
-                )
+        VStack(alignment: .leading, spacing: 10) {
+            BattutaSectionHeading(slot.displayName, symbol: "waveform")
+            SoundPackPhaseAssignmentCard(
+                editor: editor,
+                slot: slot,
+                phase: .press,
+                onImport: onImport
+            )
+            SoundPackPhaseAssignmentCard(
+                editor: editor,
+                slot: slot,
+                phase: .release,
+                onImport: onImport
+            )
 
-                Divider()
+            Divider()
 
-                Button {
-                    onImport(.completeKeystroke(slot))
-                } label: {
-                    Label("上传完整击键并自动拆分", systemImage: "scissors")
-                        .frame(maxWidth: .infinity)
-                }
-                .help("适合一个文件同时包含按下与抬起声音的录音")
+            Button {
+                onImport(.completeKeystroke(slot))
+            } label: {
+                Label("上传完整击键并自动拆分", systemImage: "scissors")
+                    .frame(maxWidth: .infinity)
             }
-            .padding(.top, 5)
+            .help("适合一个文件同时包含按下与抬起声音的录音")
         }
+        .padding(14)
+        .battutaPanel()
     }
 }
 
@@ -620,10 +674,8 @@ private struct SoundPackPhaseAssignmentCard: View {
             .controlSize(.small)
         }
         .padding(9)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.secondary.opacity(0.07))
-        )
+        .background(BattutaVisualStyle.recessed, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(BattutaVisualStyle.separator.opacity(0.55)))
     }
 }
 
@@ -634,22 +686,22 @@ private struct SoundPackPerKeyEditor: View {
     let onImport: (SoundPackEditorImportPurpose) -> Void
 
     var body: some View {
-        GroupBox("\(key.label) · 单键覆盖") {
-            VStack(spacing: 11) {
-                perKeyPhase(.press)
-                perKeyPhase(.release)
+        VStack(alignment: .leading, spacing: 11) {
+            BattutaSectionHeading("\(key.label) · 单键覆盖", symbol: "keyboard.badge.ellipsis")
+            perKeyPhase(.press)
+            perKeyPhase(.release)
 
-                Divider()
+            Divider()
 
-                Button {
-                    onImport(.completeKeystroke(.key(key.id)))
-                } label: {
-                    Label("上传完整击键并自动拆分", systemImage: "scissors")
-                        .frame(maxWidth: .infinity)
-                }
+            Button {
+                onImport(.completeKeystroke(.key(key.id)))
+            } label: {
+                Label("上传完整击键并自动拆分", systemImage: "scissors")
+                    .frame(maxWidth: .infinity)
             }
-            .padding(.top, 5)
         }
+        .padding(14)
+        .battutaPanel()
     }
 
     private func perKeyPhase(_ phase: KeySoundPhase) -> some View {
@@ -713,10 +765,8 @@ private struct SoundPackPerKeyEditor: View {
             }
         }
         .padding(9)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.secondary.opacity(0.07))
-        )
+        .background(BattutaVisualStyle.recessed, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(BattutaVisualStyle.separator.opacity(0.55)))
     }
 }
 
@@ -736,9 +786,7 @@ private struct ContentUnavailableViewCompat: View {
 
     var body: some View {
         VStack(spacing: 9) {
-            Image(systemName: systemImage)
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
+            BattutaIconTile(symbol: systemImage, tint: .secondary, size: 48, symbolSize: 21)
             Text(title)
                 .font(.headline)
             Text(description)

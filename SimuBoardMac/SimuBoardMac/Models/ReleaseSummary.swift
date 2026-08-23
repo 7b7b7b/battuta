@@ -6,7 +6,7 @@ enum ReleaseSummaryValidationError: Error, Equatable, Sendable {
 }
 
 struct ReleaseSummary: Codable, Equatable, Identifiable, Sendable {
-    static let releasePathPrefix = "/7b7b7b/simuboard/releases/"
+    static let releasePathPrefix = "/7b7b7b/battuta/releases/"
 
     let tagName: String
     let version: SemanticVersion

@@ -31,11 +31,17 @@ struct AudioSplitEditorSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .top) {
+            HStack(alignment: .center, spacing: 12) {
+                BattutaIconTile(
+                    symbol: "scissors",
+                    tint: BattutaVisualStyle.accentStrong,
+                    size: 40,
+                    symbolSize: 17
+                )
                 VStack(alignment: .leading, spacing: 4) {
                     Text("拆分完整击键")
-                        .font(.title2.bold())
-                    Text("拖动切点，使左侧只保留按下、右侧从回弹瞬态开始。")
+                        .font(.title2.weight(.semibold))
+                    Text("调整下方切点，使左侧只保留按下、右侧从回弹瞬态开始。")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -44,7 +50,7 @@ struct AudioSplitEditorSheet: View {
             }
             .padding(20)
 
-            Divider()
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
             VStack(alignment: .leading, spacing: 18) {
                 AudioSplitWaveform(
@@ -107,6 +113,8 @@ struct AudioSplitEditorSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .padding(12)
+                .battutaPanel(radius: BattutaVisualStyle.compactRadius)
 
                 VStack(alignment: .leading, spacing: 7) {
                     HStack {
@@ -125,6 +133,8 @@ struct AudioSplitEditorSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .padding(12)
+                .battutaPanel(radius: BattutaVisualStyle.compactRadius)
 
                 if !draft.analysis.warnings.isEmpty {
                     VStack(alignment: .leading, spacing: 5) {
@@ -138,7 +148,7 @@ struct AudioSplitEditorSheet: View {
             }
             .padding(20)
 
-            Divider()
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
             HStack {
                 Text("将设置到：\(draft.target.displayName)")
@@ -163,9 +173,11 @@ struct AudioSplitEditorSheet: View {
                 .disabled(editor.isWorking)
             }
             .padding(16)
-            .background(.ultraThinMaterial)
         }
-        .frame(width: 720, height: 600)
+        .frame(width: 760, height: 630)
+        .battutaWindowGlass(providesBackdrop: true)
+        .battutaConfigureContainingWindow()
+        .tint(BattutaVisualStyle.actionAccent)
         .interactiveDismissDisabled(editor.isWorking)
         .onChange(of: splitTime) { newValue in
             if releaseEndTime < newValue + minimumReleaseGap {
@@ -179,14 +191,11 @@ struct AudioSplitEditorSheet: View {
 
     private var confidenceBadge: some View {
         let confidence = max(0, min(1, draft.analysis.suggestion.confidence))
-        return VStack(alignment: .trailing, spacing: 3) {
-            Text("自动分析置信度")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(confidence.formatted(.percent.precision(.fractionLength(0))))
-                .font(.headline.monospacedDigit())
-                .foregroundStyle(confidence >= 0.7 ? Color.green : Color.orange)
-        }
+        return BattutaStatusPill(
+            title: "置信度 \(confidence.formatted(.percent.precision(.fractionLength(0))))",
+            symbol: confidence >= 0.7 ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
+            tint: confidence >= 0.7 ? BattutaVisualStyle.accentStrong : .orange
+        )
     }
 
     private var minimumSegment: TimeInterval { 0.012 }
@@ -212,12 +221,12 @@ private struct AudioSplitWaveform: View {
         GeometryReader { proxy in
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .fill(BattutaVisualStyle.surface)
 
                 HStack(spacing: 0) {
-                    Color.accentColor.opacity(0.09)
+                    BattutaVisualStyle.accent.opacity(0.10)
                         .frame(width: xPosition(for: splitTime, width: proxy.size.width))
-                    Color.purple.opacity(0.08)
+                    BattutaVisualStyle.cyan.opacity(0.08)
                     Color.secondary.opacity(0.08)
                         .frame(width: max(0, proxy.size.width - xPosition(for: releaseEndTime, width: proxy.size.width)))
                 }
@@ -235,7 +244,7 @@ private struct AudioSplitWaveform: View {
                         path.move(to: CGPoint(x: x, y: upper))
                         path.addLine(to: CGPoint(x: x, y: lower))
                     }
-                    context.stroke(path, with: .color(.accentColor.opacity(0.86)), lineWidth: 1)
+                    context.stroke(path, with: .color(BattutaVisualStyle.accentStrong.opacity(0.90)), lineWidth: 1)
 
                     var center = Path()
                     center.move(to: CGPoint(x: 0, y: midY))
@@ -247,19 +256,7 @@ private struct AudioSplitWaveform: View {
                 splitMarker(width: proxy.size.width, height: proxy.size.height)
                 releaseEndMarker(width: proxy.size.width, height: proxy.size.height)
 
-                VStack {
-                    HStack {
-                        Text("按下")
-                        Spacer()
-                        Text("回弹")
-                        Spacer()
-                        Text("忽略")
-                    }
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(10)
-                    Spacer()
-                }
+                regionLabels(width: proxy.size.width)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -270,7 +267,7 @@ private struct AudioSplitWaveform: View {
     private func splitMarker(width: CGFloat, height: CGFloat) -> some View {
         let x = xPosition(for: splitTime, width: width)
         return Rectangle()
-            .fill(Color.accentColor)
+            .fill(BattutaVisualStyle.accentStrong)
             .frame(width: 2, height: height)
             .overlay(alignment: .top) {
                 Image(systemName: "scissors")
@@ -290,6 +287,28 @@ private struct AudioSplitWaveform: View {
                 x: xPosition(for: releaseEndTime, width: width),
                 y: height / 2
             )
+    }
+
+    private func regionLabels(width: CGFloat) -> some View {
+        let splitX = xPosition(for: splitTime, width: width)
+        let releaseX = xPosition(for: releaseEndTime, width: width)
+        return ZStack(alignment: .topLeading) {
+            regionLabel("按下", x: splitX / 2, width: width)
+            regionLabel("回弹", x: splitX + (releaseX - splitX) / 2, width: width)
+            regionLabel("忽略", x: releaseX + (width - releaseX) / 2, width: width)
+        }
+        .frame(width: width, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func regionLabel(_ title: String, x: CGFloat, width: CGFloat) -> some View {
+        Text(title)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
+            .background(.regularMaterial, in: Capsule())
+            .position(x: max(24, min(x, width - 24)), y: 18)
     }
 
     private func xPosition(for time: TimeInterval, width: CGFloat) -> CGFloat {

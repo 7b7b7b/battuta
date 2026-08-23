@@ -12,9 +12,11 @@ private enum TypingKeyCountScope: String, CaseIterable, Identifiable {
 struct TypingStatsKeyboardView: View {
     let snapshot: TypingStatsSnapshot
     @State private var scope: TypingKeyCountScope = .today
+    @State private var showsExtendedKeys = false
 
     private let layout = KeyboardLayoutCatalog.ansiTKL
-    private let extendedRows = TypingStatsExtendedKeyboard.rows
+    private let visualLayout = KeyboardVisualLayoutCatalog.magicKeyboardANSI
+    private let extendedRows = KeyboardExtendedLayoutCatalog.rows
 
     private var counts: [UInt16: Int64] {
         switch scope {
@@ -39,6 +41,10 @@ struct TypingStatsKeyboardView: View {
         Dictionary(uniqueKeysWithValues: knownKeys.map { ($0.keyCode, $0) })
     }
 
+    private var unplacedLayoutKeys: [KeyboardKeyDescriptor] {
+        layout.keys.filter { !visualLayout.keyIDs.contains($0.id) }
+    }
+
     private var otherKeys: [KeyboardKeyDescriptor] {
         counts.keys
             .filter { knownKeysByCode[$0] == nil }
@@ -53,185 +59,218 @@ struct TypingStatsKeyboardView: View {
             }
     }
 
-    private var mostPressedKey: (label: String, count: Int64)? {
-        guard let entry = counts.max(by: {
-            if $0.value != $1.value { return $0.value < $1.value }
-            return $0.key > $1.key
-        }), entry.value > 0 else {
-            return nil
-        }
-        return (knownKeysByCode[entry.key]?.label ?? "键码 \(entry.key)", entry.value)
-    }
-
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .top, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("逐键按下统计")
-                            .font(.headline)
-                        Text("每个键显示物理按下次数，颜色越亮表示使用越频繁。")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .top, spacing: 20) {
+                        BattutaSectionHeading(
+                            "键盘热力图",
+                            subtitle: "Apple 紧凑型 Mac 键盘 · US ANSI · 14.5U",
+                            symbol: "square.grid.3x3.fill"
+                        )
 
-                    Spacer()
+                        Spacer()
 
-                    Picker("统计范围", selection: $scope) {
-                        ForEach(TypingKeyCountScope.allCases) { scope in
-                            Text(scope.rawValue).tag(scope)
+                        VStack(alignment: .trailing, spacing: 10) {
+                            Picker("统计范围", selection: $scope) {
+                                ForEach(TypingKeyCountScope.allCases) { scope in
+                                    Text(scope.rawValue).tag(scope)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
+                            .frame(width: 150)
+
+                            heatLegend
                         }
                     }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .frame(width: 180)
-                }
 
-                HStack(spacing: 12) {
-                    KeyboardMetricCard(
-                        title: scope == .today ? "今日物理按下" : "累计物理按下",
-                        value: statsCount(totalPresses),
-                        detail: "不重复计算长按连发",
-                        symbol: "keyboard"
-                    )
-                    KeyboardMetricCard(
-                        title: "最常用按键",
-                        value: mostPressedKey?.label ?? "暂无",
-                        detail: mostPressedKey.map { "\(statsCount($0.count)) 次" } ?? "还没有按键记录",
-                        symbol: "flame.fill"
-                    )
-                }
+                    Divider()
 
-                if totalPresses == 0 {
-                    Label(
-                        scope == .today
-                            ? "今天还没有按键记录；开始输入后这里会逐键点亮。"
-                            : "还没有累计按键记录；开始输入后这里会逐键点亮。",
-                        systemImage: "keyboard"
+                    if totalPresses == 0 {
+                        Label(
+                            scope == .today
+                                ? "今天还没有按键记录；开始输入后键盘会逐键点亮。"
+                                : "还没有累计按键记录；开始输入后键盘会逐键点亮。",
+                            systemImage: "keyboard"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    FittedTypingStatsKeyboard(
+                        layout: layout,
+                        visualLayout: visualLayout,
+                        counts: counts,
+                        maximumCount: maximumCount
                     )
-                    .font(.caption)
+                    .padding(.vertical, 4)
+                    .accessibilityHidden(totalPresses == 0)
+
+                    Divider()
+
+                    DisclosureGroup(isExpanded: $showsExtendedKeys) {
+                        extendedKeyboardContent
+                            .padding(.top, 12)
+                    } label: {
+                        Text("外接键盘与扩展按键")
+                            .font(.subheadline.weight(.medium))
+                    }
+
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "info.circle")
+                        Text(
+                            "按下计数包含 Shift、Command、回车、退格和方向键；长按产生的系统自动重复不增加物理按下次数。"
+                        )
+                    }
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 10))
+                    .fixedSize(horizontal: false, vertical: true)
                 }
-
-                GroupBox("完整键盘热力图") {
-                    ScrollView(.horizontal) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(layout.rows) { row in
-                                HStack(spacing: 4) {
-                                    ForEach(row.keys) { key in
-                                        TypingStatsKeycap(
-                                            key: key,
-                                            count: counts[key.keyCode, default: 0],
-                                            maximumCount: maximumCount,
-                                            compactHeight: row.id == "function"
-                                        )
-                                    }
-                                }
-                                .padding(.bottom, row.id == "function" ? 8 : 0)
-                            }
-
-                            Divider()
-                                .padding(.vertical, 8)
-
-                            Text("导航键、扩展功能键、数字键盘与国际键")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.secondary)
-                                .padding(.bottom, 2)
-
-                            ForEach(extendedRows) { row in
-                                HStack(spacing: 4) {
-                                    ForEach(row.keys) { key in
-                                        TypingStatsKeycap(
-                                            key: key,
-                                            count: counts[key.keyCode, default: 0],
-                                            maximumCount: maximumCount,
-                                            compactHeight: false
-                                        )
-                                    }
-                                }
-                            }
-
-                            if !otherKeys.isEmpty {
-                                Text("其他已识别键")
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(.secondary)
-                                    .padding(.top, 8)
-                                HStack(spacing: 4) {
-                                    ForEach(otherKeys) { key in
-                                        TypingStatsKeycap(
-                                            key: key,
-                                            count: counts[key.keyCode, default: 0],
-                                            maximumCount: maximumCount,
-                                            compactHeight: false
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        .padding(18)
-                        .accessibilityHidden(totalPresses == 0)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 520, alignment: .center)
-                }
-
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "info.circle")
-                    Text(
-                        "按下计数包含 Shift、Command、回车、退格和方向键；长按产生的系统自动重复不增加物理按下次数。"
-                    )
-                }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .padding(BattutaVisualStyle.cardPadding)
+                .battutaPanel()
             }
             .padding(20)
+            .frame(maxWidth: 1_080)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var heatLegend: some View {
+        HStack(spacing: 6) {
+            Text("低")
+            ForEach([0.10, 0.25, 0.40, 0.56], id: \.self) { opacity in
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(BattutaVisualStyle.accent.opacity(opacity))
+                    .frame(width: 18, height: 8)
+            }
+            Text("高")
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private var extendedKeyboardContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !unplacedLayoutKeys.isEmpty {
+                Text("额外修饰键")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    ForEach(unplacedLayoutKeys) { key in
+                        TypingStatsKeycap(
+                            key: key,
+                            count: counts[key.keyCode, default: 0],
+                            maximumCount: maximumCount
+                        )
+                    }
+                }
+            }
+
+            Text("导航、功能、数字键盘与国际键")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+
+            ForEach(extendedRows) { row in
+                HStack(spacing: 4) {
+                    ForEach(row.keys) { key in
+                        TypingStatsKeycap(
+                            key: key,
+                            count: counts[key.keyCode, default: 0],
+                            maximumCount: maximumCount
+                        )
+                    }
+                }
+            }
+
+            if !otherKeys.isEmpty {
+                Text("其他已识别键")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                HStack(spacing: 4) {
+                    ForEach(otherKeys) { key in
+                        TypingStatsKeycap(
+                            key: key,
+                            count: counts[key.keyCode, default: 0],
+                            maximumCount: maximumCount
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @MainActor
-private struct KeyboardMetricCard: View {
-    let title: String
-    let value: String
-    let detail: String
-    let symbol: String
+private struct FittedTypingStatsKeyboard: View {
+    let layout: KeyboardLayout
+    let visualLayout: KeyboardVisualLayout
+    let counts: [UInt16: Int64]
+    let maximumCount: Int64
+
+    private let baseMetrics = MacKeyboardLayoutMetrics.typingStats
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: symbol)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title2.weight(.semibold))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(detail)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+        let baseSize = baseMetrics.canvasSize(for: visualLayout)
+
+        GeometryReader { proxy in
+            let scale = max(0.1, proxy.size.width / baseSize.width)
+
+            MacKeyboardLayoutView(
+                keyboardLayout: layout,
+                visualLayout: visualLayout,
+                metrics: baseMetrics
+            ) { renderedKey, size in
+                TypingStatsMacKeycap(
+                    renderedKey: renderedKey,
+                    size: size,
+                    counts: counts,
+                    maximumCount: maximumCount
+                )
+            }
+            .scaleEffect(scale, anchor: .topLeading)
+            .frame(
+                width: baseSize.width * scale,
+                height: baseSize.height * scale,
+                alignment: .topLeading
+            )
         }
-        .padding(13)
-        .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
-        .background(.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.green.opacity(0.17)))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
-        .accessibilityValue("\(value)，\(detail)")
+        .aspectRatio(baseSize.width / baseSize.height, contentMode: .fit)
     }
 }
 
 @MainActor
 private struct TypingStatsKeycap: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let key: KeyboardKeyDescriptor
     let count: Int64
     let maximumCount: Int64
-    let compactHeight: Bool
+    let size: CGSize?
+
+    init(
+        key: KeyboardKeyDescriptor,
+        count: Int64,
+        maximumCount: Int64,
+        size: CGSize? = nil
+    ) {
+        self.key = key
+        self.count = count
+        self.maximumCount = maximumCount
+        self.size = size
+    }
 
     private var width: CGFloat {
         max(38, CGFloat(key.widthUnits) * 38 + CGFloat(max(0, key.widthUnits - 1)) * 4)
+    }
+
+    private var resolvedSize: CGSize {
+        size ?? CGSize(width: width, height: 50)
     }
 
     private var intensity: Double {
@@ -240,105 +279,118 @@ private struct TypingStatsKeycap: View {
     }
 
     var body: some View {
-        VStack(spacing: 3) {
-            Text(key.label)
-                .font(key.widthUnits > 1.2 ? .caption2 : .caption)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(statsCompactKeyCount(count))
-                .font(.caption2.weight(count > 0 ? .semibold : .regular))
-                .monospacedDigit()
-                .foregroundStyle(count > 0 ? .primary : .tertiary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
+        Group {
+            if resolvedSize.height < 30 {
+                HStack(spacing: 3) {
+                    keyLabel
+                    keyCount
+                }
+                .padding(.horizontal, 3)
+            } else {
+                VStack(spacing: 3) {
+                    keyLabel
+                    keyCount
+                }
+                .padding(.horizontal, 4)
+            }
         }
-        .padding(.horizontal, 4)
         .frame(
-            width: width,
-            height: compactHeight ? 42 : 50
+            width: resolvedSize.width,
+            height: resolvedSize.height
         )
-        .background(keycapColor, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(BattutaVisualStyle.surface)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(keycapTint)
+            }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .stroke(.green.opacity(count > 0 ? 0.32 + intensity * 0.38 : 0.12))
+                .stroke(
+                    count > 0
+                        ? BattutaVisualStyle.accent.opacity(0.26 + intensity * 0.34)
+                        : BattutaVisualStyle.separator.opacity(0.55)
+                )
         )
+        .shadow(color: .black.opacity(count > 0 ? 0.055 : 0.025), radius: 1, y: 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(key.label)
         .accessibilityValue("\(count) 次")
         .help("\(key.label)：\(statsCount(count)) 次")
     }
 
-    private var keycapColor: Color {
-        guard count > 0 else { return Color.secondary.opacity(0.055) }
-        return Color.green.opacity(0.10 + intensity * 0.58)
+    private var keyLabel: some View {
+        Text(key.label)
+            .font(key.widthUnits > 1.2 ? .caption2 : .caption)
+            .foregroundStyle(keycapForeground)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+    }
+
+    private var keyCount: some View {
+        Text(statsCompactKeyCount(count))
+            .font(.caption2.weight(count > 0 ? .semibold : .regular))
+            .monospacedDigit()
+            .foregroundStyle(count > 0 ? keycapForeground : Color.secondary.opacity(0.48))
+            .lineLimit(1)
+            .minimumScaleFactor(0.55)
+    }
+
+    private var keycapTint: Color {
+        guard count > 0 else { return .clear }
+        return BattutaVisualStyle.accent.opacity(0.10 + intensity * 0.46)
+    }
+
+    private var keycapForeground: Color {
+        guard count > 0 else { return .primary }
+        return colorScheme == .dark
+            ? .white.opacity(0.92)
+            : .black.opacity(0.84)
     }
 }
 
-private enum TypingStatsExtendedKeyboard {
-    static let rows: [KeyboardLayoutRow] = [
-        row("navigation", [
-            key("help", 114, "help"), key("home", 115, "home"),
-            key("pageUp", 116, "page up"), key("forwardDelete", 117, "⌦"),
-            key("end", 119, "end"), key("pageDown", 121, "page down"),
-        ]),
-        row("extendedFunction", [
-            key("f13", 105, "F13"), key("f14", 107, "F14"),
-            key("f15", 113, "F15"), key("f16", 106, "F16"),
-            key("f17", 64, "F17"), key("f18", 79, "F18"),
-            key("f19", 80, "F19"), key("f20", 90, "F20"),
-        ]),
-        row("keypadTop", [
-            key("keypadClear", 71, "clear"), key("keypadEqual", 81, "="),
-            key("keypadDivide", 75, "÷"), key("keypadMultiply", 67, "×"),
-            key("keypadMinus", 78, "−"),
-        ]),
-        row("keypadUpper", [
-            key("keypad7", 89, "7"), key("keypad8", 91, "8"),
-            key("keypad9", 92, "9"), key("keypadPlus", 69, "+"),
-        ]),
-        row("keypadMiddle", [
-            key("keypad4", 86, "4"), key("keypad5", 87, "5"),
-            key("keypad6", 88, "6"),
-        ]),
-        row("keypadLower", [
-            key("keypad1", 83, "1"), key("keypad2", 84, "2"),
-            key("keypad3", 85, "3"), key("keypadEnter", 76, "enter", width: 1.5),
-        ]),
-        row("keypadBottom", [
-            key("keypad0", 82, "0", width: 2), key("keypadDecimal", 65, "."),
-        ]),
-        row("international", [
-            key("isoSection", 10, "§/±"), key("jisYen", 93, "¥"),
-            key("jisUnderscore", 94, "＿"), key("jisKeypadComma", 95, "，"),
-            key("jisEisu", 102, "英数"), key("jisKana", 104, "かな"),
-        ]),
-        row("media", [
-            key("volumeUp", 72, "音量+", width: 1.5),
-            key("volumeDown", 73, "音量−", width: 1.5),
-            key("mute", 74, "静音", width: 1.5),
-        ]),
-    ]
+@MainActor
+private struct TypingStatsMacKeycap: View {
+    let renderedKey: MacKeyboardRenderedKey
+    let size: CGSize
+    let counts: [UInt16: Int64]
+    let maximumCount: Int64
 
-    private static func row(
-        _ id: String,
-        _ keys: [KeyboardKeyDescriptor]
-    ) -> KeyboardLayoutRow {
-        KeyboardLayoutRow(id: "stats.\(id)", keys: keys)
-    }
-
-    private static func key(
-        _ id: String,
-        _ keyCode: UInt16,
-        _ label: String,
-        width: Double = 1
-    ) -> KeyboardKeyDescriptor {
-        KeyboardKeyDescriptor(
-            id: KeyboardKeyID("stats.\(id)"),
-            keyCode: keyCode,
-            label: label,
-            row: .r4,
-            widthUnits: width
-        )
+    @ViewBuilder
+    var body: some View {
+        if let key = renderedKey.descriptor {
+            TypingStatsKeycap(
+                key: key,
+                count: counts[key.keyCode, default: 0],
+                maximumCount: maximumCount,
+                size: size
+            )
+        } else {
+            VStack(spacing: 3) {
+                if let systemImage = renderedKey.systemImage {
+                    Image(systemName: systemImage)
+                        .font(.caption)
+                } else {
+                    Text(renderedKey.label)
+                        .font(.caption2)
+                }
+                Text("—")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(width: size.width, height: size.height)
+            .background(BattutaVisualStyle.surface, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(BattutaVisualStyle.separator.opacity(0.55))
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("锁定或 Touch ID 键")
+            .accessibilityValue("系统不提供普通按键计数")
+            .help("锁定或 Touch ID 键：系统不提供普通按键事件")
+        }
     }
 }
 

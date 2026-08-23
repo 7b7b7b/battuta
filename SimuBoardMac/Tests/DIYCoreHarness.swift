@@ -287,6 +287,7 @@ private struct DIYCoreHarness {
         var results = HarnessResults()
         do {
             try testSemanticVersion(&results)
+            try testKeyboardVisualLayout(&results)
             try testPointerEventMapping(&results)
             try testPointerSettingsAndResources(&results)
             try testValidatorAndResolver(&results)
@@ -323,6 +324,88 @@ private struct DIYCoreHarness {
         for invalid in ["1.2", "01.2.3", "1.02.3", "1.2.03", "1.2.3-01", "1.2.3-", "1.2.3+", "1.2.3+bad_idea"] {
             try results.check(SemanticVersion(invalid) == nil, "invalid SemVer accepted: \(invalid)")
         }
+    }
+
+    private static func testKeyboardVisualLayout(_ results: inout HarnessResults) throws {
+        let keyboard = KeyboardLayoutCatalog.ansiTKL
+        let visual = KeyboardVisualLayoutCatalog.magicKeyboardANSI
+        let tolerance = 0.000_1
+
+        try results.check(
+            keyboard.id == "mac-ansi-tkl-v1",
+            "the persisted sound-pack layout identifier must remain compatible"
+        )
+        try results.check(visual.widthUnits == 14.5, "compact Magic Keyboard must span 14.5U")
+        try results.check(visual.rowCount == 6, "compact Magic Keyboard must contain six rows")
+        try results.check(visual.placements.count == 78, "visual layout should contain 77 keys plus lock")
+        try results.check(
+            Set(visual.placements.map(\.id)).count == visual.placements.count,
+            "visual placements must have stable unique identifiers"
+        )
+
+        let descriptorsByID = Dictionary(uniqueKeysWithValues: keyboard.keys.map { ($0.id, $0) })
+        try results.check(
+            visual.keyIDs.allSatisfy { descriptorsByID[$0] != nil },
+            "every tracked visual key must resolve to the existing logical keyboard"
+        )
+        let unplacedIDs = Set(keyboard.keys.map(\.id)).subtracting(visual.keyIDs)
+        try results.check(
+            unplacedIDs == [KeyboardKeyID("rightControl")],
+            "only the extended-keyboard right Control should sit outside the compact layout"
+        )
+
+        let extendedKeys = KeyboardExtendedLayoutCatalog.keys
+        try results.check(
+            extendedKeys.count == 41,
+            "the DIY extended keyboard should expose navigation, F13-F20, keypad, international and media keys"
+        )
+        try results.check(
+            Set(extendedKeys.map(\.id)).count == extendedKeys.count,
+            "extended keyboard keys must have unique persistent identifiers"
+        )
+        try results.check(
+            Set(extendedKeys.map(\.keyCode)).count == extendedKeys.count,
+            "extended keyboard keys must have unique macOS virtual key codes"
+        )
+        try results.check(
+            extendedKeys.allSatisfy { KeyboardLayoutCatalog.key(for: $0.keyCode)?.id == $0.id },
+            "the runtime resolver must recognize every DIY extended key"
+        )
+
+        for row in 0..<visual.rowCount {
+            let placements = visual.placements(inRow: row)
+            let groupedByX = Dictionary(grouping: placements, by: \.xUnits)
+            var cursor = 0.0
+            for x in groupedByX.keys.sorted() {
+                guard let column = groupedByX[x] else { continue }
+                let widths = Set(column.map(\.widthUnits))
+                try results.check(widths.count == 1, "stacked keys must share a column width")
+                try results.check(abs(x - cursor) < tolerance, "row \(row) contains a gap or overlap")
+                cursor = x + (widths.first ?? 0)
+            }
+            try results.check(
+                abs(cursor - visual.widthUnits) < tolerance,
+                "row \(row) must end at the common 14.5U edge"
+            )
+        }
+
+        let up = visual.placements.first { $0.content.keyID == KeyboardKeyID("upArrow") }
+        let down = visual.placements.first { $0.content.keyID == KeyboardKeyID("downArrow") }
+        try results.check(up?.verticalSlot == .upperHalf, "up arrow must occupy the upper half")
+        try results.check(down?.verticalSlot == .lowerHalf, "down arrow must occupy the lower half")
+        try results.check(
+            up?.row == down?.row && up?.xUnits == down?.xUnits && up?.widthUnits == down?.widthUnits,
+            "up and down arrows must form one shared inverted-T column"
+        )
+        try results.check(
+            visual.placements.contains {
+                if case let .decoration(id, _, systemImage) = $0.content {
+                    return id == "lock" && systemImage == "lock.fill"
+                }
+                return false
+            },
+            "top row must include the untracked Lock or Touch ID position"
+        )
     }
 
     @MainActor
@@ -1157,6 +1240,28 @@ private struct DIYCoreHarness {
     @MainActor
     private static func testUpdateCachingAndThrottling(_ results: inout HarnessResults) async throws {
         let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let releaseClientSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/Services/GitHubReleaseClient.swift"
+            ),
+            encoding: .utf8
+        )
+        try results.check(
+            releaseClientSource.contains("https://api.github.com/repos/7b7b7b/battuta/releases/latest"),
+            "update checks must use the renamed Battuta repository"
+        )
+        try results.check(
+            ReleaseSummary.isAllowedReleaseURL(
+                URL(string: "https://github.com/7b7b7b/battuta/releases/tag/v0.6.2")!
+            ),
+            "release validation must accept the Battuta repository"
+        )
+        try results.check(
+            !ReleaseSummary.isAllowedReleaseURL(
+                URL(string: "https://github.com/7b7b7b/simuboard/releases/tag/v0.6.1")!
+            ),
+            "release validation must reject the retired SimuBoard repository path"
+        )
         let appSource = try String(
             contentsOf: projectRoot.appendingPathComponent(
                 "SimuBoardMac/SimuBoardMac/SimuBoardApp.swift"
@@ -1170,7 +1275,7 @@ private struct DIYCoreHarness {
 
         let release = try ReleaseSummary(
             tagName: "v0.4.1",
-            releaseURL: URL(string: "https://github.com/7b7b7b/simuboard/releases/tag/v0.4.1")!,
+            releaseURL: URL(string: "https://github.com/7b7b7b/battuta/releases/tag/v0.4.1")!,
             publishedAt: nil
         )
         let rateLimit = GitHubRateLimit(remaining: 59, resetAt: nil)

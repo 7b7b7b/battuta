@@ -14,9 +14,19 @@ struct MenuBarView: View {
     }
 
     var body: some View {
-        ScrollView(.vertical) {
-            VStack(spacing: 14) {
-                header
+        VStack(spacing: 0) {
+            header
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
+
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    VStack(spacing: 12) {
+                        Color.clear
+                            .frame(height: 1)
+                            .id("battuta-menu-top")
 
                 if !permission.isGranted {
                     permissionCard
@@ -26,16 +36,8 @@ struct MenuBarView: View {
                     monitoringFailureCard(message)
                 }
 
-                if let message = model.audioError {
-                    audioFailureCard(message)
-                }
-
-                if let message = model.pointerSoundError {
-                    audioFailureCard(message)
-                }
-
-                if let message = model.soundPackError {
-                    audioFailureCard(message)
+                if !audioFailures.isEmpty {
+                    audioFailureCard(audioFailures)
                 }
 
                 TypingStatsSummarySection(
@@ -46,50 +48,60 @@ struct MenuBarView: View {
                     dismiss()
                 }
 
-                profileSection
-                soundSection
+                keyboardSoundSection
                 PointerSoundSection(settings: settings)
                 UpdateSection(controller: model.updates)
-                footer
+                    }
+                    .padding(14)
+                }
+                .onAppear {
+                    DispatchQueue.main.async {
+                        proxy.scrollTo("battuta-menu-top", anchor: .top)
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                        proxy.scrollTo("battuta-menu-top", anchor: .top)
+                    }
+                }
             }
-            .padding(16)
+
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
+
+            footer
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
         }
-        .frame(width: 340)
+        .battutaWindowGlass()
+        .frame(width: 360)
         // MenuBarExtra can propose a near-zero height to a root ScrollView.
         // Keep a real sizing range so AppKit cannot collapse the popover to
         // only its scroller when the content becomes taller.
-        .frame(minHeight: 620, idealHeight: 760, maxHeight: 820)
-        .tint(Color(red: 0.72, green: 0.88, blue: 0.33))
+        .frame(minHeight: 560, idealHeight: 760, maxHeight: 820)
+        .tint(BattutaVisualStyle.actionAccent)
     }
 
     private var header: some View {
-        HStack(spacing: 11) {
-            Image(systemName: "keyboard.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.black)
-                .frame(width: 40, height: 40)
-                .background(Color(red: 0.82, green: 1, blue: 0.42), in: RoundedRectangle(cornerRadius: 11))
+        HStack(spacing: 10) {
+            BattutaApplicationIcon(size: 40)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Battuta")
-                    .font(.headline)
+                    .font(.headline.weight(.semibold))
                 Text(headerStatusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("键盘音")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Toggle("启用键盘声音", isOn: $settings.isEnabled)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .accessibilityLabel("启用键盘声音")
-                    .help("启用或暂停键盘声音")
-            }
+
+            Circle()
+                .fill(headerStatusColor)
+                .frame(width: 8, height: 8)
+                .overlay(Circle().stroke(headerStatusColor.opacity(0.25), lineWidth: 4))
+                .help(headerStatusText)
         }
+        .padding(.horizontal, 2)
+        .padding(.bottom, 2)
     }
 
     private func monitoringFailureCard(_ message: String) -> some View {
@@ -105,21 +117,27 @@ struct MenuBarView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .battutaTintedPanel(.red, radius: 12)
     }
 
-    private func audioFailureCard(_ message: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private func audioFailureCard(_ failures: [(module: String, message: String)]) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
             Label("声音暂时不可用", systemImage: "speaker.slash.fill")
                 .font(.subheadline.weight(.semibold))
-            Text(message)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            ForEach(failures, id: \.module) { failure in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(failure.module)
+                        .font(.caption.weight(.semibold))
+                    Text(failure.message)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .battutaTintedPanel(.orange, radius: 12)
     }
 
     private var permissionCard: some View {
@@ -152,74 +170,80 @@ struct MenuBarView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.orange.opacity(0.24)))
+        .battutaTintedPanel(.orange, opacity: 0.10, radius: 12)
     }
 
-    private var profileSection: some View {
-        GroupBox("轴体音色") {
-            VStack(alignment: .leading, spacing: 10) {
-                Picker("音色", selection: $settings.selectedProfileID) {
-                    ForEach(model.soundPacks) { soundPack in
-                        Text("\(soundPack.name) · \(soundPack.family)")
-                            .tag(soundPack.id)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
+    private var keyboardSoundSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                BattutaSectionHeading(
+                    "键盘声音",
+                    subtitle: model.selectedSoundPack.tone,
+                    symbol: "keyboard.fill"
+                )
+                Spacer()
+                Toggle("启用键盘声音", isOn: $settings.isEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .accessibilityLabel("启用键盘声音")
+                    .help("启用或暂停键盘声音")
+            }
 
-                HStack(spacing: 6) {
-                    Text(model.selectedSoundPack.family)
-                    Text(model.selectedSoundPack.tone)
+            Picker("轴体音色", selection: $settings.selectedProfileID) {
+                ForEach(model.soundPacks) { soundPack in
+                    Text("\(soundPack.name) · \(soundPack.family)")
+                        .tag(soundPack.id)
                 }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            }
+            .pickerStyle(.menu)
+            .disabled(!settings.isEnabled)
 
+            HStack(spacing: 8) {
                 Button {
                     model.preview()
                 } label: {
-                    Label("试听当前轴体", systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
+                    Label("试听", systemImage: "play.fill")
                 }
                 .buttonStyle(.borderedProminent)
-
-                Divider()
+                .disabled(!settings.isEnabled)
 
                 Button {
                     model.openSoundPackEditor()
                     dismiss()
                 } label: {
-                    Label("DIY 音色编辑器", systemImage: "slider.horizontal.3")
-                        .frame(maxWidth: .infinity)
+                    Label("DIY 音色", systemImage: "slider.horizontal.3")
                 }
                 .buttonStyle(.bordered)
-            }
-            .padding(.top, 4)
-        }
-    }
 
-    private var soundSection: some View {
-        GroupBox("声音设置") {
-            VStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("键盘音量")
-                        Spacer()
-                        Text("\(Int(settings.volume * 100))%")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    Slider(value: $settings.volume, in: 0...1, step: 0.01)
-                        .accessibilityLabel("键盘音量")
+                Spacer()
+
+                Text(model.selectedSoundPack.family)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("键盘音量")
+                    Spacer()
+                    Text("\(Int(settings.volume * 100))%")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
                 }
-
-                Divider()
-                Toggle("播放键盘回弹音", isOn: $settings.playsReleaseSound)
-                Toggle("为键盘与点击音加入轻微音高变化", isOn: $settings.usesPitchVariation)
+                Slider(value: $settings.volume, in: 0...1, step: 0.01)
+                    .accessibilityLabel("键盘音量")
             }
-            .font(.subheadline)
-            .padding(.top, 4)
+            .disabled(!settings.isEnabled)
+
+            Toggle("播放键盘回弹音", isOn: $settings.playsReleaseSound)
+                .disabled(!settings.isEnabled)
+            Toggle("轻微随机音高（键盘与点击共用）", isOn: $settings.usesPitchVariation)
         }
+        .font(.subheadline)
+        .padding(BattutaVisualStyle.cardPadding)
+        .battutaPanel()
     }
 
     private var footer: some View {
@@ -262,9 +286,32 @@ struct MenuBarView: View {
         }
     }
 
+    private var headerStatusColor: Color {
+        switch model.monitoringState {
+        case .running: BattutaVisualStyle.accentStrong
+        case .waitingForPermission: .orange
+        case .failed: .red
+        case .stopped: .secondary
+        }
+    }
+
     private var monitoringFailureMessage: String? {
         guard case let .failed(message) = model.monitoringState else { return nil }
         return message
+    }
+
+    private var audioFailures: [(module: String, message: String)] {
+        var failures: [(module: String, message: String)] = []
+        if let message = model.audioError {
+            failures.append(("键盘声音", message))
+        }
+        if let message = model.pointerSoundError {
+            failures.append(("鼠标与触控板", message))
+        }
+        if let message = model.soundPackError {
+            failures.append(("DIY 音色包", message))
+        }
+        return failures
     }
 
     private var statusPresentation: (text: String, symbol: String, color: Color) {
@@ -285,54 +332,62 @@ private struct PointerSoundSection: View {
     @ObservedObject var settings: AppSettings
 
     var body: some View {
-        GroupBox("鼠标与触控板点击音") {
-            VStack(alignment: .leading, spacing: 11) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                BattutaSectionHeading(
+                    "鼠标与触控板",
+                    subtitle: settings.selectedPointerProfile.tone,
+                    symbol: "computermouse.fill"
+                )
+                Spacer()
                 Toggle("启用点击音", isOn: $settings.isPointerSoundEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .accessibilityLabel("启用鼠标与触控板点击音")
+            }
 
-                Picker("点击音色", selection: $settings.selectedPointerProfileID) {
-                    ForEach(PointerSoundProfile.allCases) { profile in
-                        Text("\(profile.displayName) · \(profile.family)")
-                            .tag(profile.rawValue)
-                    }
+            Picker("点击音色", selection: $settings.selectedPointerProfileID) {
+                ForEach(PointerSoundProfile.allCases) { profile in
+                    Text("\(profile.displayName) · \(profile.family)")
+                        .tag(profile.rawValue)
                 }
-                .pickerStyle(.menu)
-                .disabled(!settings.isPointerSoundEnabled)
+            }
+            .pickerStyle(.menu)
+            .disabled(!settings.isPointerSoundEnabled)
 
-                HStack(spacing: 6) {
-                    Text(settings.selectedPointerProfile.family)
-                    Text(settings.selectedPointerProfile.tone)
-                }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
-                Toggle("播放点击抬起音", isOn: $settings.playsPointerReleaseSound)
-                    .disabled(!settings.isPointerSoundEnabled)
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("点击音量")
-                        Spacer()
-                        Text("\(Int(settings.pointerVolume * 100))%")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    Slider(value: $settings.pointerVolume, in: 0...1, step: 0.01)
-                        .accessibilityLabel("鼠标与触控板点击音量")
-                }
-                .disabled(!settings.isPointerSoundEnabled)
-
-                Divider()
-
-                Text("触控板轻点、物理点按和鼠标点击共用这套配置。macOS 不会向本功能公开设备型号，因此无法自动识别不同鼠标；点击音量可单独调整，轻微音高变化使用上方的共用开关。")
+            HStack {
+                Text(settings.selectedPointerProfile.family)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Toggle("播放抬起音", isOn: $settings.playsPointerReleaseSound)
+                    .disabled(!settings.isPointerSoundEnabled)
+                    .toggleStyle(.checkbox)
             }
-            .font(.subheadline)
-            .padding(.top, 4)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("点击音量")
+                    Spacer()
+                    Text("\(Int(settings.pointerVolume * 100))%")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: $settings.pointerVolume, in: 0...1, step: 0.01)
+                    .accessibilityLabel("鼠标与触控板点击音量")
+                    .disabled(!settings.isPointerSoundEnabled)
+            }
+
+            Text("触控板轻点、物理点按和鼠标点击共用此配置；点击音量独立于键盘音量。")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .font(.subheadline)
+        .padding(BattutaVisualStyle.cardPadding)
+        .battutaPanel()
     }
 }
 

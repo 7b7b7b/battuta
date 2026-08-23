@@ -3,7 +3,6 @@ import SwiftUI
 
 private enum TypingStatsSection: String, CaseIterable, Identifiable {
     case today = "今日"
-    case apps = "应用"
     case history = "历史"
     case keyboard = "键盘"
 
@@ -14,22 +13,31 @@ private enum TypingStatsSection: String, CaseIterable, Identifiable {
 struct TypingStatsView: View {
     @ObservedObject var model: TypingStatsModel
     @ObservedObject var settings: AppSettings
-    @State private var selectedSection: TypingStatsSection = .today
+    @State private var selectedSection: TypingStatsSection = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--stats-history") {
+            return .history
+        }
+        if ProcessInfo.processInfo.arguments.contains("--stats-keyboard") {
+            return .keyboard
+        }
+        #endif
+        return .today
+    }()
     @State private var showsClearConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
-            sectionPicker
-            Divider()
+            topBar
             content
-            Divider()
             footer
         }
-        .frame(minWidth: 780, idealWidth: 960, minHeight: 560, idealHeight: 680)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .task { await refreshWhileVisible() }
+        .frame(minWidth: 820, idealWidth: 1_040, minHeight: 600, idealHeight: 760)
+        .battutaWindowGlass()
+        .tint(BattutaVisualStyle.actionAccent)
+        .task(id: model.timelineRange) {
+            await refreshWhileVisible(range: model.timelineRange)
+        }
         .alert("清除全部输入统计？", isPresented: $showsClearConfirmation) {
             Button("取消", role: .cancel) {}
             Button("清除", role: .destructive) {
@@ -40,85 +48,83 @@ struct TypingStatsView: View {
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "keyboard.badge.clock")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.black)
-                .frame(width: 44, height: 44)
-                .background(
-                    Color(red: 0.82, green: 1, blue: 0.42),
-                    in: RoundedRectangle(cornerRadius: 12)
+    private var topBar: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 12) {
+                BattutaIconTile(
+                    symbol: "chart.bar.xaxis",
+                    tint: BattutaVisualStyle.accentStrong,
+                    size: 42,
+                    symbolSize: 18
                 )
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text("输入统计")
-                    .font(.title2.weight(.semibold))
-                Text("Battuta 本地输入统计")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            if let snapshot = model.snapshot {
-                statusLabel(for: snapshot)
-                .font(.caption.weight(.medium))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.secondary.opacity(0.08), in: Capsule())
-            }
-
-            Button {
-                Task { await model.refresh() }
-            } label: {
-                if model.isRefreshing {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: "arrow.clockwise")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("输入统计")
+                        .font(.title2.weight(.semibold))
+                    Text("清晰了解每天的输入习惯")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-            }
-            .buttonStyle(.bordered)
-            .help("刷新输入统计")
-            .accessibilityLabel("刷新输入统计")
-            .disabled(model.isRefreshing)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-    }
 
-    private var sectionPicker: some View {
-        HStack {
-            Picker("统计页面", selection: $selectedSection) {
-                ForEach(TypingStatsSection.allCases) { section in
-                    Text(section.rawValue).tag(section)
+                Spacer()
+
+                if model.snapshot != nil {
+                    let presentation = statusPresentation
+                    BattutaStatusPill(
+                        title: presentation.title,
+                        symbol: presentation.symbol,
+                        tint: presentation.color
+                    )
                 }
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 420)
 
-            Spacer()
+                Toggle("记录统计", isOn: $settings.isTypingStatsEnabled)
+                    .toggleStyle(.switch)
+                    .help("开启后仅在本机保存聚合统计，不保存输入内容")
 
-            if let snapshot = model.snapshot {
-                VStack(alignment: .trailing, spacing: 2) {
-                    if let dataDate = snapshot.today.lastUpdatedAt ?? snapshot.lastInputAt {
-                        Text("数据截至 \(statsTimestamp(dataDate))")
+                Button {
+                    Task {
+                        await model.refresh()
+                        if selectedSection == .history {
+                            await model.refreshCurrentReport()
+                        }
                     }
-                    Text("读取于 \(snapshot.generatedAt.formatted(date: .omitted, time: .standard))")
+                } label: {
+                    if model.isRefreshing || model.isLoadingReport {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 16, height: 16)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
                 }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
+                .buttonStyle(.bordered)
+                .help("刷新输入统计")
+                .accessibilityLabel("刷新输入统计")
+                .disabled(model.isRefreshing || model.isLoadingReport)
             }
 
-            Toggle("记录统计", isOn: $settings.isTypingStatsEnabled)
-                .toggleStyle(.switch)
-                .help("开启后仅在本机保存聚合统计，不保存输入内容")
+            HStack(spacing: 16) {
+                Picker("统计页面", selection: $selectedSection) {
+                    ForEach(TypingStatsSection.allCases) { section in
+                        Text(section.rawValue).tag(section)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(width: 300)
+
+                Spacer()
+
+                if let snapshot = model.snapshot {
+                    dataFreshness(snapshot)
+                }
+            }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
+        .padding(.horizontal, BattutaVisualStyle.pagePadding)
+        .padding(.vertical, 14)
+        .overlay(alignment: .bottom) {
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
+        }
     }
 
     @ViewBuilder
@@ -130,11 +136,13 @@ struct TypingStatsView: View {
                 }
                 switch selectedSection {
                 case .today:
-                    TypingStatsTodayView(snapshot: snapshot)
-                case .apps:
-                    TypingStatsAppsView(snapshot: snapshot)
+                    TypingStatsOverviewView(
+                        snapshot: snapshot,
+                        selectedRange: model.timelineRange,
+                        onSelectRange: { model.selectTimelineRange($0) }
+                    )
                 case .history:
-                    TypingStatsHistoryView(snapshot: snapshot)
+                    TypingStatsHistoryView(model: model)
                 case .keyboard:
                     TypingStatsKeyboardView(snapshot: snapshot)
                 }
@@ -161,7 +169,8 @@ struct TypingStatsView: View {
 
     private var footer: some View {
         HStack(spacing: 7) {
-            Image(systemName: "lock.shield")
+            Image(systemName: "lock.shield.fill")
+                .foregroundStyle(BattutaVisualStyle.accentStrong)
             Text("只记录字符键数量、物理键码、时间与前台应用；不保存输入内容。")
             Spacer()
             if model.isClearing {
@@ -178,7 +187,10 @@ struct TypingStatsView: View {
         .font(.caption2)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 20)
-        .padding(.vertical, 9)
+        .padding(.vertical, 10)
+        .overlay(alignment: .top) {
+            BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
+        }
     }
 
     private func refreshWarning(_ message: String) -> some View {
@@ -188,10 +200,15 @@ struct TypingStatsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
             .padding(.vertical, 7)
-            .background(.orange.opacity(0.08))
+            .background {
+                ZStack {
+                    BattutaVisualStyle.surface
+                    Color.orange.opacity(0.08)
+                }
+            }
     }
 
-    private func statusLabel(for _: TypingStatsSnapshot) -> some View {
+    private var statusPresentation: (title: String, symbol: String, color: Color) {
         let title: String
         let symbol: String
         let color: Color
@@ -206,17 +223,30 @@ struct TypingStatsView: View {
         } else {
             title = "本地统计"
             symbol = "chart.bar.fill"
-            color = .green
+            color = BattutaVisualStyle.accentStrong
         }
-        return Label(title, systemImage: symbol)
-            .foregroundStyle(color)
+        return (title, symbol, color)
     }
 
-    private func refreshWhileVisible() async {
+    private func dataFreshness(_ snapshot: TypingStatsSnapshot) -> some View {
+        HStack(spacing: 12) {
+            if let dataDate = snapshot.today.lastUpdatedAt ?? snapshot.lastInputAt {
+                Label("数据截至 \(statsTimestamp(dataDate))", systemImage: "clock")
+            }
+            Text("读取于 \(snapshot.generatedAt.formatted(date: .omitted, time: .standard))")
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .monospacedDigit()
+    }
+
+    private func refreshWhileVisible(range: TypingTimelineRange) async {
         await model.refresh()
         while !Task.isCancelled {
             do {
-                try await Task.sleep(for: .seconds(5))
+                try await Task.sleep(
+                    for: .seconds(range.refreshIntervalSeconds)
+                )
             } catch is CancellationError {
                 return
             } catch {
@@ -242,44 +272,77 @@ private struct TypingStatsTodayView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 150, maximum: 240), spacing: 12)],
-                    spacing: 12
-                ) {
-                    StatsMetricCard(
-                        title: "今日字符数",
-                        value: statsCount(snapshot.today.characterCount),
-                        detail: "按字符键触发估算",
-                        symbol: "keyboard",
-                        color: .cyan
-                    )
-                    StatsMetricCard(
-                        title: "今日最多应用",
-                        value: snapshot.today.topAppName ?? "暂无",
-                        detail: snapshot.apps.first.map {
-                            "\(statsCount($0.characterCount)) 个字符"
-                        } ?? "今天还没有输入",
-                        symbol: "app.fill",
-                        color: .green
-                    )
-                    StatsMetricCard(
-                        title: "今日峰值速度",
-                        value: "\(snapshot.today.peakCPS) 字符/秒",
-                        detail: lastInputDescription(snapshot.lastInputAt),
-                        symbol: "bolt.fill",
-                        color: .yellow
-                    )
-                    StatsMetricCard(
-                        title: "活跃时间",
-                        value: statsActiveTime(snapshot.today.activeSeconds),
-                        detail: "分布在 \(snapshot.today.activeMinuteBuckets) 个输入分钟",
-                        symbol: "clock",
-                        color: .mint
-                    )
-                }
+                StatsInstrumentCard(
+                    title: "今日输入",
+                    symbol: "keyboard",
+                    value: statsCount(snapshot.today.characterCount),
+                    unit: "个字符",
+                    valueDetail: "按字符键触发估算",
+                    cornerMetric: StatsInstrumentMetric(
+                        title: "今日峰值",
+                        value: "\(snapshot.today.peakCPS) 字/秒"
+                    ),
+                    metrics: [
+                        StatsInstrumentMetric(
+                            title: "最多应用",
+                            value: snapshot.today.topAppName ?? "暂无",
+                            detail: snapshot.apps.first.map {
+                                "\(statsCount($0.characterCount)) 个字符"
+                            } ?? "今天还没有输入"
+                        ),
+                        StatsInstrumentMetric(
+                            title: "活跃时间",
+                            value: statsActiveTime(snapshot.today.activeSeconds),
+                            detail: "\(snapshot.today.activeMinuteBuckets) 个输入分钟"
+                        ),
+                        StatsInstrumentMetric(
+                            title: "空格键",
+                            value: "\(statsCount(snapshot.todayKeyCounts[49, default: 0])) 次",
+                            detail: "不含长按连发"
+                        ),
+                    ],
+                    accessibilityValue: "今日 \(snapshot.today.characterCount) 个字符，"
+                        + "最多应用 \(snapshot.today.topAppName ?? "暂无")，"
+                        + "峰值 \(snapshot.today.peakCPS) 字符每秒，"
+                        + "活跃 \(statsActiveTime(snapshot.today.activeSeconds))，"
+                        + "空格键 \(snapshot.todayKeyCounts[49, default: 0]) 次"
+                )
 
-                GroupBox("最近 10 分钟") {
-                    VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top) {
+                        BattutaSectionHeading(
+                            "最近 10 分钟",
+                            subtitle: "每 10 秒聚合一次本地输入",
+                            symbol: "waveform.path.ecg"
+                        )
+                        Spacer()
+                        HStack(spacing: 14) {
+                            chartSummary("合计", value: statsCount(recentTotal))
+                            chartSummary("区间峰值", value: statsCount(recentPeak))
+                        }
+                    }
+
+                    if recentTotal == 0 {
+                        HStack(spacing: 12) {
+                            Image(systemName: "keyboard")
+                                .font(.title3.weight(.medium))
+                                .foregroundStyle(BattutaVisualStyle.accentStrong)
+                                .frame(width: 32, height: 32)
+                                .background(BattutaVisualStyle.accentSoft, in: Circle())
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("这一时段还没有输入")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("开始打字后，趋势会立即出现在这里。")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                        .accessibilityElement(children: .combine)
+                    } else {
                         Chart(snapshot.recentBuckets) { bucket in
                             AreaMark(
                                 x: .value("时间", bucket.start),
@@ -287,7 +350,10 @@ private struct TypingStatsTodayView: View {
                             )
                             .foregroundStyle(
                                 LinearGradient(
-                                    colors: [.green.opacity(0.36), .green.opacity(0.02)],
+                                    colors: [
+                                        BattutaVisualStyle.accent.opacity(0.34),
+                                        BattutaVisualStyle.accent.opacity(0.015),
+                                    ],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
@@ -298,34 +364,48 @@ private struct TypingStatsTodayView: View {
                                 x: .value("时间", bucket.start),
                                 y: .value("字符数", bucket.characterCount)
                             )
-                            .foregroundStyle(.green)
+                            .foregroundStyle(BattutaVisualStyle.accentStrong)
                             .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
                             .interpolationMethod(.linear)
                         }
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .minute, count: 2)) {
-                                AxisGridLine().foregroundStyle(.secondary.opacity(0.12))
+                                AxisGridLine().foregroundStyle(.secondary.opacity(0.10))
                                 AxisValueLabel(format: .dateTime.hour().minute())
                             }
                         }
                         .chartYAxis {
                             AxisMarks(position: .leading) {
-                                AxisGridLine().foregroundStyle(.secondary.opacity(0.12))
+                                AxisGridLine().foregroundStyle(.secondary.opacity(0.10))
                                 AxisValueLabel()
                             }
                         }
-                        .frame(minHeight: 210)
+                        .frame(minHeight: 235)
                         .accessibilityLabel("最近十分钟字符数曲线")
                         .accessibilityValue("合计 \(recentTotal) 个字符，单个区间峰值 \(recentPeak) 个字符")
 
-                        Text("每 10 秒汇总一次；空白区间表示没有有效输入。")
+                        Text("空白区间表示没有有效输入。")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.top, 5)
                 }
+                .padding(BattutaVisualStyle.cardPadding)
+                .battutaPanel()
             }
             .padding(20)
+            .frame(maxWidth: 1_080)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func chartSummary(_ title: String, value: String) -> some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -360,161 +440,142 @@ private struct TypingStatsAppsView: View {
                     )
                     .frame(minHeight: 300)
                 } else {
-                    LazyVStack(spacing: 8) {
+                    LazyVStack(spacing: 0) {
                         ForEach(Array(snapshot.apps.enumerated()), id: \.element.id) { index, app in
                             TypingAppRow(
                                 rank: index + 1,
                                 app: app,
                                 total: max(snapshot.today.characterCount, 1)
                             )
+                            if index < snapshot.apps.count - 1 {
+                                Divider().padding(.leading, 58)
+                            }
                         }
                     }
+                    .padding(.vertical, 4)
+                    .battutaPanel()
                 }
             }
             .padding(20)
+            .frame(maxWidth: 1_080)
+            .frame(maxWidth: .infinity)
         }
     }
 }
 
-@MainActor
-private struct TypingStatsHistoryView: View {
-    let snapshot: TypingStatsSnapshot
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 180, maximum: 280), spacing: 12)],
-                    spacing: 12
-                ) {
-                    StatsMetricCard(
-                        title: "14 天总计",
-                        value: statsCount(snapshot.fourteenDayTotal),
-                        detail: "\(snapshot.activeDayCount) 个活跃日",
-                        symbol: "calendar",
-                        color: .cyan
-                    )
-                    StatsMetricCard(
-                        title: "日均字符数",
-                        value: statsCount(snapshot.fourteenDayAverage),
-                        detail: "包含没有输入的日期",
-                        symbol: "chart.bar.xaxis",
-                        color: .green
-                    )
-                    StatsMetricCard(
-                        title: "最佳一天",
-                        value: snapshot.bestDay.map { statsCount($0.characterCount) } ?? "—",
-                        detail: snapshot.bestDay.map {
-                            $0.date.formatted(.dateTime.month().day())
-                        } ?? "暂无数据",
-                        symbol: "trophy.fill",
-                        color: .yellow
-                    )
-                }
-
-                GroupBox("最近 14 天") {
-                    Chart(snapshot.history) { day in
-                        BarMark(
-                            x: .value("日期", day.date, unit: .day),
-                            y: .value("字符数", day.characterCount)
-                        )
-                        .foregroundStyle(
-                            day.dateKey == snapshot.today.dateKey
-                                ? Color.green
-                                : Color.cyan.opacity(0.72)
-                        )
-                        .cornerRadius(3)
-                    }
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: .day, count: 2)) {
-                            AxisGridLine().foregroundStyle(.secondary.opacity(0.10))
-                            AxisValueLabel(format: .dateTime.month().day())
-                        }
-                    }
-                    .chartYAxis {
-                        AxisMarks(position: .leading) {
-                            AxisGridLine().foregroundStyle(.secondary.opacity(0.12))
-                            AxisValueLabel()
-                        }
-                    }
-                    .frame(minHeight: 235)
-                    .padding(.top, 5)
-                    .accessibilityLabel("最近十四天字符数柱状图")
-                    .accessibilityValue("总计 \(snapshot.fourteenDayTotal) 个字符")
-                }
-
-                LazyVStack(spacing: 6) {
-                    ForEach(snapshot.history.reversed()) { day in
-                        HStack(spacing: 12) {
-                            Text(day.date.formatted(.dateTime.month().day().weekday(.abbreviated)))
-                                .frame(width: 86, alignment: .leading)
-                            Text(statsCount(day.characterCount))
-                                .fontWeight(.medium)
-                                .monospacedDigit()
-                                .frame(width: 90, alignment: .trailing)
-                            Text(statsActiveTime(day.activeSeconds))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 90, alignment: .trailing)
-                            Text(day.topAppName ?? "—")
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                            Spacer(minLength: 0)
-                            Text("峰值 \(day.peakCPS) 字符/秒")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                        .font(.subheadline)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 9))
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(day.date.formatted(.dateTime.month().day().weekday(.wide)))
-                        .accessibilityValue(
-                            "\(day.characterCount) 个字符，活跃 \(statsActiveTime(day.activeSeconds))，"
-                                + "最多在 \(day.topAppName ?? "未知应用")，峰值 \(day.peakCPS) 字符每秒"
-                        )
-                    }
-                }
-            }
-            .padding(20)
-        }
-    }
-}
-
-@MainActor
-private struct StatsMetricCard: View {
+private struct StatsInstrumentMetric: Identifiable {
     let title: String
     let value: String
-    let detail: String
+    var detail: String? = nil
+
+    var id: String { title }
+}
+
+@MainActor
+private struct StatsInstrumentCard: View {
+    let title: String
     let symbol: String
-    let color: Color
+    let value: String
+    let unit: String
+    let valueDetail: String
+    let cornerMetric: StatsInstrumentMetric
+    let metrics: [StatsInstrumentMetric]
+    let accessibilityValue: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
                 Label(title, systemImage: symbol)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
+                    .labelStyle(.titleAndIcon)
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(cornerMetric.value)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
+                        .monospacedDigit()
+                    Text(cornerMetric.title)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
+                }
             }
-            Text(value)
-                .font(.title2.weight(.semibold))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-            Text(detail)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+
+            HStack(alignment: .bottom, spacing: 24) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(value)
+                            .font(.system(size: 50, weight: .bold, design: .rounded))
+                            .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.68)
+                        Text(unit)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
+                    }
+
+                    Text(valueDetail)
+                        .font(.caption2)
+                        .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
+                }
+                .frame(minWidth: 220, alignment: .leading)
+                .layoutPriority(1)
+
+                HStack(alignment: .top, spacing: 0) {
+                    ForEach(Array(metrics.enumerated()), id: \.element.id) { index, metric in
+                        if index > 0 {
+                            Rectangle()
+                                .fill(BattutaVisualStyle.instrumentSeparator)
+                                .frame(width: 1, height: 44)
+                                .padding(.horizontal, 14)
+                                .accessibilityHidden(true)
+                        }
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(metric.title)
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
+                            Text(metric.value)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .minimumScaleFactor(0.72)
+                                .help(metric.value)
+                            if let detail = metric.detail {
+                                Text(detail)
+                                    .font(.caption2)
+                                    .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .minimumScaleFactor(0.78)
+                                    .help(detail)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
         }
-        .padding(13)
-        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-        .background(color.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.18)))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            BattutaVisualStyle.instrumentSurface,
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.16), radius: 12, y: 6)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
-        .accessibilityValue("\(value)，\(detail)")
+        .accessibilityValue(accessibilityValue)
     }
 }
 
@@ -527,9 +588,13 @@ private struct TypingAppRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text("\(rank)")
-                .font(.headline.monospacedDigit())
-                .foregroundStyle(rank <= 3 ? Color.green : Color.secondary)
-                .frame(width: 26)
+                .font(.caption.weight(.bold).monospacedDigit())
+                .foregroundStyle(rank <= 3 ? BattutaVisualStyle.accentStrong : Color.secondary)
+                .frame(width: 28, height: 28)
+                .background(
+                    (rank <= 3 ? BattutaVisualStyle.accentSoft : Color.secondary.opacity(0.08)),
+                    in: Circle()
+                )
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
@@ -549,7 +614,7 @@ private struct TypingAppRow: View {
                 }
 
                 ProgressView(value: Double(app.characterCount), total: Double(total))
-                    .tint(.green)
+                    .tint(BattutaVisualStyle.accentStrong)
 
                 HStack {
                     Text(statsPercent(app.characterCount, total: total))
@@ -561,8 +626,8 @@ private struct TypingAppRow: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .padding(12)
-        .background(.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 11))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("第 \(rank) 名，\(app.displayName)")
         .accessibilityValue(
@@ -585,9 +650,7 @@ private struct StatsPlaceholderView: View {
                 ProgressView()
                     .controlSize(.regular)
             } else {
-                Image(systemName: symbol)
-                    .font(.system(size: 34, weight: .medium))
-                    .foregroundStyle(.secondary)
+                BattutaIconTile(symbol: symbol, tint: .secondary, size: 48, symbolSize: 21)
             }
             Text(title)
                 .font(.headline)
@@ -600,6 +663,7 @@ private struct StatsPlaceholderView: View {
         }
         .padding(30)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
     }
 }
 

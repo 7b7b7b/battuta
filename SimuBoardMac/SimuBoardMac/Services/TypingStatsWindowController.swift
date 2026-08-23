@@ -12,12 +12,13 @@ final class TypingStatsWindowController: NSWindowController, NSWindowDelegate {
             model: appModel.typingStats,
             settings: appModel.settings
         )
-        let hostingController = NSHostingController(rootView: content)
+        let hostingController = BattutaGlassHostingController(rootView: content)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Battuta · 输入统计"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(NSSize(width: 960, height: 680))
-        window.contentMinSize = NSSize(width: 780, height: 560)
+        BattutaWindowChrome.apply(to: window)
+        window.setContentSize(NSSize(width: 1_040, height: 760))
+        window.contentMinSize = NSSize(width: 820, height: 600)
         window.center()
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed

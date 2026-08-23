@@ -7,33 +7,46 @@ struct TypingStatsSummarySection: View {
     let onOpenDetails: () -> Void
 
     var body: some View {
-        GroupBox("输入统计") {
-            VStack(alignment: .leading, spacing: 11) {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack {
+                BattutaSectionHeading(
+                    "输入统计",
+                    subtitle: "聚合保存在本机",
+                    symbol: "chart.bar.fill"
+                )
+                Spacer()
                 Toggle("记录本地输入统计", isOn: $settings.isTypingStatsEnabled)
-                    .font(.subheadline)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .accessibilityLabel("记录本地输入统计")
+            }
 
-                Text("仅保存聚合数量、物理键码、时间与前台应用；不保存输入内容或按键顺序。")
-                    .font(.caption2)
+            Text("仅保存聚合数量、物理键码、时间与前台应用；不保存输入内容或按键顺序。")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if settings.isTypingStatsEnabled {
+                content
+            } else {
+                Label("统计已暂停，已有历史数据仍会保留。", systemImage: "pause.circle")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-                if settings.isTypingStatsEnabled {
-                    content
-                } else {
-                    Label("统计已暂停，已有历史数据仍会保留。", systemImage: "pause.circle")
-                        .font(.caption)
+            Button(action: onOpenDetails) {
+                HStack {
+                    Label("查看详细统计", systemImage: "chart.xyaxis.line")
+                    Spacer()
+                    Image(systemName: "arrow.up.forward.square")
                         .foregroundStyle(.secondary)
                 }
-
-                Button(action: onOpenDetails) {
-                    Label("打开详细输入统计", systemImage: "chart.xyaxis.line")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .help("查看今日、应用、历史和逐键热力图")
             }
-            .padding(.top, 4)
+            .buttonStyle(.bordered)
+            .help("查看今日、应用、历史和逐键热力图")
         }
+        .padding(BattutaVisualStyle.cardPadding)
+        .battutaPanel()
         .task { await refreshWhileVisible() }
         .onChange(of: settings.isTypingStatsEnabled) { enabled in
             guard enabled else { return }
@@ -67,32 +80,17 @@ struct TypingStatsSummarySection: View {
 
     private func loadedContent(_ snapshot: TypingStatsSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(statsCount(snapshot.today.characterCount))
-                        .font(.title2.weight(.semibold))
-                        .monospacedDigit()
-                    Text("今日字符数")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("今日字符数")
-                .accessibilityValue("\(snapshot.today.characterCount) 个字符")
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(snapshot.today.peakCPS) 字符/秒")
-                        .font(.subheadline.weight(.medium))
-                        .monospacedDigit()
-                    Text("今日峰值速度")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("今日峰值速度")
-                .accessibilityValue("\(snapshot.today.peakCPS) 字符每秒")
+            HStack(spacing: 10) {
+                compactMetric(
+                    title: "今日字符",
+                    value: statsCount(snapshot.today.characterCount),
+                    symbol: "keyboard"
+                )
+                compactMetric(
+                    title: "今日峰值",
+                    value: "\(snapshot.today.peakCPS)/秒",
+                    symbol: "bolt.fill"
+                )
             }
 
             Label(
@@ -110,6 +108,29 @@ struct TypingStatsSummarySection: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func compactMetric(title: String, value: String, symbol: String) -> some View {
+        HStack(spacing: 8) {
+            BattutaIconTile(
+                symbol: symbol,
+                tint: BattutaVisualStyle.accentStrong,
+                size: 30,
+                symbolSize: 12
+            )
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                Text(title)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(BattutaVisualStyle.recessed, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     private func refreshWhileVisible() async {

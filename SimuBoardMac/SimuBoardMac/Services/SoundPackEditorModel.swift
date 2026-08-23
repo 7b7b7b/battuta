@@ -56,7 +56,8 @@ enum SoundPackEditorSlot: Hashable, Sendable {
         case let .special(special):
             special.displayName
         case let .key(keyID):
-            KeyboardLayoutCatalog.ansiTKL.keys.first(where: { $0.id == keyID })?.label
+            (KeyboardLayoutCatalog.ansiTKL.keys + KeyboardExtendedLayoutCatalog.keys)
+                .first(where: { $0.id == keyID })?.label
                 ?? keyID.rawValue
         }
     }
@@ -165,7 +166,8 @@ final class SoundPackEditorModel: ObservableObject {
     }
 
     var selectedKey: KeyboardKeyDescriptor? {
-        layout.keys.first { $0.id == selectedKeyID }
+        (layout.keys + KeyboardExtendedLayoutCatalog.keys)
+            .first { $0.id == selectedKeyID }
     }
 
     var canExport: Bool { persistedPackID != nil }

@@ -23,7 +23,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 - 上传包含完整按下与抬起的一段录音，依据瞬态和能量低谷自动建议切点；可查看波形、分别试听并手动微调。
 - 保存后立即启用，也可导入或导出 `.simuboardpack` 与他人分享。
 
-自定义音频在导入时统一转换成 48 kHz、单声道、16-bit PCM WAV，并在选择音色时预载到内存。实际打字只执行内存查表与播放，不在按键路径上读磁盘。映射优先级、安全限制与包结构见 [`SOUND_PACK_FORMAT.md`](SOUND_PACK_FORMAT.md)。当前仅提供 Mac ANSI TKL 编辑界面；ISO/JIS、数字小键盘和不能稳定产生标准键盘事件的硬件键尚未单独建模。
+自定义音频在导入时统一转换成 48 kHz、单声道、16-bit PCM WAV，并在选择音色时预载到内存。实际打字只执行内存查表与播放，不在按键路径上读磁盘。映射优先级、安全限制与包结构见 [`SOUND_PACK_FORMAT.md`](SOUND_PACK_FORMAT.md)。当前编辑界面按 Apple 紧凑型 Magic Keyboard 的 Mac US ANSI 物理规格绘制；ISO/JIS、数字小键盘和不能稳定产生标准键盘事件的硬件键尚未单独建模。
 
 ## 更新检查
 
@@ -63,7 +63,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 ./scripts/build-dmg.sh
 ```
 
-输出位于 `build/Battuta-0.6.0-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
+输出位于 `build/Battuta-0.8.1-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
 
 如有正式证书，可通过 `SIMUBOARD_SIGNING_IDENTITY="Developer ID Application: ..." ./scripts/build-dmg.sh` 指定。打包脚本会拒绝退回 ad-hoc 签名，防止更新再次悄悄破坏输入监控授权。
 

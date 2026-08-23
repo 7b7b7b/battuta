@@ -19,6 +19,10 @@ final class TypingStatsModel: ObservableObject {
     @Published private(set) var isRefreshing = false
     @Published private(set) var isClearing = false
     @Published private(set) var isRecordingSuspended = false
+    @Published private(set) var timelineRange: TypingTimelineRange = .oneHour
+    @Published private(set) var reportSnapshot: TypingRangeReportSnapshot?
+    @Published private(set) var isLoadingReport = false
+    @Published private(set) var reportErrorMessage: String?
 
     private let persistence: any TypingStatsPersistence
     private var pendingCharacters: [PendingCharacterKey: Int64] = [:]
@@ -34,6 +38,7 @@ final class TypingStatsModel: ObservableObject {
     private var cachedDateInterval: DateInterval?
     private var cachedDateKey: String?
     private var cachedTimeZoneIdentifier: String?
+    private var reportRequestID = 0
 
     init(persistence: any TypingStatsPersistence = TypingStatsStore()) {
         self.persistence = persistence
@@ -48,6 +53,12 @@ final class TypingStatsModel: ObservableObject {
         if let lastWriteError { return lastWriteError }
         if case let .failed(message) = sourceStatus { return message }
         return nil
+    }
+
+    func selectTimelineRange(_ range: TypingTimelineRange) {
+        guard timelineRange != range else { return }
+        timelineRange = range
+        Task { await refresh() }
     }
 
     /// O(1) hot-path aggregation. No database work or detached task is created per event.
@@ -143,18 +154,66 @@ final class TypingStatsModel: ObservableObject {
         defer { isRefreshing = false }
 
         let didFlush = await flushPending()
-        do {
-            snapshot = try await persistence.loadSnapshot()
-            if didFlush {
-                sourceStatus = .available
-            } else if let lastWriteError {
-                sourceStatus = .failed(lastWriteError)
+        while !Task.isCancelled {
+            let requestedRange = timelineRange
+            do {
+                let loadedSnapshot = try await persistence.loadSnapshot(
+                    timelineRange: requestedRange
+                )
+                guard requestedRange == timelineRange else { continue }
+                snapshot = loadedSnapshot
+                if didFlush {
+                    sourceStatus = .available
+                } else if let lastWriteError {
+                    sourceStatus = .failed(lastWriteError)
+                }
+                return
+            } catch is CancellationError {
+                return
+            } catch {
+                guard requestedRange == timelineRange else { continue }
+                sourceStatus = .failed(error.localizedDescription)
+                return
             }
+        }
+    }
+
+    func loadReport(
+        range: TypingDateRange,
+        comparisonRange: TypingDateRange?
+    ) async {
+        reportRequestID += 1
+        let requestID = reportRequestID
+        isLoadingReport = true
+        defer {
+            if requestID == reportRequestID {
+                isLoadingReport = false
+            }
+        }
+
+        _ = await flushPending()
+        do {
+            let report = try await persistence.loadReport(
+                range: range,
+                comparisonRange: comparisonRange
+            )
+            guard requestID == reportRequestID, !Task.isCancelled else { return }
+            reportSnapshot = report
+            reportErrorMessage = nil
         } catch is CancellationError {
             return
         } catch {
-            sourceStatus = .failed(error.localizedDescription)
+            guard requestID == reportRequestID else { return }
+            reportErrorMessage = error.localizedDescription
         }
+    }
+
+    func refreshCurrentReport() async {
+        guard let reportSnapshot else { return }
+        await loadReport(
+            range: reportSnapshot.range,
+            comparisonRange: reportSnapshot.comparisonRange
+        )
     }
 
     @discardableResult
@@ -170,12 +229,24 @@ final class TypingStatsModel: ObservableObject {
         pendingKeyPresses.removeAll(keepingCapacity: true)
         retryBatch = nil
 
+        let previousReportRange = reportSnapshot?.range
+        let previousComparisonRange = reportSnapshot?.comparisonRange
+
         do {
             try await persistence.clearAll()
             consecutiveWriteFailures = 0
             lastWriteError = nil
             isRecordingSuspended = false
-            snapshot = try await persistence.loadSnapshot()
+            snapshot = try await persistence.loadSnapshot(timelineRange: timelineRange)
+            if let previousReportRange {
+                reportSnapshot = try await persistence.loadReport(
+                    range: previousReportRange,
+                    comparisonRange: previousComparisonRange
+                )
+            } else {
+                reportSnapshot = nil
+            }
+            reportErrorMessage = nil
             sourceStatus = .available
             return true
         } catch {

@@ -10,15 +10,18 @@ struct UpdateSection: View {
     }
 
     var body: some View {
-        GroupBox("软件更新") {
-            VStack(alignment: .leading, spacing: 10) {
-                preferenceContent
-                Divider()
-                resultContent
-                controls
-            }
-            .padding(.top, 4)
+        VStack(alignment: .leading, spacing: 11) {
+            BattutaSectionHeading(
+                "软件更新",
+                subtitle: "从 GitHub Release 检查新版本",
+                symbol: "arrow.triangle.2.circlepath"
+            )
+            preferenceContent
+            resultContent
+            controls
         }
+        .padding(BattutaVisualStyle.cardPadding)
+        .battutaPanel()
     }
 
     @ViewBuilder
@@ -39,14 +42,14 @@ struct UpdateSection: View {
 
         case .enabled, .disabled:
             VStack(alignment: .leading, spacing: 6) {
-                Toggle("打开菜单时自动检查更新", isOn: automaticCheckBinding)
+                Toggle("打开菜单时自动检查", isOn: automaticCheckBinding)
                 privacyText
             }
         }
     }
 
     private var privacyText: some View {
-        Text("开启后，每次打开菜单都会触发更新判断，自动联网请求至少间隔 5 分钟；手动检查至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；Battuta 不会上传按键、输入内容、音色设置或设备标识。")
+        Text("自动请求至少间隔 5 分钟，手动检查至少间隔 65 秒；不会上传按键、输入内容或音色设置。")
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -58,7 +61,7 @@ struct UpdateSection: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label("发现新版本 \(release.version.description)", systemImage: "sparkles")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(BattutaVisualStyle.accentStrong)
                 Button {
                     openURL(release.releaseURL)
                 } label: {
@@ -173,7 +176,7 @@ private extension View {
 #if DEBUG
 private let previewRelease = try! ReleaseSummary(
     tagName: "v0.4.0",
-    releaseURL: URL(string: "https://github.com/7b7b7b/simuboard/releases/tag/v0.4.0")!,
+    releaseURL: URL(string: "https://github.com/7b7b7b/battuta/releases/tag/v0.4.0")!,
     publishedAt: Date()
 )
 

@@ -43,6 +43,11 @@
 		A50000000000000000000005 /* TypingStatsSummarySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000005 /* TypingStatsSummarySection.swift */; };
 		A50000000000000000000006 /* TypingStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000006 /* TypingStatsView.swift */; };
 		A50000000000000000000007 /* TypingStatsKeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000007 /* TypingStatsKeyboardView.swift */; };
+		A50000000000000000000008 /* TypingStatsOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000008 /* TypingStatsOverviewView.swift */; };
+		A50000000000000000000009 /* TypingStatsReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000009 /* TypingStatsReportView.swift */; };
+		A5000000000000000000000A /* TypingYearHeatmap.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5000000000000000000000A /* TypingYearHeatmap.swift */; };
+		A60000000000000000000001 /* MacKeyboardLayoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000001 /* MacKeyboardLayoutView.swift */; };
+		A60000000000000000000002 /* BattutaVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000002 /* BattutaVisualStyle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -85,6 +90,11 @@
 		B50000000000000000000005 /* TypingStatsSummarySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsSummarySection.swift; sourceTree = "<group>"; };
 		B50000000000000000000006 /* TypingStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsView.swift; sourceTree = "<group>"; };
 		B50000000000000000000007 /* TypingStatsKeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsKeyboardView.swift; sourceTree = "<group>"; };
+		B50000000000000000000008 /* TypingStatsOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsOverviewView.swift; sourceTree = "<group>"; };
+		B50000000000000000000009 /* TypingStatsReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingStatsReportView.swift; sourceTree = "<group>"; };
+		B5000000000000000000000A /* TypingYearHeatmap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingYearHeatmap.swift; sourceTree = "<group>"; };
+		B60000000000000000000001 /* MacKeyboardLayoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacKeyboardLayoutView.swift; sourceTree = "<group>"; };
+		B60000000000000000000002 /* BattutaVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattutaVisualStyle.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -161,7 +171,9 @@
 		D10000000000000000000005 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				B60000000000000000000002 /* BattutaVisualStyle.swift */,
 				B10000000000000000000009 /* MenuBarView.swift */,
+				B60000000000000000000001 /* MacKeyboardLayoutView.swift */,
 				B2000000000000000000000C /* UpdateSection.swift */,
 				B30000000000000000000002 /* SoundPackEditorView.swift */,
 				B30000000000000000000003 /* SoundPackKeyboardView.swift */,
@@ -169,6 +181,9 @@
 				B50000000000000000000005 /* TypingStatsSummarySection.swift */,
 				B50000000000000000000006 /* TypingStatsView.swift */,
 				B50000000000000000000007 /* TypingStatsKeyboardView.swift */,
+				B50000000000000000000008 /* TypingStatsOverviewView.swift */,
+				B50000000000000000000009 /* TypingStatsReportView.swift */,
+				B5000000000000000000000A /* TypingYearHeatmap.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -286,6 +301,11 @@
 				A50000000000000000000005 /* TypingStatsSummarySection.swift in Sources */,
 				A50000000000000000000006 /* TypingStatsView.swift in Sources */,
 				A50000000000000000000007 /* TypingStatsKeyboardView.swift in Sources */,
+				A50000000000000000000008 /* TypingStatsOverviewView.swift in Sources */,
+				A50000000000000000000009 /* TypingStatsReportView.swift in Sources */,
+				A5000000000000000000000A /* TypingYearHeatmap.swift in Sources */,
+				A60000000000000000000001 /* MacKeyboardLayoutView.swift in Sources */,
+				A60000000000000000000002 /* BattutaVisualStyle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -335,14 +355,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 21;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.8.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -357,14 +377,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 21;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.8.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;

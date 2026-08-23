@@ -26,12 +26,13 @@ final class SoundPackEditorWindowController: NSWindowController, NSWindowDelegat
         self.editor = editor
 
         let content = SoundPackEditorView(editor: editor)
-        let hostingController = NSHostingController(rootView: content)
+        let hostingController = BattutaGlassHostingController(rootView: content)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Battuta · DIY 音色编辑器"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(NSSize(width: 1_180, height: 720))
-        window.minSize = NSSize(width: 1_080, height: 640)
+        BattutaWindowChrome.apply(to: window)
+        window.setContentSize(NSSize(width: 1_240, height: 760))
+        window.minSize = NSSize(width: 1_120, height: 660)
         window.center()
         window.isReleasedWhenClosed = false
 

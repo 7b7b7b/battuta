@@ -14,12 +14,181 @@ struct TypingDaySummary: Equatable, Identifiable, Sendable {
     var id: String { dateKey }
 }
 
+/// A range of local calendar days. Both `startDate` and `endDate` are included.
+///
+/// The persistence layer normalizes the values to local day boundaries so callers
+/// can pass dates directly from a date picker. Reversed inputs are accepted and
+/// stored in chronological order.
+struct TypingDateRange: Equatable, Sendable {
+    let startDate: Date
+    let endDate: Date
+
+    init(startDate: Date, endDate: Date) {
+        if startDate <= endDate {
+            self.startDate = startDate
+            self.endDate = endDate
+        } else {
+            self.startDate = endDate
+            self.endDate = startDate
+        }
+    }
+}
+
+struct TypingWeekdayAggregate: Equatable, Identifiable, Sendable {
+    /// Foundation calendar weekday: 1 is Sunday and 7 is Saturday.
+    let weekday: Int
+    let characterCount: Int64
+    let activeDayCount: Int
+
+    var id: Int { weekday }
+}
+
+struct TypingHourAggregate: Equatable, Identifiable, Sendable {
+    /// Local wall-clock hour in the range 0...23.
+    let hour: Int
+    let characterCount: Int64
+    let activeDayCount: Int
+    let peakCPS: Int64
+
+    var id: Int { hour }
+}
+
+struct TypingWeekdayHourAggregate: Equatable, Identifiable, Sendable {
+    /// Foundation calendar weekday: 1 is Sunday and 7 is Saturday.
+    let weekday: Int
+    /// Local wall-clock hour in the range 0...23.
+    let hour: Int
+    let characterCount: Int64
+    let comparisonCharacterCount: Int64
+
+    /// Stable weekday-major position in the complete 7 x 24 matrix.
+    var id: Int { (weekday - 1) * 24 + hour }
+}
+
+struct TypingRangeMetrics: Equatable, Sendable {
+    let characterCount: Int64
+    let calendarDayCount: Int
+    let activeDayCount: Int
+    /// Average over every requested calendar day, including days with no input.
+    let dailyAverage: Double
+    /// Average over days that contain at least one recorded character.
+    let activeDayAverage: Double
+    let peakCPS: Int64
+    let bestDay: TypingDaySummary?
+    let longestActiveDayStreak: Int
+    let busiestWeekday: TypingWeekdayAggregate?
+    let busiestHour: TypingHourAggregate?
+}
+
+struct TypingRangeApplicationSummary: Equatable, Identifiable, Sendable {
+    let application: TypingApplicationIdentity
+    let characterCount: Int64
+    let comparisonCharacterCount: Int64
+    let activeDayCount: Int
+    let comparisonActiveDayCount: Int
+    let share: Double
+    let comparisonShare: Double
+    let characterChange: Int64
+    /// Fractional change, where `0.25` means +25%. Nil means there is no
+    /// comparison baseline (the comparison count is zero).
+    let relativeCharacterChange: Double?
+
+    var id: String { application.processKey }
+}
+
+struct TypingReportDataCoverage: Equatable, Sendable {
+    let firstRecordedDate: Date?
+    let lastRecordedDate: Date?
+    let requestedDayCount: Int
+    /// Requested days that contain at least one permanent daily aggregate.
+    let recordedDayCount: Int
+    /// True when the requested endpoints fall inside the permanent aggregate's
+    /// first-to-last recorded date span. Empty dates inside that span are valid.
+    let isRangeWithinAvailableDates: Bool
+}
+
+struct TypingRangeReportSnapshot: Equatable, Sendable {
+    let generatedAt: Date
+    let range: TypingDateRange
+    let comparisonRange: TypingDateRange?
+    let metrics: TypingRangeMetrics
+    let comparisonMetrics: TypingRangeMetrics?
+    /// One entry for every requested calendar day, including zero-value days.
+    let days: [TypingDaySummary]
+    let weekdayDistribution: [TypingWeekdayAggregate]
+    let hourlyDistribution: [TypingHourAggregate]
+    /// Complete 7 x 24 local-time rhythm matrix, ordered Sunday through
+    /// Saturday and hour 0 through 23. Missing current/comparison cells are zero.
+    let weekdayHourDistribution: [TypingWeekdayHourAggregate]
+    /// Union of applications found in the selected and comparison ranges.
+    let applications: [TypingRangeApplicationSummary]
+    let coverage: TypingReportDataCoverage
+}
+
 struct TypingBucket: Equatable, Identifiable, Sendable {
     let index: Int
     let start: Date
     let characterCount: Int64
 
     var id: Int { index }
+}
+
+enum TypingTimelineRange: String, CaseIterable, Identifiable, Sendable {
+    case sevenDays = "7d"
+    case twentyFourHours = "24h"
+    case sixHours = "6h"
+    case oneHour = "1h"
+
+    var id: Self { self }
+
+    var durationSeconds: Int64 {
+        bucketSeconds * Int64(bucketCount)
+    }
+
+    var bucketSeconds: Int64 {
+        switch self {
+        case .sevenDays: 7_200
+        case .twentyFourHours: 900
+        case .sixHours: 300
+        case .oneHour: 60
+        }
+    }
+
+    var bucketCount: Int {
+        switch self {
+        case .sevenDays: 84
+        case .twentyFourHours: 96
+        case .sixHours: 72
+        case .oneHour: 60
+        }
+    }
+
+    var displayTitle: String {
+        switch self {
+        case .sevenDays: "最近 7 天"
+        case .twentyFourHours: "最近 24 小时"
+        case .sixHours: "最近 6 小时"
+        case .oneHour: "最近 1 小时"
+        }
+    }
+
+    var bucketDescription: String {
+        switch self {
+        case .sevenDays: "每格 2 小时"
+        case .twentyFourHours: "每格 15 分钟"
+        case .sixHours: "每格 5 分钟"
+        case .oneHour: "每格 1 分钟"
+        }
+    }
+
+    var refreshIntervalSeconds: Double {
+        switch self {
+        case .sevenDays: 60
+        case .twentyFourHours: 30
+        case .sixHours: 15
+        case .oneHour: 5
+        }
+    }
 }
 
 struct TypingAppSummary: Equatable, Identifiable, Sendable {
@@ -33,6 +202,21 @@ struct TypingAppSummary: Equatable, Identifiable, Sendable {
     let peakCPS: Int64
 
     var id: String { processKey }
+}
+
+struct TypingAppTimeline: Equatable, Identifiable, Sendable {
+    let application: TypingApplicationIdentity
+    let buckets: [TypingBucket]
+
+    var id: String { application.processKey }
+
+    var rangeCharacterCount: Int64 {
+        buckets.reduce(0) { $0 + $1.characterCount }
+    }
+
+    var peakBucketCount: Int64 {
+        buckets.lazy.map(\.characterCount).max() ?? 0
+    }
 }
 
 struct TypingApplicationIdentity: Equatable, Hashable, Sendable {
@@ -75,8 +259,10 @@ struct TypingStatsSnapshot: Equatable, Sendable {
     let generatedAt: Date
     let lastInputAt: Date?
     let today: TypingDaySummary
+    let timelineRange: TypingTimelineRange
     let recentBuckets: [TypingBucket]
     let apps: [TypingAppSummary]
+    let recentAppTimelines: [TypingAppTimeline]
     let history: [TypingDaySummary]
     let todayKeyCounts: [UInt16: Int64]
     let allTimeKeyCounts: [UInt16: Int64]
