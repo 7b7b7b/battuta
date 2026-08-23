@@ -29,6 +29,12 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 
 首次使用时可自行决定是否允许自动检查更新。开启后，每次打开菜单都会触发更新判断，自动联网访问公开 GitHub Release API 至少间隔 5 分钟，并使用 ETag 避免重复下载版本信息；手动检查至少间隔 65 秒。GitHub 会收到 IP 地址和常规网络请求信息；Battuta 不上传按键、输入内容、音色设置或设备标识。
 
+## 登录时自动启动
+
+“登录时自动启动”默认开启。Battuta 只有在位于系统或当前用户的“应用程序”文件夹时才会把自身登记为登录项，避免从 DMG、Xcode 构建目录或临时目录启动时留下失效路径；关闭菜单面板“启动”区里的开关会移除该登录项。
+
+macOS 可能把新登录项标记为需要用户确认。此时可直接从 Battuta 打开“系统设置 → 通用 → 登录项与扩展”，允许 Battuta 后重新登录即可验证。这里使用 macOS 13 自带的 `SMAppService.mainApp`，不需要额外的 Helper，也不要求 Apple Developer 账号。
+
 ## 验证 DIY 核心
 
 ```bash
@@ -63,7 +69,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 ./scripts/build-dmg.sh
 ```
 
-输出位于 `build/Battuta-0.8.1-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
+输出位于 `build/Battuta-0.9.0-unnotarized.dmg`。该包是同时支持 Apple Silicon 和 Intel Mac 的 Universal App。固定的自签名证书使不同版本拥有相同的 designated requirement，从而避免 ad-hoc 每次构建都被输入监控视为新 App；它仍未使用 Developer ID 或 Apple 公证，构建不需要 Apple Developer 账号。该自签证书在其他 Mac 上不受系统信任，`codesign` / `spctl` 会报告未受信任，用户仍需按下方步骤手动通过 Gatekeeper；它不能替代正式发布所需的 Developer ID。
 
 如有正式证书，可通过 `SIMUBOARD_SIGNING_IDENTITY="Developer ID Application: ..." ./scripts/build-dmg.sh` 指定。打包脚本会拒绝退回 ad-hoc 签名，防止更新再次悄悄破坏输入监控授权。
 
@@ -73,7 +79,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 2. 在“应用程序”中按住 Control 点击 Battuta，选择“打开”。如果仍被阻止，到“系统设置 → 隐私与安全性”点击“仍要打开”。
 3. 点击菜单栏键盘图标，再点击“请求授权”。
 4. 在“系统设置 → 隐私与安全性 → 输入监控”中打开 Battuta。
-5. 退出并重新打开 Battuta，然后确认菜单底部显示“输入监控正在运行”。
+5. 退出并重新打开 Battuta，然后确认菜单底部显示“输入监控正在运行”；菜单“启动”区应显示“已加入系统登录项”。如果显示需要确认，请点击“打开登录项设置”并允许 Battuta。
 
 如果从 0.3.0 或更早的 ad-hoc 版本升级，系统设置中的蓝色开关仍可能绑定旧代码身份。请先完全退出应用，在“输入监控”列表中选中旧的 SimuBoard 或 Battuta 并点击下方“−”删除，再重新添加 `/Applications/Battuta.app`、开启并重启 App。只把开关关掉再打开不会替换旧代码身份。
 

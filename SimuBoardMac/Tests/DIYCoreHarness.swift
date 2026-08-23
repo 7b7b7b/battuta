@@ -290,6 +290,7 @@ private struct DIYCoreHarness {
             try testKeyboardVisualLayout(&results)
             try testPointerEventMapping(&results)
             try testPointerSettingsAndResources(&results)
+            try testLaunchAtLoginInstallPaths(&results)
             try testValidatorAndResolver(&results)
             try await testAudioLibraryAndArchive(&results)
             try await testAudioSplit(&results)
@@ -526,6 +527,7 @@ private struct DIYCoreHarness {
         let initial = AppSettings(defaults: defaults)
         try results.check(!initial.isPointerSoundEnabled, "pointer sounds should be opt-in")
         try results.check(!initial.isTypingStatsEnabled, "persistent input statistics should be opt-in")
+        try results.check(initial.isLaunchAtLoginEnabled, "launch at login should default to enabled")
         try results.check(initial.selectedPointerProfile == .classic, "classic should be the default pointer profile")
         try results.check(initial.playsPointerReleaseSound, "pointer release sound should default to enabled")
         try results.check(
@@ -543,6 +545,7 @@ private struct DIYCoreHarness {
         initial.volume = 0.78
         initial.pointerVolume = 0.24
         initial.isTypingStatsEnabled = true
+        initial.isLaunchAtLoginEnabled = false
         let reloaded = AppSettings(defaults: defaults)
         try results.check(reloaded.isPointerSoundEnabled, "pointer enabled state should persist")
         try results.check(reloaded.selectedPointerProfile == .glass, "pointer profile should persist")
@@ -550,6 +553,7 @@ private struct DIYCoreHarness {
         try results.check(abs(reloaded.volume - 0.78) < 0.000_001, "keyboard volume should persist independently")
         try results.check(abs(reloaded.pointerVolume - 0.24) < 0.000_001, "pointer volume should persist independently")
         try results.check(reloaded.isTypingStatsEnabled, "typing statistics opt-in should persist")
+        try results.check(!reloaded.isLaunchAtLoginEnabled, "launch-at-login preference should persist")
 
         defaults.set("missing-future-profile", forKey: "selectedPointerProfile")
         let repaired = AppSettings(defaults: defaults)
@@ -687,6 +691,43 @@ private struct DIYCoreHarness {
         try results.check(
             orderedCentroids.sorted()[orderedCentroids.count / 2] < 6_000,
             "the median pointer profile must remain comfortably below a 6 kHz spectral centroid"
+        )
+    }
+
+    private static func testLaunchAtLoginInstallPaths(
+        _ results: inout HarnessResults
+    ) throws {
+        let homeDirectory = URL(fileURLWithPath: "/Users/battuta-test", isDirectory: true)
+        try results.check(
+            LaunchAtLoginController.isInstalledApplication(
+                at: URL(fileURLWithPath: "/Applications/Battuta.app", isDirectory: true),
+                homeDirectory: homeDirectory
+            ),
+            "an app in the system Applications directory should be eligible for login launch"
+        )
+        try results.check(
+            LaunchAtLoginController.isInstalledApplication(
+                at: URL(
+                    fileURLWithPath: "/Users/battuta-test/Applications/Battuta.app",
+                    isDirectory: true
+                ),
+                homeDirectory: homeDirectory
+            ),
+            "an app in the user's Applications directory should be eligible for login launch"
+        )
+        try results.check(
+            !LaunchAtLoginController.isInstalledApplication(
+                at: URL(fileURLWithPath: "/Volumes/Battuta/Battuta.app", isDirectory: true),
+                homeDirectory: homeDirectory
+            ),
+            "an app running from its DMG must not register as a login item"
+        )
+        try results.check(
+            !LaunchAtLoginController.isInstalledApplication(
+                at: URL(fileURLWithPath: "/private/tmp/Battuta.app", isDirectory: true),
+                homeDirectory: homeDirectory
+            ),
+            "a development or temporary app must not register as a login item"
         )
     }
 

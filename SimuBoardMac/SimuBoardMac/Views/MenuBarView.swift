@@ -50,11 +50,21 @@ struct MenuBarView: View {
 
                 keyboardSoundSection
                 PointerSoundSection(settings: settings)
+                LaunchAtLoginSection(
+                    settings: settings,
+                    controller: model.launchAtLogin,
+                    onRetry: model.retryLaunchAtLogin,
+                    onOpenSettings: {
+                        model.openLoginItemsSettings()
+                        dismiss()
+                    }
+                )
                 UpdateSection(controller: model.updates)
                     }
                     .padding(14)
                 }
                 .onAppear {
+                    model.launchAtLogin.refresh()
                     DispatchQueue.main.async {
                         proxy.scrollTo("battuta-menu-top", anchor: .top)
                     }
@@ -325,6 +335,103 @@ struct MenuBarView: View {
         case .stopped:
             return ("监听已停止", "pause.circle.fill", .secondary)
         }
+    }
+}
+
+private struct LaunchAtLoginSection: View {
+    @ObservedObject var settings: AppSettings
+    @ObservedObject var controller: LaunchAtLoginController
+    let onRetry: () -> Void
+    let onOpenSettings: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                BattutaSectionHeading(
+                    "启动",
+                    subtitle: "跟随用户登录",
+                    symbol: "power"
+                )
+                Spacer()
+                Toggle("登录时自动启动", isOn: $settings.isLaunchAtLoginEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .accessibilityLabel("登录时自动启动")
+            }
+
+            Label(statusText, systemImage: statusSymbol)
+                .font(.caption)
+                .foregroundStyle(statusColor)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if shouldShowActions {
+                HStack(spacing: 8) {
+                    if shouldShowRetry {
+                        Button("重试") { onRetry() }
+                            .buttonStyle(.bordered)
+                    }
+                    if shouldShowSystemSettings {
+                        Button("打开登录项设置") { onOpenSettings() }
+                            .buttonStyle(.bordered)
+                    }
+                }
+            }
+        }
+        .font(.subheadline)
+        .padding(BattutaVisualStyle.cardPadding)
+        .battutaPanel()
+    }
+
+    private var statusText: String {
+        switch controller.state {
+        case .disabled:
+            return "已关闭；重新登录后不会自动启动。"
+        case .enabled:
+            return "已加入系统登录项，下次登录会自动启动。"
+        case .requiresApproval:
+            return "已经登记，但仍需在系统设置的“登录项”中允许。"
+        case .notRegistered:
+            return "尚未成功加入系统登录项，请重试。"
+        case .needsApplicationInstall:
+            return "请先把 Battuta 移到“应用程序”文件夹，再打开应用完成自动登记。"
+        case let .failed(message):
+            return message
+        }
+    }
+
+    private var statusSymbol: String {
+        switch controller.state {
+        case .enabled: return "checkmark.circle.fill"
+        case .disabled: return "minus.circle"
+        case .requiresApproval: return "exclamationmark.circle.fill"
+        case .notRegistered, .needsApplicationInstall, .failed: return "xmark.circle.fill"
+        }
+    }
+
+    private var statusColor: Color {
+        switch controller.state {
+        case .enabled, .disabled: return .secondary
+        case .requiresApproval, .needsApplicationInstall: return .orange
+        case .notRegistered, .failed: return .red
+        }
+    }
+
+    private var shouldShowRetry: Bool {
+        switch controller.state {
+        case .notRegistered, .failed: true
+        default: false
+        }
+    }
+
+    private var shouldShowSystemSettings: Bool {
+        switch controller.state {
+        case .requiresApproval, .failed: true
+        default: false
+        }
+    }
+
+    private var shouldShowActions: Bool {
+        shouldShowRetry || shouldShowSystemSettings
     }
 }
 

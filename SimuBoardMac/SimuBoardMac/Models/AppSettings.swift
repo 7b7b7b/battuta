@@ -14,6 +14,7 @@ final class AppSettings: ObservableObject {
         static let pointerVolume = "pointerVolume"
         static let pointerReleaseSound = "pointerReleaseSound"
         static let typingStatsEnabled = "typingStatsEnabled"
+        static let launchAtLoginEnabled = "launchAtLoginEnabled"
     }
 
     private let defaults: UserDefaults
@@ -59,6 +60,10 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(isTypingStatsEnabled, forKey: Key.typingStatsEnabled) }
     }
 
+    @Published var isLaunchAtLoginEnabled: Bool {
+        didSet { defaults.set(isLaunchAtLoginEnabled, forKey: Key.launchAtLoginEnabled) }
+    }
+
     var selectedProfile: SwitchProfile {
         get { SwitchProfile(rawValue: selectedProfileID) ?? .holyPanda }
         set { selectedProfileID = newValue.rawValue }
@@ -88,6 +93,7 @@ final class AppSettings: ObservableObject {
         pointerVolume = min(max(resolvedPointerVolume, 0), 1)
         playsPointerReleaseSound = defaults.object(forKey: Key.pointerReleaseSound) as? Bool ?? true
         isTypingStatsEnabled = defaults.object(forKey: Key.typingStatsEnabled) as? Bool ?? false
+        isLaunchAtLoginEnabled = defaults.object(forKey: Key.launchAtLoginEnabled) as? Bool ?? true
         if selectedPointerProfileID != storedPointerProfileID {
             defaults.set(selectedPointerProfileID, forKey: Key.selectedPointerProfile)
         }

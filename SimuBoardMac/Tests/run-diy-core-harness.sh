@@ -29,6 +29,7 @@ xcrun --sdk macosx swiftc \
   SimuBoardMac/SimuBoardMac/Services/SoundPackArchiveService.swift \
   SimuBoardMac/SimuBoardMac/Services/GitHubReleaseClient.swift \
   SimuBoardMac/SimuBoardMac/Services/UpdateController.swift \
+  SimuBoardMac/SimuBoardMac/Services/LaunchAtLoginController.swift \
   SimuBoardMac/SimuBoardMac/Services/KeyboardMonitor.swift \
   SimuBoardMac/Tests/DIYCoreHarness.swift \
   -o "$HARNESS_TEMP/diy-core-harness"

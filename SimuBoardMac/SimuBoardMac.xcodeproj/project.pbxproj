@@ -48,6 +48,7 @@
 		A5000000000000000000000A /* TypingYearHeatmap.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5000000000000000000000A /* TypingYearHeatmap.swift */; };
 		A60000000000000000000001 /* MacKeyboardLayoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000001 /* MacKeyboardLayoutView.swift */; };
 		A60000000000000000000002 /* BattutaVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000002 /* BattutaVisualStyle.swift */; };
+		A70000000000000000000001 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000001 /* LaunchAtLoginController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -95,6 +96,7 @@
 		B5000000000000000000000A /* TypingYearHeatmap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingYearHeatmap.swift; sourceTree = "<group>"; };
 		B60000000000000000000001 /* MacKeyboardLayoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacKeyboardLayoutView.swift; sourceTree = "<group>"; };
 		B60000000000000000000002 /* BattutaVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattutaVisualStyle.swift; sourceTree = "<group>"; };
+		B70000000000000000000001 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +153,7 @@
 				B10000000000000000000005 /* KeyboardMonitor.swift */,
 				B10000000000000000000006 /* KeyboardAudioEngine.swift */,
 				B10000000000000000000007 /* InputMonitoringPermissionManager.swift */,
+				B70000000000000000000001 /* LaunchAtLoginController.swift */,
 				B10000000000000000000008 /* AppModel.swift */,
 				B20000000000000000000005 /* SoundPackLibrary.swift */,
 				B20000000000000000000006 /* SoundPackResolver.swift */,
@@ -275,6 +278,7 @@
 				A10000000000000000000005 /* KeyboardMonitor.swift in Sources */,
 				A10000000000000000000006 /* KeyboardAudioEngine.swift in Sources */,
 				A10000000000000000000007 /* InputMonitoringPermissionManager.swift in Sources */,
+				A70000000000000000000001 /* LaunchAtLoginController.swift in Sources */,
 				A10000000000000000000008 /* AppModel.swift in Sources */,
 				A10000000000000000000009 /* MenuBarView.swift in Sources */,
 				A20000000000000000000001 /* KeyboardLayout.swift in Sources */,
@@ -355,14 +359,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.8.1;
+				MARKETING_VERSION = 0.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -377,14 +381,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.8.1;
+				MARKETING_VERSION = 0.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;

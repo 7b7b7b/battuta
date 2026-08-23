@@ -12,6 +12,7 @@ enum KeyboardMonitoringState: Equatable {
 final class AppModel: ObservableObject {
     let settings: AppSettings
     let permission: InputMonitoringPermissionManager
+    let launchAtLogin: LaunchAtLoginController
     let updates: UpdateController
     let soundPackLibrary: SoundPackLibrary
     let typingStats: TypingStatsModel
@@ -41,6 +42,7 @@ final class AppModel: ObservableObject {
     init(
         settings: AppSettings = AppSettings(),
         permission: InputMonitoringPermissionManager = InputMonitoringPermissionManager(),
+        launchAtLogin: LaunchAtLoginController = LaunchAtLoginController(),
         updates: UpdateController = UpdateController(),
         soundPackLibrary: SoundPackLibrary = SoundPackLibrary(),
         typingStats: TypingStatsModel = TypingStatsModel(),
@@ -50,6 +52,7 @@ final class AppModel: ObservableObject {
     ) {
         self.settings = settings
         self.permission = permission
+        self.launchAtLogin = launchAtLogin
         self.updates = updates
         self.soundPackLibrary = soundPackLibrary
         self.typingStats = typingStats
@@ -102,6 +105,15 @@ final class AppModel: ObservableObject {
             .store(in: &cancellables)
 
         guard startsServices else { return }
+        launchAtLogin.reconcile(desiredEnabled: settings.isLaunchAtLoginEnabled)
+        settings.$isLaunchAtLoginEnabled
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] isEnabled in
+                self?.launchAtLogin.reconcile(desiredEnabled: isEnabled)
+            }
+            .store(in: &cancellables)
+
         NSWorkspace.shared.notificationCenter.publisher(
             for: NSWorkspace.didActivateApplicationNotification
         )
@@ -141,6 +153,14 @@ final class AppModel: ObservableObject {
     func retryKeyboardMonitor() {
         _ = permission.refresh()
         startKeyboardMonitor()
+    }
+
+    func retryLaunchAtLogin() {
+        launchAtLogin.reconcile(desiredEnabled: settings.isLaunchAtLoginEnabled)
+    }
+
+    func openLoginItemsSettings() {
+        launchAtLogin.openSystemSettings()
     }
 
     func activateSoundPack(_ selectionID: String) {
