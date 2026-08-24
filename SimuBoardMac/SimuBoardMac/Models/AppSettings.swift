@@ -52,7 +52,10 @@ final class AppSettings: ObservableObject {
     }
 
     @Published var volume: Double {
-        didSet { defaults.set(volume, forKey: Key.volume) }
+        didSet {
+            defaults.set(volume, forKey: Key.volume)
+            defaults.set(KeyboardVolumeCurve.currentVersion, forKey: Key.keyboardVolumeCurveVersion)
+        }
     }
 
     @Published var playsReleaseSound: Bool {
