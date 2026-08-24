@@ -587,6 +587,16 @@ private struct DIYCoreHarness {
                 == KeyboardVolumeCurve.currentVersion,
             "a new install should persist the current keyboard volume representation"
         )
+        defaults.removeObject(forKey: "keyboardVolumeCurveVersion")
+        initial.volume = 0.6
+        let versionRepaired = AppSettings(defaults: defaults)
+        try results.check(
+            defaults.integer(forKey: "keyboardVolumeCurveVersion")
+                == KeyboardVolumeCurve.currentVersion
+                && abs(versionRepaired.volume - 0.6) < 0.000_001
+                && abs(versionRepaired.keyboardPlaybackGain - 0.216) < 0.000_001,
+            "changing keyboard volume should preserve the curve-version invariant"
+        )
         try results.check(
             abs(initial.pointerVolume - (0.42 * 0.65)) < 0.000_001,
             "a new pointer volume should start at 65% of the keyboard volume"
@@ -1380,6 +1390,11 @@ private struct DIYCoreHarness {
         try results.check(
             menuBarSource.contains("Text(\"键盘绝对音量\")"),
             "keyboard volume row must expose the absolute-volume title"
+        )
+        try results.check(
+            menuBarSource.contains("Int(settings.volume * 100)")
+                && !menuBarSource.contains("Int(settings.keyboardPlaybackGain * 100)"),
+            "keyboard volume percentage must describe perceptual slider position"
         )
         try results.check(
             menuBarSource.contains(".accessibilityLabel(\"键盘绝对音量\")"),

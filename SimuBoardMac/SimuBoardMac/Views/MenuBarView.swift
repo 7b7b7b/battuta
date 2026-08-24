@@ -238,7 +238,7 @@ struct MenuBarView: View {
                 HStack {
                     Text("键盘绝对音量")
                     Spacer()
-                    Text("\(Int(settings.keyboardPlaybackGain * 100))%")
+                    Text("\(Int(settings.volume * 100))%")
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
