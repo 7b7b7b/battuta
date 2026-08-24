@@ -295,6 +295,7 @@ private struct DIYCoreHarness {
             try await testAudioLibraryAndArchive(&results)
             try await testAudioSplit(&results)
             try testEngineLoadFailureContract(&results)
+            try testAbsoluteKeyboardVolumeMessagingContract(&results)
             try await testUpdateCachingAndThrottling(&results)
             print("DIY core harness passed: \(results.passed) assertions")
         } catch {
@@ -1275,6 +1276,39 @@ private struct DIYCoreHarness {
             pointerHandlerSource.contains("volume: settings.pointerVolume")
                 && !pointerHandlerSource.contains("volume: settings.volume"),
             "pointer events must use only the pointer volume"
+        )
+    }
+
+    private static func testAbsoluteKeyboardVolumeMessagingContract(
+        _ results: inout HarnessResults
+    ) throws {
+        let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let menuBarSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/Views/MenuBarView.swift"
+            ),
+            encoding: .utf8
+        )
+        let readmeSource = try String(
+            contentsOf: projectRoot.appendingPathComponent("SimuBoardMac/README.md"),
+            encoding: .utf8
+        )
+
+        try results.check(
+            menuBarSource.contains("Text(\"键盘绝对音量\")"),
+            "keyboard volume row must expose the absolute-volume title"
+        )
+        try results.check(
+            menuBarSource.contains(".accessibilityLabel(\"键盘绝对音量\")"),
+            "keyboard volume slider must expose the absolute-volume accessibility label"
+        )
+        try results.check(
+            menuBarSource.contains(".help(\"系统未静音且音量不为 0 时保持此键盘响度；系统静音或音量为 0 时不播放\")"),
+            "keyboard volume slider help must describe both mute and zero-output boundaries"
+        )
+        try results.check(
+            readmeSource.contains("系统未静音且有效输出音量不为 0 时保持应用内设定的键盘响度；如果 macOS 已静音或当前有效输出音量为 0，则不会播放键盘声音"),
+            "README must document both mute and zero-output boundaries for absolute keyboard volume"
         )
     }
 

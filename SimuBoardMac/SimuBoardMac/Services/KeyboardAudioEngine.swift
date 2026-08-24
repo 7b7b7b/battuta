@@ -131,12 +131,20 @@ final class KeyboardAudioEngine {
         standardFormatWithSampleRate: playbackSampleRate,
         channels: 1
     )!
-    private var voices: [Voice] = []
+    private let keyboardMixer: AVAudioMixerNode
+    private let keyboardGainStages: [AVAudioUnitEQ]
+    private let outputVolumeReader: any SystemOutputVolumeReading
+    private var keyboardVoices: [Voice] = []
+    private var pointerVoices: [Voice] = []
     private var buffers: [BufferKey: PreparedKeyboardSample] = [:]
     private var pointerBuffers: [PointerBufferKey: AVAudioPCMBuffer] = [:]
     private var customBuffers: [SoundPackAssetID: PreparedKeyboardSample] = [:]
     private var customResolver: SoundPackResolver?
-    private var voiceCursor = 0
+    private var keyboardVoiceCursor = 0
+    private var pointerVoiceCursor = 0
+    private var keyboardOutputCompensationPlan = KeyboardAbsoluteVolumeCompensation.plan(
+        for: .init(isMuted: false, attenuationDB: nil)
+    )
     private var configurationObserver: NSObjectProtocol?
     private(set) var loadedProfile: SwitchProfile = .holyPanda
     private(set) var loadedSelectionID: String = SwitchProfile.holyPanda.rawValue
@@ -147,16 +155,29 @@ final class KeyboardAudioEngine {
 
     var lastError: String? { engineError ?? resourceError ?? pointerResourceError }
 
-    init(voiceCount: Int = 16) {
-        for _ in 0..<voiceCount {
-            let player = AVAudioPlayerNode()
-            let speed = AVAudioUnitVarispeed()
-            engine.attach(player)
-            engine.attach(speed)
-            engine.connect(player, to: speed, format: playbackFormat)
-            engine.connect(speed, to: engine.mainMixerNode, format: playbackFormat)
-            voices.append(Voice(player: player, speed: speed))
+    init(
+        voiceCount: Int = 16,
+        pointerVoiceCount: Int? = nil,
+        outputVolumeReader: any SystemOutputVolumeReading = CoreAudioSystemOutputVolumeReader()
+    ) {
+        self.keyboardMixer = AVAudioMixerNode()
+        self.keyboardGainStages = (0..<KeyboardAbsoluteVolumeCompensation.stageCount).map { _ in
+            let stage = AVAudioUnitEQ(numberOfBands: 0)
+            stage.globalGain = 0
+            return stage
         }
+        self.outputVolumeReader = outputVolumeReader
+
+        engine.attach(keyboardMixer)
+        for stage in keyboardGainStages {
+            engine.attach(stage)
+        }
+        connectKeyboardOutputChain()
+        keyboardVoices = makeVoicePool(count: voiceCount, output: keyboardMixer)
+        pointerVoices = makeVoicePool(
+            count: pointerVoiceCount ?? voiceCount,
+            output: engine.mainMixerNode
+        )
         engine.isAutoShutdownEnabled = false
         engine.prepare()
         configurationObserver = NotificationCenter.default.addObserver(
@@ -167,12 +188,14 @@ final class KeyboardAudioEngine {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.engine.prepare()
+                self.refreshKeyboardOutputCompensation(forceApply: true)
                 _ = self.startEngineIfNeeded()
             }
         }
     }
 
     func warmUp() {
+        refreshKeyboardOutputCompensation(forceApply: true)
         engine.prepare()
         _ = startEngineIfNeeded()
     }
@@ -242,7 +265,7 @@ final class KeyboardAudioEngine {
             switch customResolver.resolution(for: keyCode, phase: phase) {
             case let .asset(assetID, _):
                 guard let sample = customBuffers[assetID] else { return }
-                play(sample: sample, volume: volume, pitchVariation: pitchVariation)
+                playKeyboard(sample: sample, volume: volume, pitchVariation: pitchVariation)
                 return
             case .silent:
                 return
@@ -256,7 +279,7 @@ final class KeyboardAudioEngine {
             phase: phase,
             profile: loadedProfile
         ) else { return }
-        play(
+        playKeyboard(
             sample: sample,
             phase: phase,
             volume: volume,
@@ -275,7 +298,7 @@ final class KeyboardAudioEngine {
         guard let buffer = pointerBuffers[requestedKey] ?? pointerBuffers[fallbackKey] else {
             return
         }
-        play(
+        playPointer(
             buffer: buffer,
             volume: volume,
             pitchVariation: pitchVariation,
@@ -295,7 +318,7 @@ final class KeyboardAudioEngine {
             }
             return
         }
-        play(buffer: buffer, volume: volume, pitchVariation: pitchVariation)
+        playKeyboard(buffer: buffer, volume: volume, pitchVariation: pitchVariation)
     }
 
     private func makeBuiltInBuffers(profile: SwitchProfile) -> [BufferKey: PreparedKeyboardSample]? {
@@ -370,7 +393,7 @@ final class KeyboardAudioEngine {
         return nextBuffers
     }
 
-    func play(
+    private func playKeyboard(
         sample: KeySoundSample,
         phase: KeySoundPhase,
         volume: Double,
@@ -384,16 +407,16 @@ final class KeyboardAudioEngine {
         guard let preparedSample = buffers[BufferKey(phase: phase, sample: sample)]
             ?? buffers[BufferKey(phase: phase, sample: fallback)] else { return }
 
-        play(sample: preparedSample, volume: volume, pitchVariation: pitchVariation)
+        playKeyboard(sample: preparedSample, volume: volume, pitchVariation: pitchVariation)
     }
 
-    private func play(
+    private func playKeyboard(
         sample: PreparedKeyboardSample,
         volume: Double,
         pitchVariation: Bool
     ) {
         let variant = sample.nextVariant(variationEnabled: pitchVariation)
-        play(
+        playKeyboard(
             buffer: sample.buffer,
             volume: volume * Double(variant.gain),
             pitchVariation: false,
@@ -401,17 +424,38 @@ final class KeyboardAudioEngine {
         )
     }
 
-    private func play(
+    private func playKeyboard(
+        buffer: AVAudioPCMBuffer,
+        volume: Double,
+        pitchVariation: Bool,
+        baseRate: Float = 1
+    ) {
+        let plan = refreshKeyboardOutputCompensation()
+        guard plan.shouldPlay else { return }
+        guard startEngineIfNeeded() else { return }
+        guard !keyboardVoices.isEmpty else { return }
+
+        let voice = keyboardVoices[keyboardVoiceCursor]
+        keyboardVoiceCursor = (keyboardVoiceCursor + 1) % keyboardVoices.count
+        voice.player.stop()
+        voice.player.volume = Float(max(0, min(1, volume)))
+        let variation: Float = pitchVariation ? .random(in: 0.97...1.03) : 1
+        voice.speed.rate = max(0.25, min(4, baseRate * variation))
+        voice.player.scheduleBuffer(buffer, at: nil, options: [])
+        voice.player.play()
+    }
+
+    private func playPointer(
         buffer: AVAudioPCMBuffer,
         volume: Double,
         pitchVariation: Bool,
         baseRate: Float = 1
     ) {
         guard startEngineIfNeeded() else { return }
-        guard !voices.isEmpty else { return }
+        guard !pointerVoices.isEmpty else { return }
 
-        let voice = voices[voiceCursor]
-        voiceCursor = (voiceCursor + 1) % voices.count
+        let voice = pointerVoices[pointerVoiceCursor]
+        pointerVoiceCursor = (pointerVoiceCursor + 1) % pointerVoices.count
         voice.player.stop()
         voice.player.volume = Float(max(0, min(1, volume)))
         let variation: Float = pitchVariation ? .random(in: 0.97...1.03) : 1
@@ -430,6 +474,70 @@ final class KeyboardAudioEngine {
         } catch {
             engineError = "音频引擎启动失败：\(error.localizedDescription)"
             return false
+        }
+    }
+
+    private func connectKeyboardOutputChain() {
+        guard let firstStage = keyboardGainStages.first,
+              let lastStage = keyboardGainStages.last else {
+            engine.connect(keyboardMixer, to: engine.mainMixerNode, format: playbackFormat)
+            return
+        }
+
+        engine.connect(keyboardMixer, to: firstStage, format: playbackFormat)
+        for (upstream, downstream) in zip(keyboardGainStages, keyboardGainStages.dropFirst()) {
+            engine.connect(upstream, to: downstream, format: playbackFormat)
+        }
+        engine.connect(lastStage, to: engine.mainMixerNode, format: playbackFormat)
+    }
+
+    private func makeVoicePool(count: Int, output: AVAudioNode) -> [Voice] {
+        var voices = [Voice]()
+        voices.reserveCapacity(count)
+
+        for _ in 0..<count {
+            let player = AVAudioPlayerNode()
+            let speed = AVAudioUnitVarispeed()
+            engine.attach(player)
+            engine.attach(speed)
+            engine.connect(player, to: speed, format: playbackFormat)
+            engine.connect(speed, to: output, format: playbackFormat)
+            voices.append(Voice(player: player, speed: speed))
+        }
+
+        return voices
+    }
+
+    @discardableResult
+    private func refreshKeyboardOutputCompensation(
+        forceApply: Bool = false
+    ) -> KeyboardAbsoluteVolumePlan {
+        let nextPlan = KeyboardAbsoluteVolumeCompensation.plan(for: outputVolumeReader.snapshot())
+        let didChange = nextPlan != keyboardOutputCompensationPlan
+        if didChange {
+            stopKeyboardVoices()
+        }
+        if didChange || forceApply {
+            applyKeyboardOutputCompensation(nextPlan)
+            keyboardOutputCompensationPlan = nextPlan
+        }
+        return nextPlan
+    }
+
+    private func stopKeyboardVoices() {
+        for voice in keyboardVoices {
+            voice.player.stop()
+        }
+    }
+
+    private func applyKeyboardOutputCompensation(_ plan: KeyboardAbsoluteVolumePlan) {
+        for (stage, gain) in zip(keyboardGainStages, plan.stageGainsDB) {
+            stage.globalGain = gain
+        }
+        if plan.stageGainsDB.count < keyboardGainStages.count {
+            for stage in keyboardGainStages.dropFirst(plan.stageGainsDB.count) {
+                stage.globalGain = 0
+            }
         }
     }
 

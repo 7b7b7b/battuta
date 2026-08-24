@@ -21,6 +21,7 @@ xcrun --sdk macosx swiftc \
   SimuBoardMac/SimuBoardMac/Models/SoundPack.swift \
   SimuBoardMac/SimuBoardMac/Services/SoundPackResolver.swift \
   SimuBoardMac/SimuBoardMac/Services/KeyboardMonitor.swift \
+  SimuBoardMac/SimuBoardMac/Services/SystemOutputVolume.swift \
   SimuBoardMac/SimuBoardMac/Services/KeyboardAudioEngine.swift \
   SimuBoardMac/Tests/AudioVariantCoreHarness.swift \
   -o "$HARNESS_TEMP/audio-variant-core-harness"
