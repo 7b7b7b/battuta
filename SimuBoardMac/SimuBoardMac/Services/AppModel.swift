@@ -278,14 +278,14 @@ final class AppModel: ObservableObject {
         audioEngine.play(
             keyCode: keyCode,
             phase: phase,
-            volume: settings.volume,
+            volume: settings.keyboardPlaybackGain,
             pitchVariation: settings.usesPitchVariation
         )
         syncAudioError()
     }
 
     func preview(audioAt url: URL) {
-        audioEngine.preview(audioAt: url, volume: settings.volume)
+        audioEngine.preview(audioAt: url, volume: settings.keyboardPlaybackGain)
         syncAudioError()
     }
 
@@ -336,7 +336,7 @@ final class AppModel: ObservableObject {
             audioEngine.play(
                 keyCode: event.keyCode,
                 phase: phase,
-                volume: settings.volume,
+                volume: settings.keyboardPlaybackGain,
                 pitchVariation: settings.usesPitchVariation
             )
             syncAudioError()

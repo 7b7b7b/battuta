@@ -289,6 +289,7 @@ private struct DIYCoreHarness {
             try testSemanticVersion(&results)
             try testKeyboardVisualLayout(&results)
             try testPointerEventMapping(&results)
+            try testPerceptualKeyboardVolume(&results)
             try testPointerSettingsAndResources(&results)
             try testLaunchAtLoginInstallPaths(&results)
             try testValidatorAndResolver(&results)
@@ -301,6 +302,45 @@ private struct DIYCoreHarness {
         } catch {
             fputs("DIY core harness FAILED: \(error)\n", stderr)
             exit(1)
+        }
+    }
+
+    private static func testPerceptualKeyboardVolume(
+        _ results: inout HarnessResults
+    ) throws {
+        let fixtures: [(position: Double, expectedGain: Double)] = [
+            (0, 0),
+            (0.25, 0.015_625),
+            (0.5, 0.125),
+            (0.75, 0.421_875),
+            (1, 1),
+        ]
+
+        for fixture in fixtures {
+            try results.check(
+                abs(
+                    KeyboardVolumeCurve.playbackGain(for: fixture.position)
+                        - fixture.expectedGain
+                ) < 0.000_001,
+                "keyboard slider position \(fixture.position) should use cubic gain"
+            )
+        }
+
+        try results.check(
+            KeyboardVolumeCurve.playbackGain(for: -1) == 0
+                && KeyboardVolumeCurve.playbackGain(for: 2) == 1,
+            "keyboard gain should clamp positions to the slider range"
+        )
+
+        for legacyGain in [0.0, 0.01, 0.42, 0.8, 1.0] {
+            let migratedPosition = KeyboardVolumeCurve.sliderPosition(
+                preservingLegacyGain: legacyGain
+            )
+            try results.check(
+                abs(KeyboardVolumeCurve.playbackGain(for: migratedPosition) - legacyGain)
+                    < 0.000_001,
+                "legacy gain \(legacyGain) should survive perceptual-curve migration"
+            )
         }
     }
 
@@ -532,6 +572,22 @@ private struct DIYCoreHarness {
         try results.check(initial.selectedPointerProfile == .classic, "classic should be the default pointer profile")
         try results.check(initial.playsPointerReleaseSound, "pointer release sound should default to enabled")
         try results.check(
+            abs(initial.keyboardPlaybackGain - 0.42) < 0.000_001,
+            "a new install should preserve the legacy default audible keyboard gain"
+        )
+        try results.check(
+            abs(
+                initial.volume
+                    - KeyboardVolumeCurve.sliderPosition(preservingLegacyGain: 0.42)
+            ) < 0.000_001,
+            "a new install should expose the legacy default through the perceptual slider"
+        )
+        try results.check(
+            defaults.integer(forKey: "keyboardVolumeCurveVersion")
+                == KeyboardVolumeCurve.currentVersion,
+            "a new install should persist the current keyboard volume representation"
+        )
+        try results.check(
             abs(initial.pointerVolume - (0.42 * 0.65)) < 0.000_001,
             "a new pointer volume should start at 65% of the keyboard volume"
         )
@@ -574,6 +630,18 @@ private struct DIYCoreHarness {
         defer { migrationDefaults.removePersistentDomain(forName: migrationSuiteName) }
         migrationDefaults.set(0.8, forKey: "volume")
         let migrated = AppSettings(defaults: migrationDefaults)
+        let migratedPosition = KeyboardVolumeCurve.sliderPosition(preservingLegacyGain: 0.8)
+        try results.check(
+            abs(migrated.volume - migratedPosition) < 0.000_001
+                && abs(migrated.keyboardPlaybackGain - 0.8) < 0.000_001,
+            "a legacy keyboard volume should migrate to the cubic slider without changing gain"
+        )
+        try results.check(
+            abs(migrationDefaults.double(forKey: "volume") - migratedPosition) < 0.000_001
+                && migrationDefaults.integer(forKey: "keyboardVolumeCurveVersion")
+                    == KeyboardVolumeCurve.currentVersion,
+            "keyboard volume migration should persist its position and version"
+        )
         try results.check(
             abs(migrated.pointerVolume - 0.52) < 0.000_001,
             "an existing keyboard volume should seed pointer volume at 65% exactly once"
@@ -582,8 +650,9 @@ private struct DIYCoreHarness {
         let migratedReloaded = AppSettings(defaults: migrationDefaults)
         try results.check(
             abs(migratedReloaded.volume - 0.4) < 0.000_001
+                && abs(migratedReloaded.keyboardPlaybackGain - 0.064) < 0.000_001
                 && abs(migratedReloaded.pointerVolume - 0.52) < 0.000_001,
-            "changing keyboard volume after migration must not change pointer volume"
+            "the curve must migrate once while pointer volume remains independent"
         )
 
         let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
@@ -1268,14 +1337,28 @@ private struct DIYCoreHarness {
         let keyboardHandlerSource = appModelSource[keyboardHandlerStart..<pointerHandlerStart]
         let pointerHandlerSource = appModelSource[pointerHandlerStart..<pointerHandlerEnd]
         try results.check(
-            keyboardHandlerSource.contains("volume: settings.volume")
+            keyboardHandlerSource.contains("volume: settings.keyboardPlaybackGain")
                 && !keyboardHandlerSource.contains("settings.pointerVolume"),
-            "keyboard events must use only the keyboard volume"
+            "keyboard events must use the perceptual keyboard gain"
         )
         try results.check(
             pointerHandlerSource.contains("volume: settings.pointerVolume")
                 && !pointerHandlerSource.contains("volume: settings.volume"),
             "pointer events must use only the pointer volume"
+        )
+
+        guard let previewStart = appModelSource.range(of: "    func preview()")?.lowerBound,
+              let monitorStart = appModelSource.range(
+                  of: "    private func startKeyboardMonitor()",
+                  range: previewStart..<appModelSource.endIndex
+              )?.lowerBound else {
+            throw HarnessFailure.assertion("could not isolate keyboard preview routing")
+        }
+        let previewSource = appModelSource[previewStart..<monitorStart]
+        try results.check(
+            previewSource.contains("volume: settings.keyboardPlaybackGain")
+                && !previewSource.contains("volume: settings.volume"),
+            "keyboard previews must use the perceptual keyboard gain"
         )
     }
 
