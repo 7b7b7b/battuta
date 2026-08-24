@@ -1,12 +1,36 @@
 import Combine
 import Foundation
 
+enum KeyboardVolumeCurve {
+    static let currentVersion = 1
+    static let legacyDefaultGain = 0.42
+
+    static func playbackGain(for sliderPosition: Double) -> Double {
+        let position = clampedUnitValue(sliderPosition)
+        return position * position * position
+    }
+
+    static func sliderPosition(preservingLegacyGain legacyGain: Double) -> Double {
+        Foundation.pow(clampedUnitValue(legacyGain), 1.0 / 3.0)
+    }
+
+    static func normalizedSliderPosition(_ sliderPosition: Double) -> Double {
+        clampedUnitValue(sliderPosition)
+    }
+
+    private static func clampedUnitValue(_ value: Double) -> Double {
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), 1)
+    }
+}
+
 @MainActor
 final class AppSettings: ObservableObject {
     private enum Key {
         static let enabled = "enabled"
         static let selectedProfile = "selectedProfile"
         static let volume = "volume"
+        static let keyboardVolumeCurveVersion = "keyboardVolumeCurveVersion"
         static let releaseSound = "releaseSound"
         static let pitchVariation = "pitchVariation"
         static let pointerSoundEnabled = "pointerSoundEnabled"
@@ -74,12 +98,27 @@ final class AppSettings: ObservableObject {
         set { selectedPointerProfileID = newValue.rawValue }
     }
 
+    var keyboardPlaybackGain: Double {
+        KeyboardVolumeCurve.playbackGain(for: volume)
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         isEnabled = defaults.object(forKey: Key.enabled) as? Bool ?? true
         selectedProfileID = defaults.string(forKey: Key.selectedProfile) ?? SwitchProfile.holyPanda.rawValue
-        let storedKeyboardVolume = defaults.object(forKey: Key.volume) as? Double ?? 0.42
-        volume = storedKeyboardVolume
+        let storedKeyboardVolume = defaults.object(forKey: Key.volume) as? Double
+        let storedKeyboardVolumeCurveVersion = defaults.integer(forKey: Key.keyboardVolumeCurveVersion)
+        let resolvedKeyboardVolume: Double
+        if let storedKeyboardVolume {
+            resolvedKeyboardVolume = storedKeyboardVolumeCurveVersion < KeyboardVolumeCurve.currentVersion
+                ? KeyboardVolumeCurve.sliderPosition(preservingLegacyGain: storedKeyboardVolume)
+                : KeyboardVolumeCurve.normalizedSliderPosition(storedKeyboardVolume)
+        } else {
+            resolvedKeyboardVolume = KeyboardVolumeCurve.sliderPosition(
+                preservingLegacyGain: KeyboardVolumeCurve.legacyDefaultGain
+            )
+        }
+        volume = resolvedKeyboardVolume
         playsReleaseSound = defaults.object(forKey: Key.releaseSound) as? Bool ?? true
         usesPitchVariation = defaults.object(forKey: Key.pitchVariation) as? Bool ?? true
         isPointerSoundEnabled = defaults.object(forKey: Key.pointerSoundEnabled) as? Bool ?? false
@@ -89,13 +128,20 @@ final class AppSettings: ObservableObject {
             ? PointerSoundProfile.classic.rawValue
             : storedPointerProfileID
         let storedPointerVolume = defaults.object(forKey: Key.pointerVolume) as? Double
-        let resolvedPointerVolume = storedPointerVolume ?? storedKeyboardVolume * 0.65
+        let resolvedPointerVolume = storedPointerVolume
+            ?? KeyboardVolumeCurve.playbackGain(for: resolvedKeyboardVolume) * 0.65
         pointerVolume = min(max(resolvedPointerVolume, 0), 1)
         playsPointerReleaseSound = defaults.object(forKey: Key.pointerReleaseSound) as? Bool ?? true
         isTypingStatsEnabled = defaults.object(forKey: Key.typingStatsEnabled) as? Bool ?? false
         isLaunchAtLoginEnabled = defaults.object(forKey: Key.launchAtLoginEnabled) as? Bool ?? true
         if selectedPointerProfileID != storedPointerProfileID {
             defaults.set(selectedPointerProfileID, forKey: Key.selectedPointerProfile)
+        }
+        if storedKeyboardVolume == nil || storedKeyboardVolume != resolvedKeyboardVolume {
+            defaults.set(resolvedKeyboardVolume, forKey: Key.volume)
+        }
+        if storedKeyboardVolumeCurveVersion < KeyboardVolumeCurve.currentVersion {
+            defaults.set(KeyboardVolumeCurve.currentVersion, forKey: Key.keyboardVolumeCurveVersion)
         }
         if storedPointerVolume == nil || storedPointerVolume != pointerVolume {
             defaults.set(pointerVolume, forKey: Key.pointerVolume)
