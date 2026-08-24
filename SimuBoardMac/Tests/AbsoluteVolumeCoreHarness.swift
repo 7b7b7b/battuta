@@ -26,8 +26,9 @@ private struct AbsoluteVolumeCoreHarness {
                 hasSoftwareVolume: true
             )
             try check(
-                stereoObserved == .init(isMuted: false, attenuationDB: -38),
-                "stereo channels with valid scalar and device dB metadata should resolve to the shared attenuation snapshot",
+                !stereoObserved.isMuted
+                    && stereoObserved.attenuationDB.map { abs($0 - (-4.152203)) < 0.0005 } == true,
+                "stereo channels should resolve attenuation from the software scalar instead of the device dB curve",
                 passed: &passed
             )
 
@@ -86,13 +87,14 @@ private struct AbsoluteVolumeCoreHarness {
                 muteValue: false,
                 channels: [
                     .init(scalar: 0.1, decibels: -20),
-                    .init(scalar: 0.1, decibels: -40)
+                    .init(scalar: 0.5, decibels: -40)
                 ],
                 hasSoftwareVolume: true
             )
             try check(
-                asymmetric == .init(isMuted: false, attenuationDB: -20),
-                "asymmetric stereo should choose the louder channel so shared compensation cannot overboost it",
+                !asymmetric.isMuted
+                    && asymmetric.attenuationDB.map { abs($0 - (-6.0206)) < 0.0005 } == true,
+                "asymmetric stereo should choose the louder scalar so shared compensation cannot overboost it",
                 passed: &passed
             )
 
@@ -106,8 +108,9 @@ private struct AbsoluteVolumeCoreHarness {
                 hasSoftwareVolume: true
             )
             try check(
-                invalidMetadata == .init(isMuted: false, attenuationDB: nil),
-                "non-finite or out-of-range channel metadata should be rejected safely",
+                !invalidMetadata.isMuted
+                    && invalidMetadata.attenuationDB.map { abs($0 - (-6.0206)) < 0.0005 } == true,
+                "invalid channel metadata should be ignored while valid scalars still drive attenuation",
                 passed: &passed
             )
 
@@ -125,6 +128,20 @@ private struct AbsoluteVolumeCoreHarness {
                 passed: &passed
             )
 
+            let steepDeviceCurve = SystemOutputVolumeResolver.snapshot(
+                muteValue: false,
+                channels: [
+                    .init(scalar: 0.3125, decibels: -68.75)
+                ],
+                hasSoftwareVolume: true
+            )
+            try check(
+                !steepDeviceCurve.isMuted
+                    && steepDeviceCurve.attenuationDB.map { abs($0 - (-10.103)) < 0.0005 } == true,
+                "a steep hardware dB curve must not turn a 31% scalar into a +68 dB compensation request",
+                passed: &passed
+            )
+
             let maximum = KeyboardAbsoluteVolumeCompensation.plan(
                 for: .init(isMuted: false, attenuationDB: 0)
             )
@@ -138,7 +155,9 @@ private struct AbsoluteVolumeCoreHarness {
             )
 
             let reduced = KeyboardAbsoluteVolumeCompensation.plan(
-                for: .init(isMuted: false, attenuationDB: -37.75)
+                for: .init(isMuted: false, attenuationDB: -37.75),
+                playbackGain: 0.0001,
+                samplePeak: 0.0001
             )
             try check(reduced.shouldPlay, "negative attenuation should still play keyboard audio", passed: &passed)
             try check(
@@ -157,8 +176,55 @@ private struct AbsoluteVolumeCoreHarness {
                 passed: &passed
             )
 
+            let headroomLimited = KeyboardAbsoluteVolumeCompensation.plan(
+                for: .init(isMuted: false, attenuationDB: -37.75),
+                playbackGain: 1,
+                samplePeak: 0.25
+            )
+            try check(headroomLimited.shouldPlay, "headroom-limited playback should remain enabled", passed: &passed)
+            try check(
+                abs(headroomLimited.stageGainsDB.reduce(0, +) - 10.629579) < 0.001,
+                "full keyboard gain should cap compensation to the clean headroom implied by the sample peak",
+                passed: &passed
+            )
+
+            let quieterKeyboard = KeyboardAbsoluteVolumeCompensation.plan(
+                for: .init(isMuted: false, attenuationDB: -37.75),
+                playbackGain: 0.125,
+                samplePeak: 0.25
+            )
+            try check(
+                abs(quieterKeyboard.stageGainsDB.reduce(0, +) - 28.691378) < 0.001,
+                "lower in-app keyboard gain should leave more clean compensation headroom available",
+                passed: &passed
+            )
+
+            let hotterKeyboard = KeyboardAbsoluteVolumeCompensation.plan(
+                for: .init(isMuted: false, attenuationDB: -37.75),
+                playbackGain: 1,
+                samplePeak: 0.57
+            )
+            try check(
+                abs(hotterKeyboard.stageGainsDB.reduce(0, +) - 3.470882) < 0.001,
+                "hotter recordings should leave less clean compensation headroom than quieter ones",
+                passed: &passed
+            )
+
+            let hotSample = KeyboardAbsoluteVolumeCompensation.plan(
+                for: .init(isMuted: false, attenuationDB: -12),
+                playbackGain: 1,
+                samplePeak: 1
+            )
+            try check(
+                hotSample == maximum,
+                "already-hot samples at full app gain should not receive extra compensation that would force clipping",
+                passed: &passed
+            )
+
             let hundredDB = KeyboardAbsoluteVolumeCompensation.plan(
-                for: .init(isMuted: false, attenuationDB: -100)
+                for: .init(isMuted: false, attenuationDB: -100),
+                playbackGain: 0.0001,
+                samplePeak: 0.0001
             )
             try check(hundredDB.shouldPlay, "large finite attenuation should still produce playback", passed: &passed)
             try check(
@@ -173,7 +239,9 @@ private struct AbsoluteVolumeCoreHarness {
             )
 
             let firstBoundary = KeyboardAbsoluteVolumeCompensation.plan(
-                for: .init(isMuted: false, attenuationDB: -24)
+                for: .init(isMuted: false, attenuationDB: -24),
+                playbackGain: 0.0001,
+                samplePeak: 0.0001
             )
             try check(
                 firstBoundary == .init(
@@ -185,7 +253,9 @@ private struct AbsoluteVolumeCoreHarness {
             )
 
             let fullBoundary = KeyboardAbsoluteVolumeCompensation.plan(
-                for: .init(isMuted: false, attenuationDB: -120)
+                for: .init(isMuted: false, attenuationDB: -120),
+                playbackGain: 0.0001,
+                samplePeak: 0.0001
             )
             try check(
                 fullBoundary == .init(
@@ -197,11 +267,24 @@ private struct AbsoluteVolumeCoreHarness {
             )
 
             let beyondBoundary = KeyboardAbsoluteVolumeCompensation.plan(
-                for: .init(isMuted: false, attenuationDB: -200)
+                for: .init(isMuted: false, attenuationDB: -200),
+                playbackGain: 0.0001,
+                samplePeak: 0.0001
             )
             try check(
                 beyondBoundary == fullBoundary,
                 "attenuation below the supported floor should still clamp to five saturated 24 dB stages",
+                passed: &passed
+            )
+
+            let unknownPeak = KeyboardAbsoluteVolumeCompensation.plan(
+                for: .init(isMuted: false, attenuationDB: -24),
+                playbackGain: 1,
+                samplePeak: nil
+            )
+            try check(
+                unknownPeak == maximum,
+                "missing sample peak metadata should fail safe without positive compensation",
                 passed: &passed
             )
 

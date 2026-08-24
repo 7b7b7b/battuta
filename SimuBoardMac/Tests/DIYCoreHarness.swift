@@ -1401,12 +1401,14 @@ private struct DIYCoreHarness {
             "keyboard volume slider must expose the absolute-volume accessibility label"
         )
         try results.check(
-            menuBarSource.contains(".help(\"系统未静音且音量不为 0 时保持此键盘响度；系统静音或音量为 0 时不播放\")"),
-            "keyboard volume slider help must describe both mute and zero-output boundaries"
+            menuBarSource.contains(".help(\"系统未静音且音量不为 0 时尽量保持此键盘响度；系统过低时会自动收敛补偿避免失真\")"),
+            "keyboard volume slider help must describe both mute behavior and low-volume safety limiting"
         )
         try results.check(
-            readmeSource.contains("系统未静音且有效输出音量不为 0 时保持应用内设定的键盘响度；如果 macOS 已静音或当前有效输出音量为 0，则不会播放键盘声音"),
-            "README must document both mute and zero-output boundaries for absolute keyboard volume"
+            readmeSource.contains("系统未静音且有效输出音量不为 0 时尽量保持应用内设定的键盘响度；如果 macOS 已静音或当前有效输出音量为 0，则不会播放键盘声音")
+                && readmeSource.contains("补偿会按当前音色包的最高样本峰值与应用内音量自动收敛")
+                && readmeSource.contains("共享键盘总线也会限制重叠按键的峰值"),
+            "README must document both mute behavior and low-volume safety limiting for absolute keyboard volume"
         )
     }
 

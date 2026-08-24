@@ -43,19 +43,11 @@ enum SystemOutputVolumeResolver {
 
             sawNonZeroValidScalar = true
 
-            if let decibels = channel.decibels {
-                guard decibels.isFinite else {
-                    continue
-                }
-                resolvedAttenuations.append(decibels)
+            let amplitudeAttenuation = Float(20 * Foundation.log10(Double(scalar)))
+            guard amplitudeAttenuation.isFinite else {
                 continue
             }
-
-            let fallbackAttenuation = Float(20 * Foundation.log10(Double(scalar)))
-            guard fallbackAttenuation.isFinite else {
-                continue
-            }
-            resolvedAttenuations.append(fallbackAttenuation)
+            resolvedAttenuations.append(amplitudeAttenuation)
         }
 
         if sawValidScalar, !sawNonZeroValidScalar {
@@ -298,13 +290,23 @@ enum KeyboardAbsoluteVolumeCompensation {
     static let stageCount = 5
     static let maximumStageGainDB: Float = 24
     private static let maximumTotalGainDB = Float(stageCount) * maximumStageGainDB
+    private static let safeOutputPeak: Float = 0.85
 
-    static func plan(for snapshot: SystemOutputVolumeSnapshot) -> KeyboardAbsoluteVolumePlan {
+    static func plan(
+        for snapshot: SystemOutputVolumeSnapshot,
+        playbackGain: Float = 1,
+        samplePeak: Float? = nil
+    ) -> KeyboardAbsoluteVolumePlan {
         guard !snapshot.isMuted else { return silentPlan }
         guard let attenuation = snapshot.attenuationDB, attenuation.isFinite, attenuation < 0 else {
             return passthroughPlan
         }
-        return plan(totalGainDB: min(maximumTotalGainDB, -attenuation))
+        let requestedGainDB = min(maximumTotalGainDB, -attenuation)
+        let cleanGainLimitDB = maximumCleanCompensationDB(
+            playbackGain: playbackGain,
+            samplePeak: samplePeak
+        )
+        return plan(totalGainDB: min(requestedGainDB, cleanGainLimitDB))
     }
 
     private static let silentPlan = KeyboardAbsoluteVolumePlan(
@@ -332,5 +334,27 @@ enum KeyboardAbsoluteVolumeCompensation {
             shouldPlay: true,
             stageGainsDB: stageGains
         )
+    }
+
+    private static func maximumCleanCompensationDB(
+        playbackGain: Float,
+        samplePeak: Float?
+    ) -> Float {
+        guard let samplePeak,
+              samplePeak.isFinite,
+              samplePeak > 0,
+              playbackGain.isFinite,
+              playbackGain > 0 else { return 0 }
+
+        let clampedPlaybackGain = max(0, min(1, playbackGain))
+        let projectedPeak = clampedPlaybackGain * samplePeak
+        guard projectedPeak.isFinite, projectedPeak > 0 else { return 0 }
+
+        let maximumGainDB = Float(
+            20 * Foundation.log10(Double(safeOutputPeak / projectedPeak))
+        )
+        guard maximumGainDB.isFinite else { return 0 }
+
+        return max(0, min(maximumTotalGainDB, maximumGainDB))
     }
 }

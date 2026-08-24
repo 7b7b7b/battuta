@@ -210,8 +210,20 @@ private struct AudioVariantCoreHarness {
             partial + stage.globalGain
         }
         try check(
-            abs(totalGain - 37.75) < 0.001,
-            "warmUp should apply the requested keyboard compensation plan to the live EQ stages",
+            abs(totalGain) < 0.001,
+            "warmUp should keep compensation neutral until a measured sample peak is available",
+            passed: &passed
+        )
+
+        let keyboardLimiter = try reflectedProperty(
+            named: "keyboardLimiter",
+            from: engine,
+            as: AVAudioUnitEffect.self
+        )
+        try check(
+            keyboardLimiter.audioComponentDescription.componentSubType
+                == kAudioUnitSubType_PeakLimiter,
+            "runtime keyboard bus should end in Apple's peak limiter",
             passed: &passed
         )
     }
@@ -245,8 +257,9 @@ private struct AudioVariantCoreHarness {
         )
         try check(
             engineSource.contains("keyboardGainStages")
+                && engineSource.contains("kAudioUnitSubType_PeakLimiter")
                 && engineSource.contains("refreshKeyboardOutputCompensation("),
-            "keyboard playback should define a gain-stage chain with a compensation refresh path",
+            "keyboard playback should define a gain-stage and limiter chain with a compensation refresh path",
             passed: &passed
         )
         try check(
@@ -280,7 +293,7 @@ private struct AudioVariantCoreHarness {
         }
         let previewSource = engineSource[previewStart..<builtInBufferStart]
         try check(
-            previewSource.contains("playKeyboard(buffer:"),
+            previewSource.contains("playKeyboard("),
             "DIY preview playback should reuse the compensated keyboard route",
             passed: &passed
         )
