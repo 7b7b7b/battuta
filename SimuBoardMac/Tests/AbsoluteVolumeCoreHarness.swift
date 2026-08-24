@@ -17,6 +17,114 @@ private struct AbsoluteVolumeCoreHarness {
         do {
             var passed = 0
 
+            let stereoObserved = SystemOutputVolumeResolver.snapshot(
+                muteValue: false,
+                channels: [
+                    .init(scalar: 0.62, decibels: -38),
+                    .init(scalar: 0.62, decibels: -38)
+                ],
+                hasSoftwareVolume: true
+            )
+            try check(
+                stereoObserved == .init(isMuted: false, attenuationDB: -38),
+                "stereo channels with valid scalar and device dB metadata should resolve to the shared attenuation snapshot",
+                passed: &passed
+            )
+
+            let mixedZeroStereo = SystemOutputVolumeResolver.snapshot(
+                muteValue: false,
+                channels: [
+                    .init(scalar: 0, decibels: -90),
+                    .init(scalar: 1, decibels: 0)
+                ],
+                hasSoftwareVolume: true
+            )
+            try check(
+                mixedZeroStereo == .init(isMuted: false, attenuationDB: 0),
+                "mixed zero and nonzero stereo should stay audible and use the nonzero channel attenuation",
+                passed: &passed
+            )
+
+            let zeroScalar = SystemOutputVolumeResolver.snapshot(
+                muteValue: false,
+                channels: [
+                    .init(scalar: 0, decibels: -90)
+                ],
+                hasSoftwareVolume: true
+            )
+            try check(
+                zeroScalar == .init(isMuted: true, attenuationDB: nil),
+                "a zero scalar should resolve to muted even when the explicit mute property is false",
+                passed: &passed
+            )
+
+            let explicitMute = SystemOutputVolumeResolver.snapshot(
+                muteValue: true,
+                channels: [
+                    .init(scalar: 0.7, decibels: -10)
+                ],
+                hasSoftwareVolume: true
+            )
+            try check(
+                explicitMute == .init(isMuted: true, attenuationDB: nil),
+                "an explicit mute property should force a muted snapshot",
+                passed: &passed
+            )
+
+            let passthrough = SystemOutputVolumeResolver.snapshot(
+                muteValue: false,
+                channels: [],
+                hasSoftwareVolume: false
+            )
+            try check(
+                passthrough == .init(isMuted: false, attenuationDB: nil),
+                "devices without software volume properties should resolve to passthrough",
+                passed: &passed
+            )
+
+            let asymmetric = SystemOutputVolumeResolver.snapshot(
+                muteValue: false,
+                channels: [
+                    .init(scalar: 0.1, decibels: -20),
+                    .init(scalar: 0.1, decibels: -40)
+                ],
+                hasSoftwareVolume: true
+            )
+            try check(
+                asymmetric == .init(isMuted: false, attenuationDB: -20),
+                "asymmetric stereo should choose the louder channel so shared compensation cannot overboost it",
+                passed: &passed
+            )
+
+            let invalidMetadata = SystemOutputVolumeResolver.snapshot(
+                muteValue: false,
+                channels: [
+                    .init(scalar: .nan, decibels: -30),
+                    .init(scalar: 0.5, decibels: .infinity),
+                    .init(scalar: -0.25, decibels: -12)
+                ],
+                hasSoftwareVolume: true
+            )
+            try check(
+                invalidMetadata == .init(isMuted: false, attenuationDB: nil),
+                "non-finite or out-of-range channel metadata should be rejected safely",
+                passed: &passed
+            )
+
+            let fallbackDecibels = SystemOutputVolumeResolver.snapshot(
+                muteValue: false,
+                channels: [
+                    .init(scalar: 0.25, decibels: nil)
+                ],
+                hasSoftwareVolume: true
+            )
+            try check(
+                !fallbackDecibels.isMuted &&
+                    fallbackDecibels.attenuationDB.map { abs($0 - (-12.041201)) < 0.0005 } == true,
+                "missing device dB conversion should fall back to 20*log10(scalar)",
+                passed: &passed
+            )
+
             let maximum = KeyboardAbsoluteVolumeCompensation.plan(
                 for: .init(isMuted: false, attenuationDB: 0)
             )
