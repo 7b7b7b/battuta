@@ -13,6 +13,7 @@ private enum AudioVariantHarnessFailure: Error, CustomStringConvertible {
 
 @main
 private struct AudioVariantCoreHarness {
+    @MainActor
     static func main() {
         do {
             var passed = 0
@@ -90,6 +91,8 @@ private struct AudioVariantCoreHarness {
             )
 
             try testLeadingSilenceTrimming(passed: &passed)
+            try testRuntimeKeyboardOutputCompensationAndPoolDefaults(passed: &passed)
+            try testKeyboardAndPointerRouteIntegration(passed: &passed)
 
             print("Audio variant core harness passed: \(passed) assertions")
         } catch {
@@ -149,5 +152,198 @@ private struct AudioVariantCoreHarness {
             "already-aligned recordings should not be copied or shifted",
             passed: &passed
         )
+    }
+
+    @MainActor
+    private static func testRuntimeKeyboardOutputCompensationAndPoolDefaults(
+        passed: inout Int
+    ) throws {
+        struct StubReader: SystemOutputVolumeReading {
+            let snapshotValue: SystemOutputVolumeSnapshot
+
+            func snapshot() -> SystemOutputVolumeSnapshot {
+                snapshotValue
+            }
+        }
+
+        let engine = KeyboardAudioEngine(
+            voiceCount: 2,
+            outputVolumeReader: StubReader(
+                snapshotValue: .init(isMuted: false, attenuationDB: -37.75)
+            )
+        )
+        engine.warmUp()
+
+        let keyboardVoices = try reflectedProperty(
+            named: "keyboardVoices",
+            from: engine,
+            as: [Any].self
+        )
+        try check(
+            keyboardVoices.count == 2,
+            "default keyboard pool size should follow the requested voice count",
+            passed: &passed
+        )
+
+        let pointerVoices = try reflectedProperty(
+            named: "pointerVoices",
+            from: engine,
+            as: [Any].self
+        )
+        try check(
+            pointerVoices.count == 2,
+            "default pointer pool size should inherit the requested voice count when no explicit override is provided",
+            passed: &passed
+        )
+
+        let keyboardGainStages = try reflectedProperty(
+            named: "keyboardGainStages",
+            from: engine,
+            as: [AVAudioUnitEQ].self
+        )
+        try check(
+            keyboardGainStages.count == KeyboardAbsoluteVolumeCompensation.stageCount,
+            "runtime graph should attach exactly five keyboard compensation stages",
+            passed: &passed
+        )
+        let totalGain = keyboardGainStages.reduce(Float.zero) { partial, stage in
+            partial + stage.globalGain
+        }
+        try check(
+            abs(totalGain - 37.75) < 0.001,
+            "warmUp should apply the requested keyboard compensation plan to the live EQ stages",
+            passed: &passed
+        )
+    }
+
+    private static func testKeyboardAndPointerRouteIntegration(passed: inout Int) throws {
+        let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let engineSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/Services/KeyboardAudioEngine.swift"
+            ),
+            encoding: .utf8
+        )
+        let harnessScript = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/Tests/run-audio-variant-core-harness.sh"
+            ),
+            encoding: .utf8
+        )
+        let projectSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac.xcodeproj/project.pbxproj"
+            ),
+            encoding: .utf8
+        )
+
+        try check(
+            engineSource.contains("private var keyboardVoices: [Voice] = []")
+                && engineSource.contains("private var pointerVoices: [Voice] = []"),
+            "keyboard and pointer playback should maintain distinct voice pools",
+            passed: &passed
+        )
+        try check(
+            engineSource.contains("keyboardGainStages")
+                && engineSource.contains("refreshKeyboardOutputCompensation("),
+            "keyboard playback should define a gain-stage chain with a compensation refresh path",
+            passed: &passed
+        )
+        try check(
+            engineSource.contains("outputVolumeReader.snapshot()"),
+            "keyboard compensation refresh should read a fresh synchronous output snapshot",
+            passed: &passed
+        )
+
+        guard let keyboardPlayStart = engineSource.range(
+            of: "    func play(\n        keyCode: UInt16,"
+        )?.lowerBound,
+        let pointerPlayStart = engineSource.range(
+            of: "    func play(\n        pointerButton: PointerButton,"
+        )?.lowerBound else {
+            throw AudioVariantHarnessFailure.assertion("could not isolate keyboard and pointer playback entrypoints")
+        }
+        let keyboardPlaySource = engineSource[keyboardPlayStart..<pointerPlayStart]
+        try check(
+            keyboardPlaySource.contains("playKeyboard("),
+            "keyboard playback entrypoints should route through the compensated keyboard path",
+            passed: &passed
+        )
+
+        guard let previewStart = engineSource.range(
+            of: "    func preview(\n        audioAt url: URL,"
+        )?.lowerBound,
+        let builtInBufferStart = engineSource.range(
+            of: "    private func makeBuiltInBuffers("
+        )?.lowerBound else {
+            throw AudioVariantHarnessFailure.assertion("could not isolate DIY preview playback")
+        }
+        let previewSource = engineSource[previewStart..<builtInBufferStart]
+        try check(
+            previewSource.contains("playKeyboard(buffer:"),
+            "DIY preview playback should reuse the compensated keyboard route",
+            passed: &passed
+        )
+
+        guard let pointerBufferPlayStart = engineSource.range(
+            of: "    private func playPointer("
+        )?.lowerBound,
+        let startEngineIfNeeded = engineSource.range(
+            of: "    @discardableResult\n    private func startEngineIfNeeded()"
+        )?.lowerBound else {
+            throw AudioVariantHarnessFailure.assertion("could not isolate pointer playback helpers")
+        }
+        let pointerPlaybackSource = engineSource[pointerPlayStart..<previewStart]
+        try check(
+            pointerPlaybackSource.contains("playPointer("),
+            "pointer playback should route through the direct pointer path",
+            passed: &passed
+        )
+        try check(
+            !pointerPlaybackSource.contains("refreshKeyboardOutputCompensation")
+                && !pointerPlaybackSource.contains("keyboardGainStages"),
+            "pointer playback should bypass keyboard compensation refresh and gain stages",
+            passed: &passed
+        )
+        let pointerBufferSource = engineSource[pointerBufferPlayStart..<startEngineIfNeeded]
+        try check(
+            pointerBufferSource.contains("let voice = pointerVoices[pointerVoiceCursor]")
+                && pointerBufferSource.contains("voice.player.scheduleBuffer"),
+            "pointer helper playback should consume the pointer voice pool directly",
+            passed: &passed
+        )
+
+        guard let systemOutputRange = harnessScript.range(
+            of: "SimuBoardMac/SimuBoardMac/Services/SystemOutputVolume.swift"
+        ),
+        let engineRange = harnessScript.range(
+            of: "SimuBoardMac/SimuBoardMac/Services/KeyboardAudioEngine.swift"
+        ) else {
+            throw AudioVariantHarnessFailure.assertion("audio variant harness script should compile SystemOutputVolume.swift and KeyboardAudioEngine.swift")
+        }
+        try check(
+            systemOutputRange.lowerBound < engineRange.lowerBound,
+            "audio variant harness should compile SystemOutputVolume.swift before KeyboardAudioEngine.swift",
+            passed: &passed
+        )
+
+        try check(
+            projectSource.contains("SystemOutputVolume.swift in Sources")
+                && projectSource.contains("SystemOutputVolume.swift */;")
+                && projectSource.contains("path = SystemOutputVolume.swift;"),
+            "SystemOutputVolume.swift should be wired into the Xcode project sources",
+            passed: &passed
+        )
+    }
+
+    private static func reflectedProperty<Value>(
+        named name: String,
+        from subject: some Any,
+        as _: Value.Type
+    ) throws -> Value {
+        guard let value = Mirror(reflecting: subject).children.first(where: { $0.label == name })?.value as? Value else {
+            throw AudioVariantHarnessFailure.assertion("missing reflected property \(name)")
+        }
+        return value
     }
 }
