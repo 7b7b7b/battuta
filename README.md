@@ -25,7 +25,7 @@ dotnet test BattutaWindows/tests/Battuta.Windows.Tests/Battuta.Windows.Tests.csp
 
 ## macOS 系统级版本
 
-Xcode 工程、运行说明、DMG 与 Sparkle appcast 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。1.0.0 加入四配方键盘音色轮换、前导静音优化和经过 Ed25519 验签的应用内一键更新；构建产物位于 `SimuBoardMac/build/Battuta-1.0.0-unnotarized.dmg`。
+Xcode 工程、运行说明、DMG 与 Sparkle appcast 打包脚本位于 [`SimuBoardMac`](SimuBoardMac/README.md)。1.1.0 改进键盘音量与输入统计性能，并加入仅供本地、拥有授权录音使用的 BCP Suit80 音色包制作工具；构建产物位于 `SimuBoardMac/build/Battuta-1.1.0-unnotarized.dmg`。
 
 此版本使用 macOS“输入监控”读取硬件键码、鼠标按钮类型和按下/抬起状态，不读取字符内容或点击位置；支持 20 种键盘音色、5 种鼠标/触控板点击风格和共 237 段录音，并提供 DIY 音色、本地输入统计、逐键热力图和默认开启的登录时自动启动。开启自然变化后，每段键盘录音会在四种轻微配方间均衡轮换，所有变化共享一份 PCM。为保留现有设置、音色包、统计数据和输入监控代码身份，内部 Bundle Identifier 与兼容性标识仍延用旧值。当前 DMG 使用长期固定的本地自签名身份，未使用 Developer ID，也未经过 Apple 公证。
 
