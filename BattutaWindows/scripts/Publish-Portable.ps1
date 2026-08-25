@@ -31,7 +31,11 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
 $outputRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
 $stagingRoot = Join-Path $outputRoot 'staging'
 $stage = Join-Path $stagingRoot ([Guid]::NewGuid().ToString('N'))
-$safeStagingPrefix = [System.IO.Path]::GetFullPath($stagingRoot).TrimEnd('\') + '\'
+$directorySeparators = [char[]]@(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar)
+$safeStagingPrefix = [System.IO.Path]::GetFullPath($stagingRoot).TrimEnd($directorySeparators) +
+    [System.IO.Path]::DirectorySeparatorChar
 
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $stagingRoot | Out-Null
