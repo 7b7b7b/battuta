@@ -1,0 +1,89 @@
+name: Windows release package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic version without the v prefix
+        required: true
+        default: 1.1.1
+      tag:
+        description: Existing draft release tag to update
+        required: true
+        default: v1.1.1
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: windows-latest
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_NOLOGO: 1
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.400
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore .\BattutaWindows\BattutaWindows.sln
+
+      - name: Build release solution
+        shell: pwsh
+        run: dotnet build .\BattutaWindows\BattutaWindows.sln --configuration Release --no-restore
+
+      - name: Run core tests
+        shell: pwsh
+        run: >-
+          dotnet test --project .\BattutaWindows\tests\Battuta.Core.Tests\Battuta.Core.Tests.csproj
+          --configuration Release --no-build --no-restore --minimum-expected-tests 121
+          --no-progress --output Normal
+
+      - name: Run Windows and WPF tests
+        shell: pwsh
+        run: >-
+          dotnet test --project .\BattutaWindows\tests\Battuta.Windows.Tests\Battuta.Windows.Tests.csproj
+          --configuration Release --no-build --no-restore --minimum-expected-tests 1
+          --no-progress --output Normal
+
+      - name: Build and verify portable package
+        shell: pwsh
+        run: >-
+          .\BattutaWindows\scripts\Publish-Portable.ps1
+          -Version $env:RELEASE_VERSION
+          -Runtime win-x64
+          -Configuration Release
+
+      - name: Upload package to draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $archiveName = "Battuta-Windows-$env:RELEASE_VERSION-win-x64.zip"
+          $archive = Join-Path $PWD "BattutaWindows\artifacts\$archiveName"
+          $hashFile = "$archive.sha256"
+          gh release upload $env:RELEASE_TAG $archive $hashFile --clobber
+          if ($LASTEXITCODE -ne 0) {
+              throw "GitHub Release upload failed with exit code $LASTEXITCODE."
+          }
+
+          $expectedDigest = "sha256:$((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant())"
+          $release = gh release view $env:RELEASE_TAG --json assets | ConvertFrom-Json
+          $remoteAsset = $release.assets | Where-Object name -EQ $archiveName | Select-Object -First 1
+          if ($null -eq $remoteAsset -or $remoteAsset.digest -ne $expectedDigest) {
+              throw "Remote release asset digest does not match $expectedDigest."
+          }
+          Write-Output "Uploaded $archiveName with verified digest $expectedDigest"
