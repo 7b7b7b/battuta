@@ -7,6 +7,9 @@ namespace Battuta.Windows.Tests.Diy;
 
 public sealed class DiySoundPackPackageTests
 {
+    private static readonly Guid BundledBcpPackId =
+        Guid.Parse("15d04652-5265-4ea7-a376-8a7e11ff6813");
+
     [Fact]
     public async Task LibraryAndArchiveRoundTripAndApplyCollisionPolicies()
     {
@@ -132,6 +135,53 @@ public sealed class DiySoundPackPackageTests
         Assert.Equal(SoundPackErrorKind.UnsafeFile, rejected.Kind);
     }
 
+    [Fact]
+    public async Task LibraryEnumeratesAndLoadsBundledReadOnlyPack()
+    {
+        using var root = new TemporaryDirectory();
+        using var library = new DiySoundPackLibrary(
+            root.Combine("library"),
+            builtInDescriptors: [],
+            bundledPackRootPath: BundledPackRoot());
+
+        var descriptors = await library.DescriptorsAsync();
+        var descriptor = Assert.Single(descriptors);
+
+        Assert.Equal($"custom:{BundledBcpPackId:D}".ToLowerInvariant(), descriptor.SelectionId);
+        Assert.Equal("BCP (Suit80)", descriptor.Name);
+        Assert.True(descriptor.IsReadOnly);
+        Assert.Equal(BundledBcpPackId, descriptor.CustomPackId);
+
+        var loaded = await library.LoadAsync(BundledBcpPackId);
+        Assert.Equal(BundledBcpPackId, loaded.Manifest.Id);
+        Assert.Equal("BCP (Suit80)", loaded.Manifest.Name);
+        Assert.Equal(28, loaded.Manifest.Assets.Count);
+        Assert.Equal("线性", loaded.Manifest.Family);
+        Assert.Equal("厚实、木感", loaded.Manifest.Tone);
+    }
+
+    [Fact]
+    public async Task BundledPackHidesAndOverridesLocalDuplicateWithSameId()
+    {
+        using var root = new TemporaryDirectory();
+        var localDuplicate = Path.Combine(root.Combine("library"), $"{BundledBcpPackId:D}.simuboardpack");
+        Directory.CreateDirectory(localDuplicate);
+        await File.WriteAllTextAsync(
+            Path.Combine(localDuplicate, "manifest.json"),
+            "{ \"name\": \"broken duplicate\" }");
+        using var library = new DiySoundPackLibrary(
+            root.Combine("library"),
+            builtInDescriptors: [],
+            bundledPackRootPath: BundledPackRoot());
+
+        var descriptors = await library.DescriptorsAsync();
+        Assert.Single(descriptors);
+
+        var loaded = await library.LoadAsync(BundledBcpPackId);
+        Assert.Equal("BCP (Suit80)", loaded.Manifest.Name);
+        Assert.Equal(28, loaded.Manifest.Assets.Count);
+    }
+
     private static SoundPackManifest ManifestFor(PreparedDiyAudio prepared, string name)
     {
         var id = new SoundPackAssetId(prepared.AssetId);
@@ -157,4 +207,11 @@ public sealed class DiySoundPackPackageTests
             },
         };
     }
+
+    private static string BundledPackRoot() => Path.Combine(
+        AudioTestFiles.FindRepositoryRoot(),
+        "SimuBoardMac",
+        "SimuBoardMac",
+        "Resources",
+        "BundledSoundPacks");
 }

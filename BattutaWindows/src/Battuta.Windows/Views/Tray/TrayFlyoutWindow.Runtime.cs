@@ -375,12 +375,7 @@ public partial class TrayFlyoutWindow
                 var descriptors = await runtime.SoundPackLibrary
                     .DescriptorsAsync(cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
-                var merged = SoundPackDescriptors.BundledDefaults
-                    .Concat(descriptors.Where(descriptor => !descriptor.IsReadOnly))
-                    .GroupBy(descriptor => descriptor.SelectionId, StringComparer.Ordinal)
-                    .Select(group => group.First())
-                    .ToArray();
-                ApplySoundPackChoices(merged);
+                ApplySoundPackChoices(descriptors);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

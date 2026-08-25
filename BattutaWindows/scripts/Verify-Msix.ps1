@@ -5,6 +5,8 @@ param(
 
     [int]$ExpectedSoundCount = 237,
 
+    [int]$ExpectedBundledPackAssetCount = 28,
+
     [switch]$AllowUnsigned,
 
     [switch]$AllowUntrustedSignature
@@ -76,6 +78,28 @@ try {
         throw "MSIX contains an empty sound asset: $($emptySound.FullName)"
     }
 
+    $bundledPackPrefix = 'BundledSoundPacks/15d04652-5265-4ea7-a376-8a7e11ff6813.simuboardpack/'
+    foreach ($requiredEntry in @(
+        "${bundledPackPrefix}manifest.json",
+        "${bundledPackPrefix}licenses/BCP-Suit80-PERMISSION.txt"
+    )) {
+        if (-not $entries.ContainsKey($requiredEntry)) {
+            throw "MSIX package is missing '$requiredEntry'."
+        }
+    }
+    $bundledAssets = @($archive.Entries | Where-Object {
+        $_.FullName.Replace('\', '/').StartsWith("${bundledPackPrefix}assets/", [System.StringComparison]::Ordinal) -and
+        $_.FullName.EndsWith('.wav', [System.StringComparison]::OrdinalIgnoreCase) -and
+        (-not [string]::IsNullOrEmpty($_.Name))
+    })
+    if ($bundledAssets.Count -ne $ExpectedBundledPackAssetCount) {
+        throw "Expected $ExpectedBundledPackAssetCount bundled BCP assets, found $($bundledAssets.Count)."
+    }
+    $emptyBundledAsset = $bundledAssets | Where-Object Length -LE 0 | Select-Object -First 1
+    if ($null -ne $emptyBundledAsset) {
+        throw "MSIX contains an empty bundled BCP asset: $($emptyBundledAsset.FullName)"
+    }
+
     Add-Type -AssemblyName System.Drawing
     $expectedLogos = @{
         'StoreLogo.png' = @(50, 50)
@@ -115,6 +139,7 @@ try {
         SignatureStatus = $signature.Status
         Signer = if ($null -eq $signature.SignerCertificate) { $null } else { $signature.SignerCertificate.Subject }
         SoundCount = $soundFiles.Count
+        BundledPackAssetCount = $bundledAssets.Count
         TotalFiles = $archive.Entries.Count
     }
 }

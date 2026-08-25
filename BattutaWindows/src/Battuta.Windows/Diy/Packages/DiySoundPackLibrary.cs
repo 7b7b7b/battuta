@@ -9,15 +9,20 @@ public sealed class DiySoundPackLibrary : IDisposable
     private readonly SoundPackValidationLimits _limits;
     private readonly DiySoundPackPackageValidator _packageValidator;
     private readonly IReadOnlyList<SoundPackDescriptor> _builtInDescriptors;
+    private readonly string? _bundledPackRootPath;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public DiySoundPackLibrary(
         string? rootPath = null,
         IReadOnlyList<SoundPackDescriptor>? builtInDescriptors = null,
+        string? bundledPackRootPath = null,
         SoundPackValidationLimits? limits = null)
     {
         RootPath = DiySoundPackFileSafety.CanonicalPath(rootPath ?? DefaultRootPath());
         _builtInDescriptors = builtInDescriptors ?? SoundPackDescriptors.BundledDefaults;
+        _bundledPackRootPath = bundledPackRootPath is null
+            ? DefaultBundledPackRootPath()
+            : DiySoundPackFileSafety.CanonicalPath(bundledPackRootPath);
         _limits = limits ?? SoundPackValidationLimits.Standard;
         _packageValidator = new DiySoundPackPackageValidator(_limits);
     }
@@ -181,6 +186,8 @@ public sealed class DiySoundPackLibrary : IDisposable
     private SoundPackDescriptor[] DescriptorsCore(CancellationToken cancellationToken)
     {
         EnsureRoot();
+        var bundled = LoadBundledPacks();
+        var bundledIds = bundled.Keys.ToHashSet();
         var custom = new List<SoundPackDescriptor>();
         foreach (var directory in Directory.EnumerateDirectories(RootPath, "*.simuboardpack"))
         {
@@ -188,6 +195,13 @@ public sealed class DiySoundPackLibrary : IDisposable
             var name = Path.GetFileNameWithoutExtension(directory);
             if (!Guid.TryParse(name, out var id))
             {
+                continue;
+            }
+
+            if (bundledIds.Contains(id))
+            {
+                // Once the app ships the same UUID as a read-only bundled pack,
+                // keep any old local package on disk but hide the duplicate row.
                 continue;
             }
 
@@ -204,12 +218,20 @@ public sealed class DiySoundPackLibrary : IDisposable
 
         custom.Sort((left, right) =>
             StringComparer.CurrentCultureIgnoreCase.Compare(left.Name, right.Name));
-        return _builtInDescriptors.Concat(custom).ToArray();
+        var bundledDescriptors = bundled.Values
+            .Select(document => document.Descriptor)
+            .OrderBy(descriptor => descriptor.Name, StringComparer.CurrentCultureIgnoreCase);
+        return _builtInDescriptors.Concat(bundledDescriptors).Concat(custom).ToArray();
     }
 
     private DiySoundPackDocument LoadCore(Guid id)
     {
         EnsureRoot();
+        if (TryLoadBundledPack(id, out var bundled))
+        {
+            return bundled;
+        }
+
         var path = PackPath(id);
         if (!Directory.Exists(path))
         {
@@ -356,10 +378,62 @@ public sealed class DiySoundPackLibrary : IDisposable
     private void EnsureRoot() =>
         DiySoundPackFileSafety.EnsureSafeDirectory(RootPath, create: true);
 
+    private Dictionary<Guid, DiySoundPackDocument> LoadBundledPacks()
+    {
+        if (string.IsNullOrWhiteSpace(_bundledPackRootPath) ||
+            !Directory.Exists(_bundledPackRootPath))
+        {
+            return [];
+        }
+
+        DiySoundPackFileSafety.EnsureSafeDirectory(_bundledPackRootPath, create: false);
+        var bundled = new Dictionary<Guid, DiySoundPackDocument>();
+        foreach (var directory in Directory.EnumerateDirectories(_bundledPackRootPath, "*.simuboardpack"))
+        {
+            var name = Path.GetFileNameWithoutExtension(directory);
+            if (!Guid.TryParse(name, out var id))
+            {
+                continue;
+            }
+
+            try
+            {
+                var package = _packageValidator.Validate(directory);
+                if (package.Manifest.Id != id)
+                {
+                    continue;
+                }
+
+                bundled[id] = new DiySoundPackDocument(
+                    SoundPackDescriptors.BundledPack(package.Manifest),
+                    package.Manifest,
+                    package.RootPath);
+            }
+            catch (Exception error) when (
+                error is SoundPackException or IOException or UnauthorizedAccessException)
+            {
+                // One damaged bundled package must not hide the remaining
+                // packaged content. Release validation checks the shipped pack.
+            }
+        }
+
+        return bundled;
+    }
+
+    private bool TryLoadBundledPack(Guid id, out DiySoundPackDocument document)
+    {
+        document = null!;
+        var bundled = LoadBundledPacks();
+        return bundled.TryGetValue(id, out document!);
+    }
+
     private static string DefaultRootPath() => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Battuta",
         "SoundPacks");
+
+    private static string DefaultBundledPackRootPath() =>
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "BundledSoundPacks"));
 
     public void Dispose()
     {
