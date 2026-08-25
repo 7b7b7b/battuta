@@ -2,6 +2,7 @@ using System.IO;
 using Battuta.Core.SoundPacks;
 using Battuta.Windows.Diy.Audio;
 using Battuta.Windows.Diy.Packages;
+using Battuta.Windows.Tests.Audio;
 
 namespace Battuta.Windows.Tests.Diy;
 
