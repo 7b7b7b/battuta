@@ -8,8 +8,8 @@ namespace Battuta.Windows.Updates;
 
 public sealed class GitHubReleaseClient : IReleaseClient
 {
-    public static readonly Uri LatestReleaseEndpoint = new(
-        "https://api.github.com/repos/7b7b7b/battuta/releases/latest");
+    public static readonly Uri ReleasesEndpoint = new(
+        "https://api.github.com/repos/7b7b7b/battuta/releases?per_page=20");
 
     private readonly HttpClient _httpClient;
     private readonly TimeProvider _timeProvider;
@@ -24,7 +24,7 @@ public sealed class GitHubReleaseClient : IReleaseClient
         string? etag,
         CancellationToken cancellationToken = default)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseEndpoint);
+        using var request = new HttpRequestMessage(HttpMethod.Get, ReleasesEndpoint);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.TryAddWithoutValidation("X-GitHub-Api-Version", "2026-03-10");
         request.Headers.UserAgent.ParseAdd("Battuta-Windows/1.0");
@@ -84,24 +84,35 @@ public sealed class GitHubReleaseClient : IReleaseClient
         {
             await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token)
                 .ConfigureAwait(false);
-            var payload = await JsonSerializer.DeserializeAsync<GitHubReleasePayload>(
+            var payloads = await JsonSerializer.DeserializeAsync<GitHubReleasePayload[]>(
                 stream,
                 cancellationToken: timeout.Token).ConfigureAwait(false);
-            if (payload is null
-                || payload.Draft
-                || payload.Prerelease
-                || string.IsNullOrWhiteSpace(payload.TagName)
-                || !Uri.TryCreate(payload.HtmlUrl, UriKind.Absolute, out var releaseUri))
+            if (payloads is null)
             {
                 throw new ReleaseClientException(
                     ReleaseClientErrorKind.MalformedRelease,
                     "GitHub returned a malformed Battuta release.");
             }
 
+            var payload = payloads.FirstOrDefault(IsCompatibleWindowsRelease);
+            if (payload is null)
+            {
+                throw new ReleaseClientException(
+                    ReleaseClientErrorKind.NoPublishedRelease,
+                    "GitHub has no published Battuta release for this Windows architecture.");
+            }
+
+            if (!Uri.TryCreate(payload.HtmlUrl, UriKind.Absolute, out var releaseUri))
+            {
+                throw new ReleaseClientException(
+                    ReleaseClientErrorKind.MalformedRelease,
+                    "GitHub returned a malformed Battuta release URL.");
+            }
+
             GitHubReleaseSummary release;
             try
             {
-                release = GitHubReleaseSummary.Create(payload.TagName, releaseUri, payload.PublishedAt);
+                release = GitHubReleaseSummary.Create(payload.TagName!, releaseUri, payload.PublishedAt);
             }
             catch (ArgumentException exception)
             {
@@ -120,6 +131,26 @@ public sealed class GitHubReleaseClient : IReleaseClient
                 "GitHub returned invalid JSON.",
                 innerException: exception);
         }
+    }
+
+    private static bool IsCompatibleWindowsRelease(GitHubReleasePayload payload)
+    {
+        if (payload.Draft
+            || payload.Prerelease
+            || string.IsNullOrWhiteSpace(payload.TagName)
+            || !SemanticVersion.TryParse(payload.TagName, out _))
+        {
+            return false;
+        }
+
+        var architecture = RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+            ? "arm64"
+            : "x64";
+        var suffix = $"-win-{architecture}.zip";
+        return payload.Assets.Any(asset =>
+            asset.Name is { } name
+            && name.StartsWith("Battuta-Windows-", StringComparison.OrdinalIgnoreCase)
+            && name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
     }
 
     private static GitHubRateLimit ReadRateLimit(HttpResponseMessage response)
@@ -187,5 +218,14 @@ public sealed class GitHubReleaseClient : IReleaseClient
 
         [System.Text.Json.Serialization.JsonPropertyName("published_at")]
         public DateTimeOffset? PublishedAt { get; init; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("assets")]
+        public GitHubReleaseAssetPayload[] Assets { get; init; } = [];
+    }
+
+    private sealed class GitHubReleaseAssetPayload
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; init; }
     }
 }
