@@ -172,13 +172,38 @@ private struct TypingStatsKeyboardHeatmap: View, Equatable {
 
     var body: some View {
         FittedTypingStatsKeyboard(
-            layout: TypingStatsKeyboardPresentation.layout,
-            visualLayout: TypingStatsKeyboardPresentation.visualLayout,
             counts: counts,
             maximumCount: maximumCount,
             exposesEmptyKeyMetadata: exposesEmptyKeyMetadata
         )
     }
+}
+
+private struct TypingStatsKeyboardCanvasEntry: Identifiable, Hashable {
+    let renderedKey: MacKeyboardRenderedKey
+    let frame: CGRect
+
+    var id: String { renderedKey.id }
+}
+
+private enum TypingStatsKeyboardCanvasLayout {
+    static let baseMetrics = MacKeyboardLayoutMetrics.typingStats
+    static let baseSize = baseMetrics.canvasSize(for: TypingStatsKeyboardPresentation.visualLayout)
+    static let entries: [TypingStatsKeyboardCanvasEntry] = {
+        let descriptorsByID = Dictionary(
+            uniqueKeysWithValues: TypingStatsKeyboardPresentation.layout.keys.map { ($0.id, $0) }
+        )
+        return TypingStatsKeyboardPresentation.visualLayout.placements.map { placement in
+            let descriptor = placement.content.keyID.flatMap { descriptorsByID[$0] }
+            return TypingStatsKeyboardCanvasEntry(
+                renderedKey: MacKeyboardRenderedKey(
+                    placement: placement,
+                    descriptor: descriptor
+                ),
+                frame: baseMetrics.frame(for: placement)
+            )
+        }
+    }()
 }
 
 @MainActor
@@ -246,44 +271,249 @@ private struct TypingStatsKeyboardExtendedSection: View, Equatable {
 
 @MainActor
 private struct FittedTypingStatsKeyboard: View {
-    let layout: KeyboardLayout
-    let visualLayout: KeyboardVisualLayout
+    @Environment(\.colorScheme) private var colorScheme
+
     let counts: [UInt16: Int64]
     let maximumCount: Int64
     let exposesEmptyKeyMetadata: Bool
 
-    private let baseMetrics = MacKeyboardLayoutMetrics.typingStats
-
     var body: some View {
-        let baseSize = baseMetrics.canvasSize(for: visualLayout)
+        let baseSize = TypingStatsKeyboardCanvasLayout.baseSize
 
         GeometryReader { proxy in
             let scale = max(0.1, proxy.size.width / baseSize.width)
-
-            MacKeyboardLayoutView(
-                keyboardLayout: layout,
-                visualLayout: visualLayout,
-                metrics: baseMetrics
-            ) { renderedKey, size in
-                TypingStatsMacKeycap(
-                    renderedKey: renderedKey,
-                    size: size,
-                    count: renderedKey.descriptor.map {
-                        counts[$0.keyCode, default: 0]
-                    } ?? 0,
-                    maximumCount: maximumCount,
-                    exposesEmptyMetadata: exposesEmptyKeyMetadata
-                )
-                .equatable()
-            }
-            .scaleEffect(scale, anchor: .topLeading)
-            .frame(
+            let scaledSize = CGSize(
                 width: baseSize.width * scale,
-                height: baseSize.height * scale,
+                height: baseSize.height * scale
+            )
+            let interactiveEntries = TypingStatsKeyboardCanvasLayout.entries.filter {
+                keyCount(for: $0) > 0 || exposesEmptyKeyMetadata
+            }
+
+            ZStack(alignment: .topLeading) {
+                Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) {
+                    context,
+                    _ in
+                    context.scaleBy(x: scale, y: scale)
+                    for entry in TypingStatsKeyboardCanvasLayout.entries {
+                        draw(entry, in: &context)
+                    }
+                }
+                .frame(width: scaledSize.width, height: scaledSize.height)
+                .accessibilityHidden(true)
+
+                ForEach(interactiveEntries) { entry in
+                    interactionHitTarget(for: entry, scale: scale)
+                }
+            }
+            .frame(
+                width: scaledSize.width,
+                height: scaledSize.height,
                 alignment: .topLeading
             )
         }
         .aspectRatio(baseSize.width / baseSize.height, contentMode: .fit)
+    }
+
+    private func keyCount(for entry: TypingStatsKeyboardCanvasEntry) -> Int64 {
+        entry.renderedKey.descriptor.map { counts[$0.keyCode, default: 0] } ?? 0
+    }
+
+    @ViewBuilder
+    private func interactionHitTarget(
+        for entry: TypingStatsKeyboardCanvasEntry,
+        scale: CGFloat
+    ) -> some View {
+        let count = keyCount(for: entry)
+        let frame = entry.frame
+        let scaledFrame = CGRect(
+            x: frame.minX * scale,
+            y: frame.minY * scale,
+            width: frame.width * scale,
+            height: frame.height * scale
+        )
+
+        let content = Color.clear
+            .frame(width: scaledFrame.width, height: scaledFrame.height)
+            .contentShape(Rectangle())
+            .position(x: scaledFrame.midX, y: scaledFrame.midY)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityLabel(for: entry))
+            .accessibilityValue(accessibilityValue(for: entry, count: count))
+
+        if count > 0 {
+            content
+                .help(helpText(for: entry, count: count))
+        } else {
+            content
+        }
+    }
+
+    private func accessibilityLabel(for entry: TypingStatsKeyboardCanvasEntry) -> String {
+        if let key = entry.renderedKey.descriptor {
+            return key.label
+        }
+        return "锁定或 Touch ID 键"
+    }
+
+    private func accessibilityValue(
+        for entry: TypingStatsKeyboardCanvasEntry,
+        count: Int64
+    ) -> String {
+        if entry.renderedKey.descriptor != nil {
+            return "\(count) 次"
+        }
+        return "系统不提供普通按键计数"
+    }
+
+    private func helpText(
+        for entry: TypingStatsKeyboardCanvasEntry,
+        count: Int64
+    ) -> String {
+        if let key = entry.renderedKey.descriptor {
+            return "\(key.label)：\(statsCount(count)) 次"
+        }
+        return "锁定或 Touch ID 键：系统不提供普通按键事件"
+    }
+
+    private func draw(
+        _ entry: TypingStatsKeyboardCanvasEntry,
+        in context: inout GraphicsContext
+    ) {
+        let count = keyCount(for: entry)
+        let frame = entry.frame
+        let keyPath = Path(roundedRect: frame, cornerRadius: 7, style: .continuous)
+
+        if count > 0 {
+            let shadowPath = Path(
+                roundedRect: frame.offsetBy(dx: 0, dy: 1),
+                cornerRadius: 7,
+                style: .continuous
+            )
+            context.fill(shadowPath, with: .color(.black.opacity(0.055)))
+        }
+
+        context.fill(keyPath, with: .color(BattutaVisualStyle.surface))
+        context.fill(keyPath, with: .color(keycapTint(for: count)))
+        context.stroke(keyPath, with: .color(strokeColor(for: count)), lineWidth: 1)
+
+        if let key = entry.renderedKey.descriptor {
+            drawKeyText(key: key, count: count, in: frame, context: &context)
+        } else {
+            drawDecoration(entry.renderedKey, in: frame, context: &context)
+        }
+    }
+
+    private func drawKeyText(
+        key: KeyboardKeyDescriptor,
+        count: Int64,
+        in frame: CGRect,
+        context: inout GraphicsContext
+    ) {
+        let foreground = keycapForeground(for: count)
+        let countColor = count > 0 ? foreground : Color.secondary.opacity(0.48)
+
+        if frame.height < 30 {
+            drawResolvedText(
+                Text(key.label).font(key.widthUnits > 1.2 ? .caption2 : .caption),
+                color: foreground,
+                at: CGPoint(x: frame.minX + 3, y: frame.midY),
+                anchor: .leading,
+                in: &context
+            )
+            drawResolvedText(
+                Text(statsCompactKeyCount(count))
+                    .font(.caption2.weight(count > 0 ? .semibold : .regular))
+                    .monospacedDigit(),
+                color: countColor,
+                at: CGPoint(x: frame.maxX - 3, y: frame.midY),
+                anchor: .trailing,
+                in: &context
+            )
+        } else {
+            drawResolvedText(
+                Text(key.label).font(key.widthUnits > 1.2 ? .caption2 : .caption),
+                color: foreground,
+                at: CGPoint(x: frame.midX, y: frame.midY - 7),
+                anchor: .center,
+                in: &context
+            )
+            drawResolvedText(
+                Text(statsCompactKeyCount(count))
+                    .font(.caption2.weight(count > 0 ? .semibold : .regular))
+                    .monospacedDigit(),
+                color: countColor,
+                at: CGPoint(x: frame.midX, y: frame.midY + 8),
+                anchor: .center,
+                in: &context
+            )
+        }
+    }
+
+    private func drawDecoration(
+        _ renderedKey: MacKeyboardRenderedKey,
+        in frame: CGRect,
+        context: inout GraphicsContext
+    ) {
+        if let systemImage = renderedKey.systemImage {
+            drawResolvedText(
+                Text(Image(systemName: systemImage)).font(.caption),
+                color: .primary,
+                at: CGPoint(x: frame.midX, y: frame.midY - 6),
+                anchor: .center,
+                in: &context
+            )
+        } else {
+            drawResolvedText(
+                Text(renderedKey.label).font(.caption2),
+                color: .primary,
+                at: CGPoint(x: frame.midX, y: frame.midY - 6),
+                anchor: .center,
+                in: &context
+            )
+        }
+
+        drawResolvedText(
+            Text("—").font(.caption2),
+            color: Color.secondary.opacity(0.55),
+            at: CGPoint(x: frame.midX, y: frame.midY + 8),
+            anchor: .center,
+            in: &context
+        )
+    }
+
+    private func drawResolvedText(
+        _ text: Text,
+        color: Color,
+        at point: CGPoint,
+        anchor: UnitPoint,
+        in context: inout GraphicsContext
+    ) {
+        var resolved = context.resolve(text)
+        resolved.shading = .color(color)
+        context.draw(resolved, at: point, anchor: anchor)
+    }
+
+    private func keycapTint(for count: Int64) -> Color {
+        guard count > 0 else { return .clear }
+        return BattutaVisualStyle.accent.opacity(0.10 + keycapIntensity(for: count) * 0.46)
+    }
+
+    private func strokeColor(for count: Int64) -> Color {
+        guard count > 0 else { return BattutaVisualStyle.separator.opacity(0.55) }
+        return BattutaVisualStyle.accent.opacity(0.26 + keycapIntensity(for: count) * 0.34)
+    }
+
+    private func keycapForeground(for count: Int64) -> Color {
+        guard count > 0 else { return .primary }
+        return colorScheme == .dark
+            ? .white.opacity(0.92)
+            : .black.opacity(0.84)
+    }
+
+    private func keycapIntensity(for count: Int64) -> Double {
+        guard count > 0, maximumCount > 0 else { return 0 }
+        return log(Double(count) + 1) / log(Double(maximumCount) + 1)
     }
 }
 
@@ -411,56 +641,6 @@ private struct TypingStatsKeycap: View {
         return colorScheme == .dark
             ? .white.opacity(0.92)
             : .black.opacity(0.84)
-    }
-}
-
-@MainActor
-private struct TypingStatsMacKeycap: View, Equatable {
-    let renderedKey: MacKeyboardRenderedKey
-    let size: CGSize
-    let count: Int64
-    let maximumCount: Int64
-    let exposesEmptyMetadata: Bool
-
-    @ViewBuilder
-    var body: some View {
-        if let key = renderedKey.descriptor {
-            TypingStatsKeycap(
-                key: key,
-                count: count,
-                maximumCount: maximumCount,
-                size: size,
-                exposesEmptyMetadata: exposesEmptyMetadata
-            )
-        } else {
-            let content = VStack(spacing: 3) {
-                if let systemImage = renderedKey.systemImage {
-                    Image(systemName: systemImage)
-                        .font(.caption)
-                } else {
-                    Text(renderedKey.label)
-                        .font(.caption2)
-                }
-                Text("—")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            .frame(width: size.width, height: size.height)
-            .background(BattutaVisualStyle.surface, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(BattutaVisualStyle.separator.opacity(0.55))
-            )
-
-            if exposesEmptyMetadata {
-                content
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("锁定或 Touch ID 键")
-                    .accessibilityValue("系统不提供普通按键计数")
-            } else {
-                content.accessibilityHidden(true)
-            }
-        }
     }
 }
 
