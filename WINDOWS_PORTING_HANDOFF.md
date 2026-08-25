@@ -9,7 +9,7 @@
 - 当前 Git 远端为：`https://github.com/7b7b7b/battuta.git`
 - 必须从远端最新 `main` 开始，不要从旧的 `v0.3.2` Release 标签开始移植。
 - 本文编写时，核心源码基线是 commit `cce3b87`；Windows clone 后应确认位于该 commit 或其更新版本。
-- 当前源码工程的产品版本为 Battuta `1.0.0`，build `23`。
+- 当前源码工程的产品版本为 Battuta `1.1.0`，build `24`。
 - Windows 代码应放在独立目录中，默认不要改写或删除 `SimuBoardMac/`。
 
 注意：本文编写时，本机的 `Promo/`、`website/`、`wormforce-integration/` 仍是未跟踪的本地目录，不会自动出现在普通 Git clone 中。若 Windows 端需要其中的宣传截图、视频或网页，必须先单独提交并 push，或手工传到 Windows。不要把本地未提交资源误认为远端仓库内容。
