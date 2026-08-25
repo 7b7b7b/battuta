@@ -1,0 +1,391 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Battuta.Windows.Controls">
+    <Style x:Key="Battuta.Card" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Battuta.SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Battuta.SeparatorBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+    <Style x:Key="Battuta.CompactCard" TargetType="Border" BasedOn="{StaticResource Battuta.Card}">
+        <Setter Property="CornerRadius" Value="10" />
+    </Style>
+    <Style x:Key="Battuta.InstrumentCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Battuta.InstrumentSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="#1CFFFFFF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect Color="#000000" Opacity="0.14" BlurRadius="10" ShadowDepth="5" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Battuta.HistoryCard" TargetType="Border" BasedOn="{StaticResource Battuta.InstrumentCard}">
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="BorderBrush" Value="#1CFFFFFF" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect Color="#000000" Opacity="0.12" BlurRadius="8" ShadowDepth="4" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Battuta.ButtonBase" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource Battuta.FontFamily}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource Battuta.PrimaryTextBrush}" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.88" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.72" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.38" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Battuta.PrimaryButton" TargetType="Button" BasedOn="{StaticResource Battuta.ButtonBase}">
+        <Setter Property="Background" Value="{DynamicResource Battuta.ActionAccentBrush}" />
+        <Setter Property="BorderBrush" Value="#38B8E84D" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style x:Key="Battuta.SecondaryButton" TargetType="Button" BasedOn="{StaticResource Battuta.ButtonBase}">
+        <Setter Property="Background" Value="#12FFFFFF" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Battuta.SeparatorBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="Battuta.PlainButton" TargetType="Button" BasedOn="{StaticResource Battuta.ButtonBase}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="Foreground" Value="{DynamicResource Battuta.SecondaryTextBrush}" />
+    </Style>
+    <Style x:Key="Battuta.IconButton" TargetType="Button" BasedOn="{StaticResource Battuta.SecondaryButton}">
+        <Setter Property="Padding" Value="7,5" />
+        <Setter Property="MinWidth" Value="28" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="Battuta.TextBox" TargetType="TextBox">
+        <Setter Property="FontFamily" Value="{StaticResource Battuta.FontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{DynamicResource Battuta.PrimaryTextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource Battuta.RecessedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Battuta.SeparatorBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="9,6" />
+        <Setter Property="CaretBrush" Value="{DynamicResource Battuta.AccentBrush}" />
+    </Style>
+    <Style TargetType="ComboBoxItem">
+        <Style.Resources>
+            <!-- Resource names consumed by the native WPF ComboBoxItem theme.
+                 No item ControlTemplate is replaced. -->
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewHover.Background" Color="#FF2F431D" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewHover.Border" Color="#FF4A7A0A" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelected.Background" Color="#FF4A7A0A" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelected.Border" Color="#FF91C92B" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelectedHover.Background" Color="#FF568D0D" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelectedHover.Border" Color="#FFB8E84D" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelectedInactive.Background" Color="#FF385D0B" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelectedInactive.Border" Color="#CC91C92B" />
+        </Style.Resources>
+        <Setter Property="FontFamily" Value="{StaticResource Battuta.FontFamily}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource Battuta.PrimaryTextBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="9,6" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Style.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter Property="Background" Value="#663A5F10" />
+                <Setter Property="Foreground" Value="White" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Battuta.ActionAccentBrush}" />
+                <Setter Property="Foreground" Value="White" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{DynamicResource Battuta.TertiaryTextBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="Battuta.ComboBox" TargetType="ComboBox">
+        <Style.Resources>
+            <!-- The native WPF ComboBox/ComboBoxItem templates consume these
+                 system keys, including inside the detached Popup HWND. -->
+            <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FA181C18" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F0FFFFFF" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#F2252925" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F0FFFFFF" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF4A7A0A" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#B34A7A0A" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#70FFFFFF" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.HotTrackBrushKey}" Color="#FF91C92B" />
+
+            <!-- String keys used by the native non-editable ComboBox chrome. -->
+            <SolidColorBrush x:Key="ComboBox.Static.Background" Color="#FF252925" />
+            <SolidColorBrush x:Key="ComboBox.Static.Border" Color="#5CFFFFFF" />
+            <SolidColorBrush x:Key="ComboBox.MouseOver.Background" Color="#FF2C342B" />
+            <SolidColorBrush x:Key="ComboBox.MouseOver.Border" Color="#FF4A7A0A" />
+            <SolidColorBrush x:Key="ComboBox.Pressed.Background" Color="#FF344329" />
+            <SolidColorBrush x:Key="ComboBox.Pressed.Border" Color="#FF91C92B" />
+            <SolidColorBrush x:Key="ComboBox.Disabled.Background" Color="#FF202420" />
+            <SolidColorBrush x:Key="ComboBox.Disabled.Border" Color="#28FFFFFF" />
+            <SolidColorBrush x:Key="ComboBox.Disabled.Foreground" Color="#70FFFFFF" />
+
+            <!-- Editable variants are covered even though Battuta currently uses
+                 selection-only ComboBoxes. This prevents a future IsEditable
+                 toggle from reverting to light system chrome. -->
+            <SolidColorBrush x:Key="ComboBox.Static.Editable.Background" Color="#FF181C18" />
+            <SolidColorBrush x:Key="ComboBox.Static.Editable.Border" Color="#5CFFFFFF" />
+            <SolidColorBrush x:Key="ComboBox.Static.Editable.Button.Background" Color="Transparent" />
+            <SolidColorBrush x:Key="ComboBox.Static.Editable.Button.Border" Color="Transparent" />
+            <SolidColorBrush x:Key="ComboBox.MouseOver.Editable.Background" Color="#FF181C18" />
+            <SolidColorBrush x:Key="ComboBox.MouseOver.Editable.Border" Color="#FF4A7A0A" />
+            <SolidColorBrush x:Key="ComboBox.MouseOver.Editable.Button.Background" Color="#663A5F10" />
+            <SolidColorBrush x:Key="ComboBox.MouseOver.Editable.Button.Border" Color="#FF4A7A0A" />
+            <SolidColorBrush x:Key="ComboBox.Pressed.Editable.Background" Color="#FF181C18" />
+            <SolidColorBrush x:Key="ComboBox.Pressed.Editable.Border" Color="#FF91C92B" />
+            <SolidColorBrush x:Key="ComboBox.Pressed.Editable.Button.Background" Color="#FF4A7A0A" />
+            <SolidColorBrush x:Key="ComboBox.Pressed.Editable.Button.Border" Color="#FF91C92B" />
+
+            <!-- Native ComboBoxItem templates live in the Popup's detached visual
+                 tree. They resolve these keys through the owning ComboBox resource
+                 chain rather than through the explicit item Style.Resources. -->
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewHover.Background" Color="#FF2F431D" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewHover.Border" Color="#FF4A7A0A" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelected.Background" Color="#FF4A7A0A" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelected.Border" Color="#FF91C92B" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelectedHover.Background" Color="#FF568D0D" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelectedHover.Border" Color="#FFB8E84D" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelectedInactive.Background" Color="#FF385D0B" />
+            <SolidColorBrush x:Key="ComboBoxItem.ItemsviewSelectedInactive.Border" Color="#CC91C92B" />
+        </Style.Resources>
+        <Setter Property="FontFamily" Value="{StaticResource Battuta.FontFamily}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource Battuta.PrimaryTextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource Battuta.RecessedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Battuta.SeparatorBrush}" />
+        <Setter Property="Padding" Value="7,4" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="MaxDropDownHeight" Value="300" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="controls:BattutaComboBoxChrome.IsEnabled" Value="True" />
+    </Style>
+
+    <Style TargetType="CheckBox">
+        <Setter Property="FontFamily" Value="{StaticResource Battuta.FontFamily}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{DynamicResource Battuta.PrimaryTextBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="15" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border x:Name="Box" Width="14" Height="14" CornerRadius="3" Background="#24FFFFFF"
+                                BorderBrush="{DynamicResource Battuta.SeparatorBrush}" BorderThickness="1">
+                            <TextBlock x:Name="Tick" Text="✓" FontSize="10" FontWeight="Bold" Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" TextTrimming="None" />
+                        </Border>
+                        <ContentPresenter Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource Battuta.ActionAccentBrush}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Battuta.AccentStrongBrush}" />
+                            <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Battuta.Switch" TargetType="CheckBox">
+        <Setter Property="Width" Value="42" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Width="42" Height="24">
+                        <Border x:Name="Track" CornerRadius="12" Background="#30FFFFFF" BorderBrush="#28FFFFFF" BorderThickness="1" />
+                        <Ellipse x:Name="Thumb" Width="18" Height="18" Fill="#F2FFFFFF" HorizontalAlignment="Left" Margin="3,0,0,0">
+                            <Ellipse.Effect><DropShadowEffect BlurRadius="3" ShadowDepth="1" Opacity="0.32" /></Ellipse.Effect>
+                        </Ellipse>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{DynamicResource Battuta.ActionAccentBrush}" />
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Battuta.AccentStrongBrush}" />
+                            <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
+                            <Setter TargetName="Thumb" Property="Margin" Value="0,0,3,0" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.42" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Battuta.Segment" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource Battuta.SecondaryTextBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource Battuta.FontFamily}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="13,5" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="SegmentChrome" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="SegmentChrome" Property="Background" Value="{DynamicResource Battuta.ActionAccentBrush}" />
+                            <Setter Property="Foreground" Value="White" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="SegmentChrome" Property="Opacity" Value="0.86" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.42" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Battuta.SegmentPanel" TargetType="Border">
+        <Setter Property="Background" Value="#20FFFFFF" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Padding" Value="2" />
+    </Style>
+
+    <Style TargetType="Slider">
+        <Setter Property="Foreground" Value="{DynamicResource Battuta.AccentStrongBrush}" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="MinHeight" Value="20" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid x:Name="SliderLayout" Height="20" ClipToBounds="False">
+                        <controls:BattutaSliderTrack x:Name="PART_VisualTrack"
+                                                     IsHitTestVisible="False"
+                                                     Minimum="{TemplateBinding Minimum}"
+                                                     Maximum="{TemplateBinding Maximum}"
+                                                     Value="{TemplateBinding Value}"
+                                                     CompletedBrush="{TemplateBinding Foreground}"
+                                                     RemainingBrush="#4AFFFFFF"
+                                                     RailThickness="4"
+                                                     ThumbRadius="7" />
+                        <Track x:Name="PART_Track"
+                               Height="14"
+                               VerticalAlignment="Center"
+                               IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge" Background="Transparent" Focusable="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge" Background="Transparent" Focusable="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb x:Name="PART_Thumb" Width="14" Height="14" Focusable="False">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Grid Width="14" Height="14">
+                                                <Ellipse Fill="#F7FFFFFF" Stroke="#50000000" StrokeThickness="1">
+                                                    <Ellipse.Effect>
+                                                        <DropShadowEffect BlurRadius="3" ShadowDepth="1" Opacity="0.32" />
+                                                    </Ellipse.Effect>
+                                                </Ellipse>
+                                            </Grid>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="PART_Thumb" Property="Effect">
+                                <Setter.Value>
+                                    <DropShadowEffect Color="#B8E84D" BlurRadius="5" ShadowDepth="0" Opacity="0.72" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="SliderLayout" Property="Opacity" Value="0.42" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="ScrollViewer">
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+    </Style>
+    <Style TargetType="Separator">
+        <Setter Property="Background" Value="{DynamicResource Battuta.SeparatorBrush}" />
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style TargetType="ScrollBar">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="Transparent" Margin="1">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
+                            <Track.Thumb><Thumb MinHeight="28"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="#4CFFFFFF" CornerRadius="3" /></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+                            <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

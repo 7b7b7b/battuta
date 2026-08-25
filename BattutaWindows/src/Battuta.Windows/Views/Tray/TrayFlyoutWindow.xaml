@@ -1,0 +1,286 @@
+<Window x:Class="Battuta.Windows.Views.Tray.TrayFlyoutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Battuta.Windows.Controls"
+        Title="Battuta"
+        Width="360" Height="760"
+        MinHeight="560" MaxHeight="820"
+        WindowStyle="None" AllowsTransparency="True"
+        ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True"
+        Background="Transparent"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        PreviewKeyDown="WindowKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Battuta;component/Themes/BattutaTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource Battuta.CanvasBrush}"
+            BorderBrush="#32FFFFFF" BorderThickness="1"
+            CornerRadius="14" ClipToBounds="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="1" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="1" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="14,12,14,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="40" Height="40" CornerRadius="10" ClipToBounds="True" Background="#20000000">
+                    <Image Source="/Battuta;component/Assets/AppIconSquare.png" Stretch="UniformToFill" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                    <TextBlock Text="Battuta" Style="{StaticResource Battuta.HeadlineText}" />
+                    <TextBlock x:Name="HeaderStatusText" Text="正在监听键盘与点击 · 统计已开启"
+                               Margin="0,2,0,0" Style="{StaticResource Battuta.CaptionText}" />
+                </StackPanel>
+                <Grid Grid.Column="2" Width="16" Height="16" VerticalAlignment="Center" ToolTip="输入监控正在运行">
+                    <Ellipse Width="16" Height="16" Fill="#4091C92B" />
+                    <Ellipse Width="8" Height="8" Fill="{DynamicResource Battuta.AccentStrongBrush}" />
+                </Grid>
+            </Grid>
+
+            <Border Grid.Row="1" Background="{DynamicResource Battuta.SeparatorBrush}" />
+
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="14">
+                    <!-- TypingStatsSummarySection -->
+                    <Border Style="{StaticResource Battuta.Card}" Padding="16" Margin="0,0,0,12">
+                        <StackPanel>
+                            <Grid>
+                                <controls:SectionHeading Title="输入统计" Subtitle="聚合保存在本机" Glyph="&#xE9D2;" />
+                                <CheckBox x:Name="StatsToggle" Style="{StaticResource Battuta.Switch}"
+                                          HorizontalAlignment="Right" VerticalAlignment="Top" IsChecked="True"
+                                          ToolTip="记录本地输入统计" />
+                            </Grid>
+                            <TextBlock Margin="0,11,0,0" Style="{StaticResource Battuta.Caption2Text}"
+                                       TextWrapping="Wrap"
+                                       Text="仅保存聚合数量、物理键码、时间与前台应用；不保存输入内容或按键顺序。" />
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="{DynamicResource Battuta.RecessedBrush}" CornerRadius="9" Padding="9">
+                                    <StackPanel Orientation="Horizontal">
+                                        <controls:IconTile Width="30" Height="30" GlyphSize="12" Glyph="&#xE765;" />
+                                        <StackPanel Margin="8,0,0,0">
+                                            <TextBlock x:Name="TodayCountText" Text="0" FontSize="12" FontWeight="SemiBold" FontFamily="Cascadia Mono" />
+                                            <TextBlock Text="今日字符" Style="{StaticResource Battuta.Caption2Text}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="2" Background="{DynamicResource Battuta.RecessedBrush}" CornerRadius="9" Padding="9">
+                                    <StackPanel Orientation="Horizontal">
+                                        <controls:IconTile Width="30" Height="30" GlyphSize="12" Glyph="&#xE945;" />
+                                        <StackPanel Margin="8,0,0,0">
+                                            <TextBlock x:Name="TodayPeakText" Text="0/秒" FontSize="12" FontWeight="SemiBold" FontFamily="Cascadia Mono" />
+                                            <TextBlock Text="今日峰值" Style="{StaticResource Battuta.Caption2Text}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <TextBlock x:Name="TopApplicationText" Margin="0,10,0,0" Text="▣  今日最多应用：暂无"
+                                       Style="{StaticResource Battuta.CaptionText}" />
+                            <Button Margin="0,10,0,0" Style="{StaticResource Battuta.SecondaryButton}"
+                                    HorizontalContentAlignment="Stretch" Click="OpenStatsClick">
+                                <Grid>
+                                    <TextBlock Text="⌁  查看详细统计" Foreground="{DynamicResource Battuta.AccentStrongBrush}" />
+                                    <TextBlock Text="↗" HorizontalAlignment="Right" Foreground="{DynamicResource Battuta.SecondaryTextBrush}" />
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Keyboard sound -->
+                    <Border Style="{StaticResource Battuta.Card}" Padding="16" Margin="0,0,0,12">
+                        <StackPanel>
+                            <Grid>
+                                <controls:SectionHeading x:Name="KeyboardSectionHeading"
+                                                         Title="键盘声音"
+                                                         Subtitle="轻弹、利落"
+                                                         Glyph="&#xE765;" />
+                                <CheckBox x:Name="KeyboardToggle" Style="{StaticResource Battuta.Switch}"
+                                          HorizontalAlignment="Right" VerticalAlignment="Top" IsChecked="True" />
+                            </Grid>
+                            <ComboBox x:Name="KeyboardProfileCombo" Margin="0,12,0,0" Style="{StaticResource Battuta.ComboBox}" SelectedIndex="0">
+                                <ComboBoxItem Content="Holy Panda · 段落" />
+                                <ComboBoxItem Content="Cherry MX Brown · 段落" />
+                                <ComboBoxItem Content="Topre · 静电容" />
+                            </ComboBox>
+                            <Grid Margin="0,10,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="PreviewButton" Style="{StaticResource Battuta.PrimaryButton}" Content="▶  试听" />
+                                    <Button Margin="8,0,0,0" Style="{StaticResource Battuta.SecondaryButton}"
+                                            Content="☷  DIY 音色" Click="OpenDiyClick" />
+                                </StackPanel>
+                                <TextBlock x:Name="KeyboardFamilyText"
+                                           Text="段落" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Style="{StaticResource Battuta.Caption2Text}" />
+                            </Grid>
+                            <TextBlock x:Name="KeyboardSoundErrorText"
+                                       Margin="0,8,0,0"
+                                       Foreground="#FFFFB35C"
+                                       FontSize="10"
+                                       TextWrapping="Wrap"
+                                       Visibility="Collapsed"
+                                       AutomationProperties.LiveSetting="Polite" />
+                            <Separator Margin="0,12,0,12" />
+                            <Grid>
+                                <TextBlock Text="键盘音量" FontSize="11" />
+                                <TextBlock x:Name="KeyboardVolumeText" Text="42%" HorizontalAlignment="Right" FontFamily="Cascadia Mono"
+                                           Foreground="{DynamicResource Battuta.SecondaryTextBrush}" />
+                            </Grid>
+                            <Slider x:Name="KeyboardVolumeSlider" Margin="0,5,0,0" Minimum="0" Maximum="100" Value="42" />
+                            <CheckBox x:Name="KeyboardReleaseToggle" Margin="0,10,0,0" Content="播放键盘回弹音" IsChecked="True" FontSize="11" />
+                            <CheckBox x:Name="VariationToggle" Margin="0,8,0,0" Content="自然音色变化（键盘轮换 / 点击音高）" IsChecked="True" FontSize="11" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pointer sound -->
+                    <Border Style="{StaticResource Battuta.Card}" Padding="16" Margin="0,0,0,12">
+                        <StackPanel>
+                            <Grid>
+                                <controls:SectionHeading Title="鼠标与触控板" Subtitle="清晰、均衡" Glyph="&#xE962;" />
+                                <CheckBox x:Name="PointerToggle" Style="{StaticResource Battuta.Switch}" HorizontalAlignment="Right"
+                                          VerticalAlignment="Top" IsChecked="True" />
+                            </Grid>
+                            <ComboBox x:Name="PointerProfileCombo" Margin="0,12,0,0" Style="{StaticResource Battuta.ComboBox}" SelectedIndex="0">
+                                <ComboBoxItem Content="经典微动 · 通用鼠标" />
+                                <ComboBoxItem Content="静音微动 · 静音鼠标" />
+                                <ComboBoxItem Content="玻璃触控板 · 触控板" />
+                            </ComboBox>
+                            <Grid Margin="0,10,0,0">
+                                <TextBlock Text="通用鼠标" Style="{StaticResource Battuta.Caption2Text}" />
+                                <CheckBox x:Name="PointerReleaseToggle" Content="播放抬起音" IsChecked="True" FontSize="10" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Separator Margin="0,12,0,12" />
+                            <Grid>
+                                <TextBlock Text="点击音量" FontSize="11" />
+                                <TextBlock x:Name="PointerVolumeText" Text="27%" HorizontalAlignment="Right" FontFamily="Cascadia Mono"
+                                           Foreground="{DynamicResource Battuta.SecondaryTextBrush}" />
+                            </Grid>
+                            <Slider x:Name="PointerVolumeSlider" Margin="0,5,0,0" Minimum="0" Maximum="100" Value="27" />
+                            <TextBlock Margin="0,8,0,0" Style="{StaticResource Battuta.Caption2Text}" TextWrapping="Wrap"
+                                       Text="触控板轻点、物理点按和鼠标点击共用此配置；点击音量独立于键盘音量。" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Launch at login -->
+                    <Border Style="{StaticResource Battuta.Card}" Padding="16" Margin="0,0,0,12">
+                        <StackPanel>
+                            <Grid>
+                                <controls:SectionHeading Title="启动" Subtitle="跟随用户登录" Glyph="&#xE7E8;" />
+                                <CheckBox x:Name="LaunchAtLoginToggle" Style="{StaticResource Battuta.Switch}" HorizontalAlignment="Right"
+                                          VerticalAlignment="Top"
+                                          AutomationProperties.Name="登录 Windows 时自动启动 Battuta" />
+                            </Grid>
+                            <TextBlock x:Name="LaunchAtLoginStatusText"
+                                       Margin="0,10,0,0"
+                                       Text="正在读取登录项状态…"
+                                       TextWrapping="Wrap"
+                                       AutomationProperties.LiveSetting="Polite"
+                                       Style="{StaticResource Battuta.CaptionText}" />
+                            <Button x:Name="OpenLaunchAtLoginSettingsButton"
+                                    Margin="0,9,0,0"
+                                    HorizontalAlignment="Left"
+                                    Style="{StaticResource Battuta.SecondaryButton}"
+                                    Content="打开 Windows 启动应用设置"
+                                    Visibility="Collapsed"
+                                    AutomationProperties.Name="打开 Windows 启动应用设置" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Update -->
+                    <Border Style="{StaticResource Battuta.Card}" Padding="16">
+                        <StackPanel>
+                            <controls:SectionHeading Title="软件更新" Subtitle="保持 Battuta 为最新版本" Glyph="&#xE72C;" />
+                            <StackPanel x:Name="UpdatePreferencePrompt"
+                                        Margin="0,11,0,0"
+                                        Visibility="Collapsed">
+                                <TextBlock Text="允许打开 Battuta 面板时检查更新？"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap" />
+                                <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
+                                    <Button x:Name="EnableAutomaticUpdatesButton"
+                                            Style="{StaticResource Battuta.PrimaryButton}"
+                                            Content="开启自动检查"
+                                            AutomationProperties.Name="开启 Battuta 自动更新检查" />
+                                    <Button x:Name="DisableAutomaticUpdatesButton"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource Battuta.SecondaryButton}"
+                                            Content="暂不开启"
+                                            AutomationProperties.Name="暂不开启 Battuta 自动更新检查" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Grid x:Name="UpdatePreferenceTogglePanel"
+                                  Margin="0,11,0,0">
+                                <TextBlock Text="打开面板时自动检查" FontSize="11" VerticalAlignment="Center" />
+                                <CheckBox x:Name="AutomaticUpdateToggle"
+                                          Style="{StaticResource Battuta.Switch}"
+                                          HorizontalAlignment="Right"
+                                          ToolTip="控制打开 Battuta 面板时是否联网检查新版本"
+                                          AutomationProperties.Name="打开 Battuta 面板时自动检查更新" />
+                            </Grid>
+                            <TextBlock Margin="0,6,0,0" Style="{StaticResource Battuta.Caption2Text}" TextWrapping="Wrap"
+                                       Text="自动请求至少间隔 5 分钟；不会上传按键、输入内容或音色设置。" />
+                            <ProgressBar x:Name="UpdateProgress"
+                                         Margin="0,9,0,0"
+                                         Height="3"
+                                         IsIndeterminate="True"
+                                         AutomationProperties.Name="正在检查 Battuta 更新"
+                                         Visibility="Collapsed" />
+                            <TextBlock x:Name="UpdateStatusText"
+                                       Margin="0,9,0,0"
+                                       Text="尚未检查更新"
+                                       Style="{StaticResource Battuta.CaptionText}"
+                                       AutomationProperties.LiveSetting="Polite"
+                                       TextWrapping="Wrap" />
+                            <Button x:Name="UpdateActionButton"
+                                    Margin="0,10,0,0"
+                                    HorizontalAlignment="Right"
+                                    Style="{StaticResource Battuta.SecondaryButton}"
+                                    Content="检查更新"
+                                    ToolTip="从 GitHub Release 检查 Battuta 新版本"
+                                    AutomationProperties.Name="检查 Battuta 更新" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="3" Background="{DynamicResource Battuta.SeparatorBrush}" />
+            <Grid Grid.Row="4" Margin="14,10">
+                <TextBlock x:Name="FooterStatusText" Text="✓  输入监控正在运行" Style="{StaticResource Battuta.Caption2Text}" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="DismissButton"
+                            MinWidth="44"
+                            Style="{StaticResource Battuta.PlainButton}"
+                            Content="收起"
+                            ToolTip="隐藏 Battuta 面板"
+                            AutomationProperties.Name="收起 Battuta 面板"
+                            Click="DismissClick" />
+                    <Button x:Name="ExitButton"
+                            Margin="8,0,0,0"
+                            MinWidth="44"
+                            Style="{StaticResource Battuta.PlainButton}"
+                            Content="退出"
+                            ToolTip="退出 Battuta"
+                            AutomationProperties.Name="退出 Battuta"
+                            Click="ExitClick" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

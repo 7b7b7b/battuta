@@ -1,0 +1,14 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <sys:Double x:Key="Battuta.PagePadding">20</sys:Double>
+    <sys:Double x:Key="Battuta.CardPadding">16</sys:Double>
+    <sys:Double x:Key="Battuta.CardRadius">14</sys:Double>
+    <sys:Double x:Key="Battuta.CompactRadius">10</sys:Double>
+    <CornerRadius x:Key="Battuta.CardCornerRadius">14</CornerRadius>
+    <CornerRadius x:Key="Battuta.CompactCornerRadius">10</CornerRadius>
+    <CornerRadius x:Key="Battuta.InstrumentCornerRadius">20</CornerRadius>
+    <CornerRadius x:Key="Battuta.HistoryCornerRadius">16</CornerRadius>
+    <Thickness x:Key="Battuta.PageThickness">20</Thickness>
+    <Thickness x:Key="Battuta.CardThickness">16</Thickness>
+</ResourceDictionary>

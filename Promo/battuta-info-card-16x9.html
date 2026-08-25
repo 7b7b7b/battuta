@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, initial-scale=1">
+  <title>Battuta 宣传资料卡</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d0b;
+      --panel: #171a17;
+      --panel-2: #20231f;
+      --line: #343930;
+      --lime: #d8ff73;
+      --lime-strong: #b8e84d;
+      --cream: #f4f0e7;
+      --muted: #a5a99f;
+      --dim: #777c73;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 1920px;
+      height: 1080px;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      position: relative;
+      color: var(--cream);
+      background:
+        radial-gradient(circle at 79% 47%, rgba(202, 255, 80, 0.18) 0, rgba(202, 255, 80, 0.075) 19%, transparent 43%),
+        radial-gradient(circle at 21% 112%, rgba(64, 184, 209, 0.08) 0, transparent 35%),
+        linear-gradient(122deg, #090b09 0%, #0e110e 54%, #0a0c0a 100%);
+    }
+
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: 0.28;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(to right, black, transparent 42%, transparent 72%, black);
+    }
+
+    .canvas {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      padding: 86px 104px 72px;
+    }
+
+    .top-rule {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: linear-gradient(90deg, var(--lime) 0 23%, rgba(216, 255, 115, 0.18) 54%, transparent 90%);
+    }
+
+    .content {
+      position: relative;
+      z-index: 3;
+      width: 1110px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      align-self: flex-start;
+      gap: 13px;
+      height: 42px;
+      padding: 0 18px;
+      border: 1px solid rgba(216, 255, 115, 0.22);
+      border-radius: 999px;
+      color: #d7dbd1;
+      background: rgba(216, 255, 115, 0.06);
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .eyebrow .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--lime);
+      box-shadow: 0 0 16px rgba(216, 255, 115, 0.75);
+    }
+
+    .brand {
+      margin: 32px 0 0;
+      font-size: 126px;
+      line-height: 0.88;
+      letter-spacing: -7px;
+      font-weight: 850;
+      color: var(--cream);
+    }
+
+    .brand span {
+      color: var(--lime);
+    }
+
+    .headline {
+      margin: 35px 0 0;
+      max-width: 970px;
+      font-size: 59px;
+      line-height: 1.13;
+      letter-spacing: -2.6px;
+      font-weight: 730;
+    }
+
+    .headline .accent {
+      color: var(--lime);
+    }
+
+    .subhead {
+      margin: 22px 0 0;
+      width: 880px;
+      color: var(--muted);
+      font-size: 25px;
+      line-height: 1.52;
+      letter-spacing: -0.25px;
+    }
+
+    .stats {
+      display: flex;
+      align-items: stretch;
+      gap: 13px;
+      margin-top: 31px;
+    }
+
+    .stat {
+      min-width: 208px;
+      padding: 16px 20px 15px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.018));
+      box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+    }
+
+    .stat strong {
+      display: block;
+      color: var(--lime);
+      font-size: 30px;
+      line-height: 1;
+      letter-spacing: -0.8px;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 8px;
+      color: #b9bdb4;
+      font-size: 17px;
+      font-weight: 580;
+    }
+
+    .features {
+      display: flex;
+      gap: 12px;
+      margin-top: 18px;
+      color: #daddd5;
+      font-size: 17px;
+      font-weight: 590;
+    }
+
+    .feature {
+      position: relative;
+      padding: 10px 15px 10px 34px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.055);
+    }
+
+    .feature::before {
+      content: "";
+      position: absolute;
+      left: 14px;
+      top: 16px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--lime-strong);
+    }
+
+    .bottom {
+      display: flex;
+      align-items: center;
+      gap: 21px;
+      margin-top: auto;
+      padding-top: 24px;
+    }
+
+    .qr-shell {
+      flex: 0 0 auto;
+      width: 136px;
+      height: 136px;
+      display: grid;
+      place-items: center;
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 18px 55px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(216, 255, 115, 0.16);
+    }
+
+    .qr-shell img {
+      display: block;
+      width: 116px;
+      height: 116px;
+      image-rendering: pixelated;
+    }
+
+    .download {
+      min-width: 0;
+    }
+
+    .cta-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 22px 17px;
+      border-radius: 16px;
+      color: #11140e;
+      background: var(--lime);
+      box-shadow: 0 12px 40px rgba(184, 232, 77, 0.17);
+      font-size: 23px;
+      line-height: 1;
+      font-weight: 780;
+    }
+
+    .cta .arrow {
+      transform: translateY(-1px);
+      font-size: 27px;
+    }
+
+    .compat {
+      color: #b4b8af;
+      font-size: 17px;
+      font-weight: 560;
+    }
+
+    .url {
+      margin-top: 13px;
+      color: var(--cream);
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      font-size: 16px;
+      letter-spacing: -0.25px;
+    }
+
+    .install-note {
+      margin-top: 9px;
+      color: var(--dim);
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .privacy {
+      position: absolute;
+      right: 89px;
+      bottom: 63px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: #b9bdb4;
+      font-size: 16px;
+      font-weight: 570;
+    }
+
+    .shield {
+      width: 20px;
+      height: 23px;
+      border: 2px solid var(--lime-strong);
+      border-radius: 9px 9px 11px 11px;
+      clip-path: polygon(50% 0, 100% 17%, 94% 68%, 50% 100%, 6% 68%, 0 17%);
+      box-shadow: inset 0 0 12px rgba(184, 232, 77, 0.11);
+    }
+
+    .visual {
+      position: absolute;
+      z-index: 2;
+      right: 90px;
+      top: 104px;
+      width: 650px;
+      height: 710px;
+    }
+
+    .orb {
+      position: absolute;
+      top: 43px;
+      left: 47px;
+      width: 575px;
+      height: 575px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 52%, rgba(204, 255, 81, 0.19), rgba(204, 255, 81, 0.045) 51%, transparent 69%);
+      border: 1px solid rgba(216, 255, 115, 0.08);
+    }
+
+    .ring,
+    .ring::before,
+    .ring::after {
+      position: absolute;
+      border: 2px solid rgba(216, 255, 115, 0.115);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .ring {
+      inset: 13px;
+    }
+
+    .ring::before { inset: 44px; }
+    .ring::after { inset: 91px; }
+
+    .icon {
+      position: absolute;
+      z-index: 3;
+      top: 77px;
+      left: 71px;
+      width: 520px;
+      height: 520px;
+      object-fit: contain;
+      filter: drop-shadow(0 44px 42px rgba(0, 0, 0, 0.44)) drop-shadow(0 0 34px rgba(191, 246, 58, 0.12));
+      transform: rotate(1.1deg);
+    }
+
+    .sound-wave {
+      position: absolute;
+      z-index: 1;
+      top: 308px;
+      width: 69px;
+      height: 116px;
+      opacity: 0.55;
+    }
+
+    .sound-wave.left { left: 0; transform: scaleX(-1); }
+    .sound-wave.right { right: -4px; }
+
+    .sound-wave i {
+      position: absolute;
+      top: 50%;
+      border: 3px solid var(--lime);
+      border-left: 0;
+      border-top-color: transparent;
+      border-bottom-color: transparent;
+      border-radius: 0 999px 999px 0;
+      transform: translateY(-50%);
+    }
+
+    .sound-wave i:nth-child(1) { left: 0; width: 23px; height: 42px; opacity: 0.95; }
+    .sound-wave i:nth-child(2) { left: 15px; width: 35px; height: 76px; opacity: 0.6; }
+    .sound-wave i:nth-child(3) { left: 28px; width: 42px; height: 112px; opacity: 0.28; }
+
+    .floating-card {
+      position: absolute;
+      z-index: 4;
+      left: 72px;
+      bottom: 3px;
+      width: 522px;
+      padding: 17px 21px;
+      border-radius: 21px;
+      border: 1px solid rgba(255, 255, 255, 0.095);
+      background: rgba(29, 33, 28, 0.82);
+      box-shadow: 0 18px 52px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(18px);
+    }
+
+    .floating-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .floating-value {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      color: var(--cream);
+      font-size: 22px;
+      font-weight: 690;
+    }
+
+    .equalizer {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 25px;
+    }
+
+    .equalizer span {
+      display: block;
+      width: 4px;
+      border-radius: 999px;
+      background: var(--lime);
+    }
+
+    .equalizer span:nth-child(1) { height: 9px; }
+    .equalizer span:nth-child(2) { height: 20px; }
+    .equalizer span:nth-child(3) { height: 13px; }
+    .equalizer span:nth-child(4) { height: 25px; }
+    .equalizer span:nth-child(5) { height: 16px; }
+    .equalizer span:nth-child(6) { height: 7px; }
+
+    .version {
+      position: absolute;
+      z-index: 5;
+      right: 96px;
+      top: 72px;
+      color: #73786f;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      font-size: 14px;
+      letter-spacing: 0.8px;
+    }
+  </style>
+</head>
+<body>
+  <main class="canvas">
+    <div class="top-rule"></div>
+    <div class="version">BATTUTA / 1.0.0</div>
+
+    <section class="content">
+      <div class="eyebrow"><span class="dot"></span>macOS 菜单栏输入音效</div>
+      <h1 class="brand">Battuta<span>.</span></h1>
+      <h2 class="headline">把喜欢的键盘声音，<br><span class="accent">装进你的 Mac。</span></h2>
+      <p class="subhead">浏览器、编辑器、聊天软件，跨 App 打字都能响。<br>所有处理都在本机完成，不读取你的输入内容。</p>
+
+      <div class="stats">
+        <div class="stat"><strong>20</strong><span>种键盘音色</span></div>
+        <div class="stat"><strong>5</strong><span>种点击风格</span></div>
+        <div class="stat"><strong>237</strong><span>段本地录音</span></div>
+      </div>
+
+      <div class="features">
+        <div class="feature">全局生效</div>
+        <div class="feature">自然音色变化</div>
+        <div class="feature">DIY 逐键定制</div>
+        <div class="feature">本地输入统计</div>
+      </div>
+
+      <div class="bottom">
+        <div class="qr-shell"><img src="battuta-download-qr.png" alt="Battuta 下载二维码"></div>
+        <div class="download">
+          <div class="cta-row">
+            <div class="cta">免费下载 Battuta <span class="arrow">↗</span></div>
+            <div class="compat">macOS 13+<br>Apple Silicon + Intel</div>
+          </div>
+          <div class="url">github.com/7b7b7b/battuta/releases/latest</div>
+          <div class="install-note">当前未公证版本：首次安装需 Control 点按“打开”，并开启“输入监控”。</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="visual" aria-hidden="true">
+      <div class="orb"><div class="ring"></div></div>
+      <div class="sound-wave left"><i></i><i></i><i></i></div>
+      <img class="icon" src="../SimuBoardMac/Design/AppIconSquare.png" alt="">
+      <div class="sound-wave right"><i></i><i></i><i></i></div>
+      <div class="floating-card">
+        <div class="floating-label">CURRENT SOUND</div>
+        <div class="floating-value">
+          <span>Cherry MX Blue</span>
+          <span class="equalizer"><span></span><span></span><span></span><span></span><span></span><span></span></span>
+        </div>
+      </div>
+    </section>
+
+    <div class="privacy"><span class="shield"></span>开源 · 本地运行 · 不记录输入内容</div>
+  </main>
+</body>
+</html>

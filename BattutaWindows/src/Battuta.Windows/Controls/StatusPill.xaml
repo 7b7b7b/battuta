@@ -1,0 +1,21 @@
+<UserControl x:Class="Battuta.Windows.Controls.StatusPill"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             Focusable="False">
+    <Border Background="{Binding PillBrush, ElementName=Root}"
+            BorderBrush="{Binding PillBorderBrush, ElementName=Root}"
+            BorderThickness="1" CornerRadius="14"
+            Padding="10,6">
+        <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{Binding Glyph, ElementName=Root}"
+                       FontFamily="Segoe Fluent Icons"
+                       FontSize="11"
+                       Foreground="{Binding TextBrush, ElementName=Root}"
+                       Margin="0,0,6,0" TextTrimming="None" />
+            <TextBlock Text="{Binding Text, ElementName=Root}"
+                       FontSize="10" FontWeight="SemiBold"
+                       Foreground="{Binding TextBrush, ElementName=Root}" />
+        </StackPanel>
+    </Border>
+</UserControl>

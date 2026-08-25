@@ -2,6 +2,16 @@
 .worktrees/
 xcuserdata/
 *.xcuserstate
+
+# Windows/.NET build output
+BattutaWindows/**/bin/
+BattutaWindows/**/obj/
+BattutaWindows/.vs/
+BattutaWindows/**/TestResults/
+BattutaWindows/artifacts/
+BattutaWindows/qa/
+BattutaWindows/store-assets/raw/
+*.user
 *Sparkle-private-key*
 *sparkle-private-key*
 

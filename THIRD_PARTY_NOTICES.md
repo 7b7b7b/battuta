@@ -7,6 +7,21 @@ under its MIT license. The complete Sparkle license and notices for its bundled
 components are distributed with the application in
 [`SPARKLE_LICENSE.txt`](SimuBoardMac/SimuBoardMac/Resources/SPARKLE_LICENSE.txt).
 
+## Windows application dependencies
+
+The Windows application uses the following MIT-licensed NuGet packages. Exact
+versions are pinned in `BattutaWindows/Directory.Packages.props`.
+
+- [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet)
+- [H.NotifyIcon.Wpf](https://github.com/HavenDV/H.NotifyIcon)
+- [Microsoft.Data.Sqlite](https://github.com/dotnet/efcore), including its
+  SQLitePCLRaw native SQLite dependencies
+- [NAudio](https://github.com/naudio/NAudio)
+
+Their copyright and permission notices are included in the corresponding NuGet
+packages. Battuta redistributes these libraries under their MIT terms and does
+not remove their notices.
+
 ## MIT-licensed recordings
 
 The following bundled recordings are redistributed under the MIT License:

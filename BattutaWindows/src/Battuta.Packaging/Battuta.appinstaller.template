@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppInstaller
+  xmlns="http://schemas.microsoft.com/appx/appinstaller/2021"
+  Version="{{PackageVersion}}"
+  Uri="{{AppInstallerUri}}">
+
+  <MainPackage
+    Name="{{PackageName}}"
+    Publisher="{{Publisher}}"
+    Version="{{PackageVersion}}"
+    ProcessorArchitecture="{{Architecture}}"
+    Uri="{{MsixUri}}" />
+
+  <UpdateSettings>
+    <OnLaunch
+      HoursBetweenUpdateChecks="0"
+      ShowPrompt="false"
+      UpdateBlocksActivation="false" />
+    <AutomaticBackgroundTask />
+  </UpdateSettings>
+</AppInstaller>

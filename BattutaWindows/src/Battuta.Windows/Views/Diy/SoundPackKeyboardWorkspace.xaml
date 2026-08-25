@@ -1,0 +1,86 @@
+<UserControl x:Class="Battuta.Windows.Views.Diy.SoundPackKeyboardWorkspace"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Battuta.Windows.Controls"
+             xmlns:keyboard="clr-namespace:Battuta.Windows.Controls.Keyboard"
+             Background="Transparent">
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="1" /><RowDefinition Height="*" /><RowDefinition Height="1" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <Grid Margin="20,12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="240" /></Grid.ColumnDefinitions>
+            <controls:IconTile Width="38" Height="38" GlyphSize="16" Glyph="&#xE765;" />
+            <controls:SectionHeading x:Name="MappingHeading" Grid.Column="1" Margin="14,0,0,0" Title="键盘映射"
+                                     Subtitle="按 R1–R4、功能/其他键与空格、回车、退格分配，声音更自然。" Glyph="" />
+            <Border Grid.Column="3" Style="{DynamicResource Battuta.SegmentPanel}" VerticalAlignment="Center">
+                <UniformGrid Columns="3">
+                    <RadioButton x:Name="GenericModeButton" GroupName="MappingMode" Content="通用" Style="{DynamicResource Battuta.Segment}" Padding="7,5" Tag="Generic" Checked="MappingModeChecked" />
+                    <RadioButton x:Name="RecommendedModeButton" GroupName="MappingMode" Content="推荐分布" Style="{DynamicResource Battuta.Segment}" Padding="7,5" IsChecked="True" Tag="Recommended" Checked="MappingModeChecked" />
+                    <RadioButton x:Name="PerKeyModeButton" GroupName="MappingMode" Content="单键" Style="{DynamicResource Battuta.Segment}" Padding="7,5" Tag="PerKey" Checked="MappingModeChecked" />
+                </UniformGrid>
+            </Border>
+        </Grid>
+        <Border Grid.Row="1" Background="{DynamicResource Battuta.SeparatorBrush}" />
+
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20">
+                <Border Style="{DynamicResource Battuta.Card}" Padding="16" Margin="0,0,0,16">
+                    <StackPanel>
+                        <controls:SectionHeading Title="Windows ANSI 键盘" Subtitle="Windows 常用 ANSI 布局 · 点击任意键即可试听或单独设置" Glyph="&#xE80A;" />
+                        <keyboard:KeyboardCanvas x:Name="Keyboard" Mode="Editor" Margin="0,12,0,0" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{DynamicResource Battuta.Card}" Padding="16">
+                    <StackPanel>
+                        <controls:SectionHeading Title="外接键盘与扩展键区" Subtitle="右侧修饰键、导航、F13–F20、数字键盘与国际键均可独立映射" Glyph="&#xE80A;" />
+                        <Grid x:Name="ExtendedKeysPanel" Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="18" /><ColumnDefinition Width="1" /><ColumnDefinition Width="18" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="导航键" Style="{DynamicResource Battuta.CaptionText}" FontWeight="SemiBold" />
+                                <WrapPanel Margin="0,6,0,10">
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Insert" Padding="8,5" Margin="0,0,4,4" />
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Home" Padding="8,5" Margin="0,0,4,4" />
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Page Up" Padding="8,5" Margin="0,0,4,4" />
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Delete" Padding="8,5" Margin="0,0,4,4" />
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="End" Padding="8,5" Margin="0,0,4,4" />
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Page Down" Padding="8,5" Margin="0,0,4,4" />
+                                </WrapPanel>
+                                <TextBlock Text="扩展功能键" Style="{DynamicResource Battuta.CaptionText}" FontWeight="SemiBold" />
+                                <WrapPanel Margin="0,6,0,10">
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="F13" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="F14" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="F15" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="F16" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="F17" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="F18" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="F19" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="F20" Padding="8,5" Margin="0,0,4,4" />
+                                </WrapPanel>
+                                <TextBlock Text="国际与媒体键" Style="{DynamicResource Battuta.CaptionText}" FontWeight="SemiBold" />
+                                <WrapPanel Margin="0,6,0,0">
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Intl \" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Yen (¥)" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Intl Ro" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Num ," Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Eisu" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Kana" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Volume Up" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Volume Down" Padding="8,5" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Mute" Padding="8,5" Margin="0,0,4,4" />
+                                </WrapPanel>
+                            </StackPanel>
+                            <Border Grid.Column="2" Background="{DynamicResource Battuta.SeparatorBrush}" />
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="数字键盘" Style="{DynamicResource Battuta.CaptionText}" FontWeight="SemiBold" />
+                                <UniformGrid Columns="5" Margin="0,6,0,0">
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Num" Padding="4" Margin="0,0,4,4" ToolTip="Num Lock" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="=" Padding="4" Margin="0,0,4,4" ToolTip="数字键盘等号" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="/" Padding="4" Margin="0,0,4,4" ToolTip="数字键盘除号" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="*" Padding="4" Margin="0,0,4,4" ToolTip="数字键盘乘号" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="-" Padding="4" Margin="0,0,4,4" ToolTip="数字键盘减号" />
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="7" Padding="4" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="8" Padding="4" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="9" Padding="4" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="+" Padding="4" Margin="0,0,4,4" /><Border />
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="4" Padding="4" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="5" Padding="4" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="6" Padding="4" Margin="0,0,4,4" /><Border /><Border />
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="1" Padding="4" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="2" Padding="4" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="3" Padding="4" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="Enter" Padding="4" Margin="0,0,4,4" Grid.ColumnSpan="2" /><Border />
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="0" Padding="4" Margin="0,0,4,4" /><Button Style="{DynamicResource Battuta.SecondaryButton}" Content="." Padding="4" Margin="0,0,4,4" />
+                                </UniformGrid>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="3" Background="{DynamicResource Battuta.SeparatorBrush}" />
+        <Grid Grid.Row="4" Margin="20,10">
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="7" Height="7" Fill="{DynamicResource Battuta.AmberBrush}" /><TextBlock Text="R1" Margin="5,0,14,0" Style="{DynamicResource Battuta.CaptionText}" FontFamily="Cascadia Mono" />
+                <Ellipse Width="7" Height="7" Fill="{DynamicResource Battuta.CyanBrush}" /><TextBlock Text="R2" Margin="5,0,14,0" Style="{DynamicResource Battuta.CaptionText}" FontFamily="Cascadia Mono" />
+                <Ellipse Width="7" Height="7" Fill="{DynamicResource Battuta.AccentStrongBrush}" /><TextBlock Text="R3" Margin="5,0,14,0" Style="{DynamicResource Battuta.CaptionText}" FontFamily="Cascadia Mono" />
+                <Ellipse Width="7" Height="7" Fill="{DynamicResource Battuta.VioletBrush}" /><TextBlock Text="R4" Margin="5,0,14,0" Style="{DynamicResource Battuta.CaptionText}" FontFamily="Cascadia Mono" />
+                <Ellipse Width="7" Height="7" Fill="{DynamicResource Battuta.SecondaryTextBrush}" /><TextBlock Text="其他" Margin="5,0,0,0" Style="{DynamicResource Battuta.CaptionText}" />
+            </StackPanel>
+            <TextBlock x:Name="SelectionSummary" Text="已选：A · R3 · A 行" HorizontalAlignment="Right" Style="{DynamicResource Battuta.CaptionText}" />
+        </Grid>
+    </Grid>
+</UserControl>

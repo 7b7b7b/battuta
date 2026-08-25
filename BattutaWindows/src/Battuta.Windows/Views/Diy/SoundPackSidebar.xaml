@@ -1,0 +1,92 @@
+<UserControl x:Class="Battuta.Windows.Views.Diy.SoundPackSidebar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Battuta.Windows.Controls"
+             Background="Transparent">
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="1" /><RowDefinition Height="*" /><RowDefinition Height="1" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <Grid Margin="12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <controls:IconTile Width="34" Height="34" GlyphSize="14" Glyph="&#xE9F2;" />
+            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="DIY 音色" Style="{DynamicResource Battuta.HeadlineText}" />
+                <TextBlock Text="我的音色包" Style="{DynamicResource Battuta.Caption2Text}" />
+            </StackPanel>
+            <Button Grid.Column="2" Style="{DynamicResource Battuta.SecondaryButton}" Content="新建  ▾" ToolTip="新建音色包"
+                    Padding="10,5" Click="NewPackMenuClick">
+                <Button.ContextMenu>
+                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                        <MenuItem Header="新建空白音色" Click="NewBlankClick" />
+                        <MenuItem Header="基于当前音色" Click="CreateBasedOnCurrentClick" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+        </Grid>
+        <Border Grid.Row="1" Background="{DynamicResource Battuta.SeparatorBrush}" />
+
+        <Grid Grid.Row="2">
+            <ListBox x:Name="PacksList" Margin="8" Background="Transparent" BorderThickness="0"
+                     ItemsSource="{Binding CustomPacks}" SelectionChanged="PackSelectionChanged">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0,0,0,4" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Row" Padding="9,8" CornerRadius="8" Background="Transparent">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="#0FFFFFFF" /></Trigger>
+                                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="#22B8E84D" /><Setter Property="Foreground" Value="{DynamicResource Battuta.PrimaryTextBrush}" /></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="◉" FontSize="17" Foreground="{DynamicResource Battuta.AccentStrongBrush}" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Margin="9,0,0,0">
+                                <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                <TextBlock FontSize="10" Foreground="{DynamicResource Battuta.SecondaryTextBrush}" TextTrimming="CharacterEllipsis">
+                                    <Run Text="{Binding Family}" /><Run Text=" · " /><Run Text="{Binding Tone}" />
+                                </TextBlock>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel x:Name="EmptyPlaceholder" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <controls:IconTile Width="48" Height="48" GlyphSize="21" Glyph="&#xEC4F;"
+                                   GlyphBrush="{DynamicResource Battuta.SecondaryTextBrush}"
+                                   TileBrush="#14FFFFFF" TileBorderBrush="#1EFFFFFF" />
+                <TextBlock Text="还没有保存的音色" Margin="0,12,0,0" Style="{DynamicResource Battuta.HeadlineText}" HorizontalAlignment="Center" />
+                <TextBlock Text="新建草稿并保存后会显示在这里。" Width="170" Margin="0,8,0,0"
+                           Style="{DynamicResource Battuta.CaptionText}" TextWrapping="Wrap" TextAlignment="Center" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="3" Background="{DynamicResource Battuta.SeparatorBrush}" />
+        <StackPanel Grid.Row="4" Margin="10">
+            <Button Style="{DynamicResource Battuta.PlainButton}" HorizontalContentAlignment="Left" Padding="9,7" Content="⇩  导入音色包" Click="ImportPackClick" />
+            <Button Style="{DynamicResource Battuta.PlainButton}" HorizontalContentAlignment="Left" Padding="9,7" Content="⇧  导出当前音色包" IsEnabled="{Binding CanExport}" Click="ExportPackClick" />
+            <TextBlock Text="保存当前修改后即可导出" Margin="9,2,0,3">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Setter Property="FontSize" Value="9" />
+                        <Setter Property="Foreground" Value="{DynamicResource Battuta.SecondaryTextBrush}" />
+                        <Style.Triggers><DataTrigger Binding="{Binding IsDirty}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <Button Style="{DynamicResource Battuta.PlainButton}" HorizontalContentAlignment="Left" Padding="9,7" Content="♲  移除当前音色包" IsEnabled="{Binding CanDelete}" Click="DeletePackClick" Foreground="{DynamicResource Battuta.RedBrush}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

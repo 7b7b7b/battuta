@@ -1,0 +1,95 @@
+<Window x:Class="Battuta.Windows.Views.Stats.TypingStatsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Battuta.Windows.Controls"
+        xmlns:views="clr-namespace:Battuta.Windows.Views.Stats"
+        Title="Battuta · 输入统计"
+        Width="1100" Height="760" MinWidth="1100" MinHeight="600"
+        WindowStyle="SingleBorderWindow" AllowsTransparency="False"
+        Background="{DynamicResource Battuta.CanvasBrush}" ResizeMode="CanResize"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Battuta;component/Themes/BattutaTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource Battuta.CanvasBrush}" BorderThickness="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="20,14">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="14" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <controls:IconTile Width="42" Height="42" GlyphSize="18" Glyph="&#xE9D2;" />
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="输入统计" Style="{DynamicResource Battuta.Title2Text}" />
+                        <TextBlock Text="清晰了解每天的输入习惯" Margin="0,2,0,0" Style="{DynamicResource Battuta.CaptionText}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                        <controls:StatusPill x:Name="StatisticsStatus" Text="本地统计" Glyph="&#xE9D2;" Margin="0,0,12,0" />
+                        <TextBlock Text="记录统计" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" />
+                        <CheckBox x:Name="StatsRecordingToggle" Style="{DynamicResource Battuta.Switch}" Margin="0,0,10,0"
+                                  Checked="StatsRecordingChanged" Unchecked="StatsRecordingChanged" />
+                        <Button x:Name="RefreshButton" Style="{DynamicResource Battuta.IconButton}" Content="↻" FontSize="15" ToolTip="刷新输入统计" Click="RefreshStatsClick" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="2">
+                    <Border Width="300" HorizontalAlignment="Left" Style="{DynamicResource Battuta.SegmentPanel}">
+                        <UniformGrid Columns="3">
+                            <RadioButton x:Name="TodaySegment" GroupName="StatsSection" Content="今日" IsChecked="True" Style="{DynamicResource Battuta.Segment}" Checked="SectionChanged" />
+                            <RadioButton x:Name="HistorySegment" GroupName="StatsSection" Content="历史" Style="{DynamicResource Battuta.Segment}" Checked="SectionChanged" />
+                            <RadioButton x:Name="KeyboardSegment" GroupName="StatsSection" Content="键盘" Style="{DynamicResource Battuta.Segment}" Checked="SectionChanged" />
+                        </UniformGrid>
+                    </Border>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="DataCutoffText" Text="◷  数据截至 --:--:--" Style="{DynamicResource Battuta.Caption2Text}" />
+                        <TextBlock x:Name="ReadAtText" Text="读取于 --:--:--" Margin="12,0,0,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <Border Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="{DynamicResource Battuta.SeparatorBrush}" />
+
+            <Grid Grid.Row="1">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <Border x:Name="StaleWarning" Visibility="Collapsed" Padding="20,7" Background="#14F2AB33">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="↻" Foreground="{DynamicResource Battuta.AmberBrush}" />
+                        <TextBlock x:Name="StaleWarningText" Margin="7,0,0,0" Foreground="{DynamicResource Battuta.AmberBrush}" FontSize="11" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <Grid Grid.Row="1">
+                    <views:TypingStatsOverviewView x:Name="TodayView" />
+                    <views:TypingStatsHistoryView x:Name="HistoryView" Visibility="Collapsed" />
+                    <views:TypingStatsKeyboardView x:Name="KeyboardView" Visibility="Collapsed" />
+                    <Border x:Name="SourceStatePanel" Background="{DynamicResource Battuta.CanvasBrush}" Visibility="Collapsed">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460">
+                            <ProgressBar x:Name="SourceProgress" Width="120" Height="3" IsIndeterminate="True" Margin="0,0,0,16" />
+                            <TextBlock x:Name="SourceStateTitle" Text="正在读取统计" HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="14" />
+                            <TextBlock x:Name="SourceStateMessage" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center"
+                                       Style="{DynamicResource Battuta.CaptionText}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="20,10">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xEA18;" FontFamily="Segoe Fluent Icons" Foreground="{DynamicResource Battuta.AccentStrongBrush}" />
+                    <TextBlock Text="只记录字符键数量、物理键码、时间与前台应用；不保存输入内容。" Margin="7,0,0,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                </StackPanel>
+                <Button HorizontalAlignment="Right" Style="{DynamicResource Battuta.PlainButton}" Content="清除全部统计" Click="ClearStatsClick" />
+            </Grid>
+            <Border Grid.Row="2" VerticalAlignment="Top" Height="1" Background="{DynamicResource Battuta.SeparatorBrush}" />
+        </Grid>
+    </Border>
+</Window>

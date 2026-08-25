@@ -1,0 +1,154 @@
+<UserControl x:Class="Battuta.Windows.Views.Stats.TypingStatsHistoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Battuta.Windows.Controls"
+             xmlns:stats="clr-namespace:Battuta.Windows.Views.Stats"
+             Background="Transparent">
+    <ScrollViewer x:Name="HistoryScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="20" MaxWidth="1080">
+            <Border x:Name="ErrorBanner" Visibility="Collapsed" Margin="0,0,0,12" Padding="12"
+                    Background="#12F2AB33" BorderBrush="#55F2AB33" BorderThickness="1" CornerRadius="10">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="10" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <TextBlock Text="⚠" Foreground="{DynamicResource Battuta.AmberBrush}" FontSize="16" />
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="年度统计暂时读取失败" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ErrorText" Margin="0,2,0,0" Style="{DynamicResource Battuta.CaptionText}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <StackPanel x:Name="LoadingState" Visibility="Visible" Height="300" VerticalAlignment="Center">
+                <ProgressBar Width="120" Height="3" IsIndeterminate="True" Margin="0,95,0,14" />
+                <TextBlock Text="正在整理过去一年的统计" HorizontalAlignment="Center" FontWeight="SemiBold" />
+                <TextBlock Text="首次读取较长日期区间时可能需要一点时间。" HorizontalAlignment="Center" Margin="0,5,0,0"
+                           Style="{DynamicResource Battuta.CaptionText}" />
+            </StackPanel>
+
+            <StackPanel x:Name="EmptyState" Visibility="Collapsed" Height="300" VerticalAlignment="Center">
+                <TextBlock Text="▦" HorizontalAlignment="Center" Margin="0,90,0,12" FontSize="30"
+                           Foreground="{DynamicResource Battuta.SecondaryTextBrush}" />
+                <TextBlock Text="还没有可显示的年度统计" HorizontalAlignment="Center" FontWeight="SemiBold" />
+                <TextBlock Text="开启统计并输入一段文字后，历史页面会在这里逐日积累。" HorizontalAlignment="Center" Margin="0,5,0,0"
+                           Style="{DynamicResource Battuta.CaptionText}" />
+            </StackPanel>
+
+            <StackPanel x:Name="ReportContent" Visibility="Collapsed">
+                <Grid x:Name="TopPanels" Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="530" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="RhythmCard" Grid.Column="0" Height="260"
+                            Style="{DynamicResource Battuta.HistoryCard}" Padding="16">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="输入节律变化" Style="{DynamicResource Battuta.Title3Text}" />
+                                    <TextBlock Text="  ⓘ" Style="{DynamicResource Battuta.CaptionText}"
+                                               ToolTip="过去 365 天按星期和小时聚合；差异模式与此前 365 天比较。" />
+                                </StackPanel>
+                                <Border HorizontalAlignment="Right" Style="{DynamicResource Battuta.SegmentPanel}" Width="126">
+                                    <UniformGrid Columns="2">
+                                        <RadioButton x:Name="CurrentRhythm" GroupName="Rhythm" Content="当前"
+                                                     Style="{DynamicResource Battuta.Segment}" Checked="RhythmModeChanged" />
+                                        <RadioButton x:Name="DifferenceRhythm" GroupName="Rhythm" Content="差异" IsChecked="True"
+                                                     Style="{DynamicResource Battuta.Segment}" Checked="RhythmModeChanged" />
+                                    </UniformGrid>
+                                </Border>
+                            </Grid>
+                            <stats:StatsRhythmHeatmap x:Name="RhythmHeatmap" Grid.Row="1" Margin="0,12,0,6" />
+                            <StackPanel x:Name="DifferenceLegend" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Rectangle Width="13" Height="13" RadiusX="2" RadiusY="2" Fill="{DynamicResource Battuta.AccentBrush}" />
+                                <TextBlock Text="增加（较上期）" Margin="7,0,22,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                                <Ellipse Width="4" Height="4" Fill="{DynamicResource Battuta.SecondaryTextBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="基本持平" Margin="7,0,22,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                                <Rectangle Width="13" Height="13" RadiusX="2" RadiusY="2" Fill="{DynamicResource Battuta.CyanBrush}" />
+                                <TextBlock Text="减少（较上期）" Margin="7,0,0,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                            </StackPanel>
+                            <StackPanel x:Name="CurrentLegend" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Visibility="Collapsed">
+                                <Rectangle Width="13" Height="13" RadiusX="2" RadiusY="2" Fill="{DynamicResource Battuta.AccentBrush}" />
+                                <TextBlock Text="输入越多颜色越亮" Margin="7,0,0,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="ApplicationCard" Grid.Column="2" Height="260" MinWidth="400"
+                            Style="{DynamicResource Battuta.HistoryCard}" Padding="16">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="1" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                            <Grid>
+                                <TextBlock Text="应用变化" Style="{DynamicResource Battuta.Title3Text}" />
+                                <TextBlock x:Name="ApplicationCountText" Text="0 个应用" HorizontalAlignment="Right" Style="{DynamicResource Battuta.CaptionText}" />
+                            </Grid>
+                            <Grid Grid.Row="1" Margin="0,14,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="56" /><ColumnDefinition Width="56" /><ColumnDefinition Width="104" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="应用" Style="{DynamicResource Battuta.Caption2Text}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" Text="当前" HorizontalAlignment="Right" Style="{DynamicResource Battuta.Caption2Text}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="2" Text="上期" HorizontalAlignment="Right" Style="{DynamicResource Battuta.Caption2Text}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="3" Text="变化" HorizontalAlignment="Right" Style="{DynamicResource Battuta.Caption2Text}" FontWeight="SemiBold" />
+                            </Grid>
+                            <Border Grid.Row="2" Background="{DynamicResource Battuta.InstrumentSeparatorBrush}" />
+                            <Grid Grid.Row="3">
+                                <TextBlock x:Name="ApplicationsEmptyText" Text="所选区间没有应用记录" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Style="{DynamicResource Battuta.CaptionText}" />
+                                <ScrollViewer x:Name="ApplicationsScroll" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                                    <ItemsControl x:Name="ApplicationRows">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <Grid Margin="0,8">
+                                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="56" /><ColumnDefinition Width="56" /><ColumnDefinition Width="104" /></Grid.ColumnDefinitions>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="▣" Margin="0,0,7,0" Foreground="{DynamicResource Battuta.SecondaryTextBrush}" />
+                                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Current}" HorizontalAlignment="Right" FontFamily="Cascadia Mono" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding Previous}" HorizontalAlignment="Right" FontFamily="Cascadia Mono" />
+                                                        <TextBlock Grid.Column="3" Text="{Binding Change}" HorizontalAlignment="Right" Foreground="{Binding ChangeBrush}" FontSize="10" />
+                                                    </Grid>
+                                                    <Separator />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <Border Style="{DynamicResource Battuta.HistoryCard}" Padding="16" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="全年输入热力图" Style="{DynamicResource Battuta.HeadlineText}" />
+                        <TextBlock x:Name="YearRangeText" Margin="0,3,0,12" Style="{DynamicResource Battuta.CaptionText}" />
+                        <stats:StatsYearHeatmap x:Name="YearHeatmap" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{DynamicResource Battuta.HistoryCard}" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="年度亮点" Style="{DynamicResource Battuta.Title3Text}" />
+                        <TextBlock Text="过去 365 天的高峰与输入习惯" Margin="0,3,0,12" Style="{DynamicResource Battuta.CaptionText}" />
+                        <UniformGrid Columns="4">
+                            <Border Margin="0,0,6,0" Padding="11" Background="#0CFFFFFF" CornerRadius="10">
+                                <StackPanel Orientation="Horizontal"><controls:IconTile Width="34" Height="34" GlyphSize="14" Glyph="&#xE7C6;" GlyphBrush="{DynamicResource Battuta.AmberBrush}" TileBrush="#24F2AB33" TileBorderBrush="#2EF2AB33" /><StackPanel Margin="11,0,0,0"><TextBlock Text="最佳一天" Style="{DynamicResource Battuta.CaptionText}" /><TextBlock x:Name="BestDayValue" Text="—" FontSize="13" FontWeight="SemiBold" /><TextBlock x:Name="BestDayDetail" Text="暂无输入" Style="{DynamicResource Battuta.Caption2Text}" /></StackPanel></StackPanel>
+                            </Border>
+                            <Border Margin="6,0" Padding="11" Background="#0CFFFFFF" CornerRadius="10">
+                                <StackPanel Orientation="Horizontal"><controls:IconTile Width="34" Height="34" GlyphSize="14" Glyph="&#xE945;" /><StackPanel Margin="11,0,0,0"><TextBlock Text="最长连续活跃" Style="{DynamicResource Battuta.CaptionText}" /><TextBlock x:Name="LongestStreakValue" Text="0 天" FontSize="13" FontWeight="SemiBold" /><TextBlock Text="连续出现有效输入" Style="{DynamicResource Battuta.Caption2Text}" /></StackPanel></StackPanel>
+                            </Border>
+                            <Border Margin="6,0" Padding="11" Background="#0CFFFFFF" CornerRadius="10">
+                                <StackPanel Orientation="Horizontal"><controls:IconTile Width="34" Height="34" GlyphSize="14" Glyph="&#xE787;" GlyphBrush="{DynamicResource Battuta.CyanBrush}" TileBrush="#2440B8D1" TileBorderBrush="#2E40B8D1" /><StackPanel Margin="11,0,0,0"><TextBlock Text="最常输入星期" Style="{DynamicResource Battuta.CaptionText}" /><TextBlock x:Name="BusiestWeekdayValue" Text="—" FontSize="13" FontWeight="SemiBold" /><TextBlock x:Name="BusiestWeekdayDetail" Text="暂无输入" Style="{DynamicResource Battuta.Caption2Text}" /></StackPanel></StackPanel>
+                            </Border>
+                            <Border Margin="6,0,0,0" Padding="11" Background="#0CFFFFFF" CornerRadius="10">
+                                <StackPanel Orientation="Horizontal"><controls:IconTile Width="34" Height="34" GlyphSize="14" Glyph="&#xE823;" GlyphBrush="{DynamicResource Battuta.VioletBrush}" TileBrush="#249980EB" TileBorderBrush="#2E9980EB" /><StackPanel Margin="11,0,0,0"><TextBlock Text="最常输入时段" Style="{DynamicResource Battuta.CaptionText}" /><TextBlock x:Name="BusiestHourValue" Text="—" FontSize="13" FontWeight="SemiBold" /><TextBlock x:Name="BusiestHourDetail" Text="暂无输入" Style="{DynamicResource Battuta.Caption2Text}" /></StackPanel></StackPanel>
+                            </Border>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

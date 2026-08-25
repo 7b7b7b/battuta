@@ -1,0 +1,162 @@
+<UserControl x:Class="Battuta.Windows.Views.Diy.SoundPackInspector"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Battuta.Windows.Controls"
+             Background="Transparent">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="1" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="1" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="12">
+            <controls:IconTile Width="34" Height="34" GlyphSize="14" Glyph="&#xE713;" />
+            <StackPanel Margin="44,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="检查器" Style="{DynamicResource Battuta.HeadlineText}" />
+                <TextBlock x:Name="InspectorContextText" Text="推荐分布" Style="{DynamicResource Battuta.Caption2Text}" />
+            </StackPanel>
+        </Grid>
+        <Border Grid.Row="1" Background="{DynamicResource Battuta.SeparatorBrush}" />
+
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16">
+                <Border Style="{DynamicResource Battuta.Card}" Padding="14" Margin="0,0,0,16">
+                    <StackPanel>
+                        <controls:SectionHeading Title="音色包信息" Glyph="&#xE946;" />
+                        <Grid Margin="0,11,0,0">
+                            <TextBox x:Name="PackNameBox" Style="{DynamicResource Battuta.TextBox}"
+                                     ToolTip="名称" TextChanged="MetadataTextChanged" />
+                            <TextBlock Text="名称" Margin="10,0" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Battuta.SecondaryTextBrush}"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=PackNameBox}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                        <Grid Margin="0,8,0,0">
+                            <TextBox x:Name="PackAuthorBox" Style="{DynamicResource Battuta.TextBox}"
+                                     ToolTip="作者（可选）" TextChanged="MetadataTextChanged" />
+                            <TextBlock Text="作者（可选）" Margin="10,0" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Battuta.SecondaryTextBrush}"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=PackAuthorBox}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                        <Grid Margin="0,8,0,0">
+                            <TextBox x:Name="PackNotesBox" Height="56" AcceptsReturn="True" TextWrapping="Wrap"
+                                     Style="{DynamicResource Battuta.TextBox}"
+                                     ToolTip="备注（可选）" TextChanged="MetadataTextChanged" />
+                            <TextBlock Text="备注（可选）" Margin="10,8" VerticalAlignment="Top"
+                                       Foreground="{DynamicResource Battuta.SecondaryTextBrush}"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=PackNotesBox}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                        <TextBlock x:Name="BaseProfileText" Margin="0,10,0,0"
+                                   Style="{DynamicResource Battuta.CaptionText}" />
+                    </StackPanel>
+                </Border>
+
+                <ComboBox x:Name="RecommendedSlotPicker"
+                          Style="{DynamicResource Battuta.ComboBox}"
+                          DisplayMemberPath="Name" Margin="0,0,0,10"
+                          SelectionChanged="RecommendedSlotChanged" />
+
+                <Border Style="{DynamicResource Battuta.Card}" Padding="14">
+                    <StackPanel>
+                        <controls:SectionHeading x:Name="MappingHeading" Title="R3 · A 行" Glyph="&#xE9D9;" />
+
+                        <Border Margin="0,10,0,0" Padding="9"
+                                Background="{DynamicResource Battuta.RecessedBrush}"
+                                BorderBrush="{DynamicResource Battuta.SeparatorBrush}"
+                                BorderThickness="1" CornerRadius="9">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="↓  按下" FontSize="11" FontWeight="SemiBold" />
+                                    <Button HorizontalAlignment="Right" Style="{DynamicResource Battuta.PlainButton}"
+                                            Content="▶" ToolTip="试听按下" Tag="Press" Click="PreviewPhaseClick" />
+                                </Grid>
+                                <ComboBox x:Name="PressOverridePicker" Margin="0,7,0,0"
+                                          Style="{DynamicResource Battuta.ComboBox}"
+                                          DisplayMemberPath="Name"
+                                          SelectionChanged="OverrideChoiceChanged" />
+                                <TextBlock x:Name="PressAssetLabel" Margin="0,5,0,0"
+                                           Style="{DynamicResource Battuta.CaptionText}" Text="继承上一级" />
+                                <TextBlock x:Name="PressOverrideHelp" Margin="0,5,0,0"
+                                           Style="{DynamicResource Battuta.CaptionText}" TextWrapping="Wrap" />
+                                <StackPanel x:Name="PressAssetActions" Orientation="Horizontal" Margin="0,7,0,0">
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="导入音频"
+                                            Padding="8,4" Tag="Press" Click="ImportAudioClick" />
+                                    <Button x:Name="PressExistingButton" Margin="7,0,0,0"
+                                            Style="{DynamicResource Battuta.SecondaryButton}" Content="已有音频⌄"
+                                            Padding="8,4" Tag="Press" Click="ExistingAudioClick" />
+                                    <Button x:Name="PressClearButton" Margin="7,0,0,0"
+                                            Style="{DynamicResource Battuta.PlainButton}" Content="清除"
+                                            Tag="Press" Click="ClearAudioClick" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,10,0,0" Padding="9"
+                                Background="{DynamicResource Battuta.RecessedBrush}"
+                                BorderBrush="{DynamicResource Battuta.SeparatorBrush}"
+                                BorderThickness="1" CornerRadius="9">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="↑  回弹" FontSize="11" FontWeight="SemiBold" />
+                                    <Button HorizontalAlignment="Right" Style="{DynamicResource Battuta.PlainButton}"
+                                            Content="▶" ToolTip="试听回弹" Tag="Release" Click="PreviewPhaseClick" />
+                                </Grid>
+                                <ComboBox x:Name="ReleaseOverridePicker" Margin="0,7,0,0"
+                                          Style="{DynamicResource Battuta.ComboBox}"
+                                          DisplayMemberPath="Name"
+                                          SelectionChanged="OverrideChoiceChanged" />
+                                <TextBlock x:Name="ReleaseAssetLabel" Margin="0,5,0,0"
+                                           Style="{DynamicResource Battuta.CaptionText}" Text="继承上一级" />
+                                <TextBlock x:Name="ReleaseOverrideHelp" Margin="0,5,0,0"
+                                           Style="{DynamicResource Battuta.CaptionText}" TextWrapping="Wrap" />
+                                <StackPanel x:Name="ReleaseAssetActions" Orientation="Horizontal" Margin="0,7,0,0">
+                                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="导入音频"
+                                            Padding="8,4" Tag="Release" Click="ImportAudioClick" />
+                                    <Button x:Name="ReleaseExistingButton" Margin="7,0,0,0"
+                                            Style="{DynamicResource Battuta.SecondaryButton}" Content="已有音频⌄"
+                                            Padding="8,4" Tag="Release" Click="ExistingAudioClick" />
+                                    <Button x:Name="ReleaseClearButton" Margin="7,0,0,0"
+                                            Style="{DynamicResource Battuta.PlainButton}" Content="清除"
+                                            Tag="Release" Click="ClearAudioClick" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Separator Margin="0,10" />
+                        <Button Style="{DynamicResource Battuta.SecondaryButton}"
+                                Content="✂  上传完整击键并自动拆分"
+                                Click="OpenSplitClick" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="3" Background="{DynamicResource Battuta.SeparatorBrush}" />
+        <StackPanel Grid.Row="4" Margin="14">
+            <StackPanel x:Name="WorkingStatusPanel" Orientation="Horizontal" Margin="0,0,0,9">
+                <ProgressBar x:Name="WorkingProgress" Width="42" Height="3" IsIndeterminate="True"
+                             Margin="0,0,7,0" Visibility="Collapsed" />
+                <TextBlock x:Name="StatusText" Text="就绪" Style="{DynamicResource Battuta.CaptionText}" />
+            </StackPanel>
+            <Grid>
+                <TextBlock x:Name="DirtyIndicator" Text="●  未保存"
+                           Foreground="{DynamicResource Battuta.OrangeBrush}"
+                           FontSize="10" VerticalAlignment="Center" Visibility="Collapsed" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{DynamicResource Battuta.SecondaryButton}" Content="保存"
+                            Command="{Binding SaveCommand}" />
+                    <Button Margin="8,0,0,0" Style="{DynamicResource Battuta.PrimaryButton}"
+                            Content="保存并启用" Command="{Binding SaveAndEnableCommand}" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Grid>
+</UserControl>

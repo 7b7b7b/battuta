@@ -1,0 +1,20 @@
+<UserControl x:Class="Battuta.Windows.Controls.IconTile"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             Width="38" Height="38"
+             Focusable="False">
+    <Border Background="{Binding TileBrush, ElementName=Root}"
+            BorderBrush="{Binding TileBorderBrush, ElementName=Root}"
+            BorderThickness="1"
+            CornerRadius="11">
+        <TextBlock Text="{Binding Glyph, ElementName=Root}"
+                   FontFamily="Segoe Fluent Icons"
+                   FontSize="{Binding GlyphSize, ElementName=Root}"
+                   FontWeight="SemiBold"
+                   Foreground="{Binding GlyphBrush, ElementName=Root}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   TextTrimming="None" />
+    </Border>
+</UserControl>
