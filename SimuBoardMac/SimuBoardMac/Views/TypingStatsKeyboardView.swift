@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -8,46 +9,33 @@ private enum TypingKeyCountScope: String, CaseIterable, Identifiable {
     var id: Self { self }
 }
 
-@MainActor
-struct TypingStatsKeyboardView: View {
-    let snapshot: TypingStatsSnapshot
-    @State private var scope: TypingKeyCountScope = .today
-    @State private var showsExtendedKeys = false
+private struct TypingStatsKeyboardPresentation: Equatable {
+    static let layout = KeyboardLayoutCatalog.ansiTKL
+    static let visualLayout = KeyboardVisualLayoutCatalog.magicKeyboardANSI
+    static let extendedRows = KeyboardExtendedLayoutCatalog.rows
+    private static let knownKeys = layout.keys + extendedRows.flatMap(\.keys)
+    private static let knownKeysByCode = Dictionary(
+        uniqueKeysWithValues: knownKeys.map { ($0.keyCode, $0) }
+    )
+    static let unplacedLayoutKeys = layout.keys.filter { !visualLayout.keyIDs.contains($0.id) }
 
-    private let layout = KeyboardLayoutCatalog.ansiTKL
-    private let visualLayout = KeyboardVisualLayoutCatalog.magicKeyboardANSI
-    private let extendedRows = KeyboardExtendedLayoutCatalog.rows
+    let counts: [UInt16: Int64]
+    let totalPresses: Int64
+    let maximumCount: Int64
+    let otherKeys: [KeyboardKeyDescriptor]
 
-    private var counts: [UInt16: Int64] {
+    init(snapshot: TypingStatsSnapshot, scope: TypingKeyCountScope) {
         switch scope {
-        case .today: snapshot.todayKeyCounts
-        case .allTime: snapshot.allTimeKeyCounts
+        case .today:
+            counts = snapshot.todayKeyCounts
+        case .allTime:
+            counts = snapshot.allTimeKeyCounts
         }
-    }
 
-    private var totalPresses: Int64 {
-        counts.values.reduce(0, +)
-    }
-
-    private var maximumCount: Int64 {
-        counts.values.max() ?? 0
-    }
-
-    private var knownKeys: [KeyboardKeyDescriptor] {
-        layout.keys + extendedRows.flatMap(\.keys)
-    }
-
-    private var knownKeysByCode: [UInt16: KeyboardKeyDescriptor] {
-        Dictionary(uniqueKeysWithValues: knownKeys.map { ($0.keyCode, $0) })
-    }
-
-    private var unplacedLayoutKeys: [KeyboardKeyDescriptor] {
-        layout.keys.filter { !visualLayout.keyIDs.contains($0.id) }
-    }
-
-    private var otherKeys: [KeyboardKeyDescriptor] {
-        counts.keys
-            .filter { knownKeysByCode[$0] == nil }
+        totalPresses = counts.values.reduce(0, +)
+        maximumCount = counts.values.max() ?? 0
+        otherKeys = counts.keys
+            .filter { Self.knownKeysByCode[$0] == nil }
             .sorted()
             .map { keyCode in
                 KeyboardKeyDescriptor(
@@ -58,8 +46,25 @@ struct TypingStatsKeyboardView: View {
                 )
             }
     }
+}
+
+@MainActor
+struct TypingStatsKeyboardView: View {
+    let snapshot: TypingStatsSnapshot
+    @State private var scope: TypingKeyCountScope = .today
+    @State private var showsExtendedKeys = false
+
+    private var exposesEmptyKeysToAssistiveTech: Bool {
+        NSWorkspace.shared.isVoiceOverEnabled || NSWorkspace.shared.isSwitchControlEnabled
+    }
+
+    private var presentation: TypingStatsKeyboardPresentation {
+        TypingStatsKeyboardPresentation(snapshot: snapshot, scope: scope)
+    }
 
     var body: some View {
+        let presentation = presentation
+
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 16) {
@@ -88,7 +93,7 @@ struct TypingStatsKeyboardView: View {
 
                     Divider()
 
-                    if totalPresses == 0 {
+                    if presentation.totalPresses == 0 {
                         Label(
                             scope == .today
                                 ? "今天还没有按键记录；开始输入后键盘会逐键点亮。"
@@ -100,19 +105,25 @@ struct TypingStatsKeyboardView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    FittedTypingStatsKeyboard(
-                        layout: layout,
-                        visualLayout: visualLayout,
-                        counts: counts,
-                        maximumCount: maximumCount
+                    TypingStatsKeyboardHeatmap(
+                        counts: presentation.counts,
+                        maximumCount: presentation.maximumCount,
+                        exposesEmptyKeyMetadata: exposesEmptyKeysToAssistiveTech
                     )
+                    .equatable()
                     .padding(.vertical, 4)
-                    .accessibilityHidden(totalPresses == 0)
+                    .accessibilityHidden(presentation.totalPresses == 0)
 
                     Divider()
 
                     DisclosureGroup(isExpanded: $showsExtendedKeys) {
-                        extendedKeyboardContent
+                        TypingStatsKeyboardExtendedSection(
+                            counts: presentation.counts,
+                            maximumCount: presentation.maximumCount,
+                            otherKeys: presentation.otherKeys,
+                            exposesEmptyMetadata: exposesEmptyKeysToAssistiveTech
+                        )
+                        .equatable()
                             .padding(.top, 12)
                     } label: {
                         Text("外接键盘与扩展按键")
@@ -151,20 +162,45 @@ struct TypingStatsKeyboardView: View {
         .font(.caption2)
         .foregroundStyle(.secondary)
     }
+}
 
-    @ViewBuilder
-    private var extendedKeyboardContent: some View {
+@MainActor
+private struct TypingStatsKeyboardHeatmap: View, Equatable {
+    let counts: [UInt16: Int64]
+    let maximumCount: Int64
+    let exposesEmptyKeyMetadata: Bool
+
+    var body: some View {
+        FittedTypingStatsKeyboard(
+            layout: TypingStatsKeyboardPresentation.layout,
+            visualLayout: TypingStatsKeyboardPresentation.visualLayout,
+            counts: counts,
+            maximumCount: maximumCount,
+            exposesEmptyKeyMetadata: exposesEmptyKeyMetadata
+        )
+    }
+}
+
+@MainActor
+private struct TypingStatsKeyboardExtendedSection: View, Equatable {
+    let counts: [UInt16: Int64]
+    let maximumCount: Int64
+    let otherKeys: [KeyboardKeyDescriptor]
+    let exposesEmptyMetadata: Bool
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !unplacedLayoutKeys.isEmpty {
+            if !TypingStatsKeyboardPresentation.unplacedLayoutKeys.isEmpty {
                 Text("额外修饰键")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 4) {
-                    ForEach(unplacedLayoutKeys) { key in
+                    ForEach(TypingStatsKeyboardPresentation.unplacedLayoutKeys) { key in
                         TypingStatsKeycap(
                             key: key,
                             count: counts[key.keyCode, default: 0],
-                            maximumCount: maximumCount
+                            maximumCount: maximumCount,
+                            exposesEmptyMetadata: exposesEmptyMetadata
                         )
                     }
                 }
@@ -175,13 +211,14 @@ struct TypingStatsKeyboardView: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
 
-            ForEach(extendedRows) { row in
+            ForEach(TypingStatsKeyboardPresentation.extendedRows) { row in
                 HStack(spacing: 4) {
                     ForEach(row.keys) { key in
                         TypingStatsKeycap(
                             key: key,
                             count: counts[key.keyCode, default: 0],
-                            maximumCount: maximumCount
+                            maximumCount: maximumCount,
+                            exposesEmptyMetadata: exposesEmptyMetadata
                         )
                     }
                 }
@@ -197,7 +234,8 @@ struct TypingStatsKeyboardView: View {
                         TypingStatsKeycap(
                             key: key,
                             count: counts[key.keyCode, default: 0],
-                            maximumCount: maximumCount
+                            maximumCount: maximumCount,
+                            exposesEmptyMetadata: exposesEmptyMetadata
                         )
                     }
                 }
@@ -212,6 +250,7 @@ private struct FittedTypingStatsKeyboard: View {
     let visualLayout: KeyboardVisualLayout
     let counts: [UInt16: Int64]
     let maximumCount: Int64
+    let exposesEmptyKeyMetadata: Bool
 
     private let baseMetrics = MacKeyboardLayoutMetrics.typingStats
 
@@ -229,9 +268,13 @@ private struct FittedTypingStatsKeyboard: View {
                 TypingStatsMacKeycap(
                     renderedKey: renderedKey,
                     size: size,
-                    counts: counts,
-                    maximumCount: maximumCount
+                    count: renderedKey.descriptor.map {
+                        counts[$0.keyCode, default: 0]
+                    } ?? 0,
+                    maximumCount: maximumCount,
+                    exposesEmptyMetadata: exposesEmptyKeyMetadata
                 )
+                .equatable()
             }
             .scaleEffect(scale, anchor: .topLeading)
             .frame(
@@ -252,17 +295,20 @@ private struct TypingStatsKeycap: View {
     let count: Int64
     let maximumCount: Int64
     let size: CGSize?
+    let exposesEmptyMetadata: Bool
 
     init(
         key: KeyboardKeyDescriptor,
         count: Int64,
         maximumCount: Int64,
-        size: CGSize? = nil
+        size: CGSize? = nil,
+        exposesEmptyMetadata: Bool = false
     ) {
         self.key = key
         self.count = count
         self.maximumCount = maximumCount
         self.size = size
+        self.exposesEmptyMetadata = exposesEmptyMetadata
     }
 
     private var width: CGFloat {
@@ -279,7 +325,7 @@ private struct TypingStatsKeycap: View {
     }
 
     var body: some View {
-        Group {
+        let content = Group {
             if resolvedSize.height < 30 {
                 HStack(spacing: 3) {
                     keyLabel
@@ -314,11 +360,28 @@ private struct TypingStatsKeycap: View {
                         : BattutaVisualStyle.separator.opacity(0.55)
                 )
         )
-        .shadow(color: .black.opacity(count > 0 ? 0.055 : 0.025), radius: 1, y: 1)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(key.label)
-        .accessibilityValue("\(count) 次")
-        .help("\(key.label)：\(statsCount(count)) 次")
+        .shadow(
+            color: .black.opacity(count > 0 ? 0.055 : 0),
+            radius: count > 0 ? 1 : 0,
+            y: count > 0 ? 1 : 0
+        )
+
+        return Group {
+            if count > 0 {
+                content
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(key.label)
+                    .accessibilityValue("\(count) 次")
+                    .help("\(key.label)：\(statsCount(count)) 次")
+            } else if exposesEmptyMetadata {
+                content
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(key.label)
+                    .accessibilityValue("0 次")
+            } else {
+                content.accessibilityHidden(true)
+            }
+        }
     }
 
     private var keyLabel: some View {
@@ -352,23 +415,25 @@ private struct TypingStatsKeycap: View {
 }
 
 @MainActor
-private struct TypingStatsMacKeycap: View {
+private struct TypingStatsMacKeycap: View, Equatable {
     let renderedKey: MacKeyboardRenderedKey
     let size: CGSize
-    let counts: [UInt16: Int64]
+    let count: Int64
     let maximumCount: Int64
+    let exposesEmptyMetadata: Bool
 
     @ViewBuilder
     var body: some View {
         if let key = renderedKey.descriptor {
             TypingStatsKeycap(
                 key: key,
-                count: counts[key.keyCode, default: 0],
+                count: count,
                 maximumCount: maximumCount,
-                size: size
+                size: size,
+                exposesEmptyMetadata: exposesEmptyMetadata
             )
         } else {
-            VStack(spacing: 3) {
+            let content = VStack(spacing: 3) {
                 if let systemImage = renderedKey.systemImage {
                     Image(systemName: systemImage)
                         .font(.caption)
@@ -386,10 +451,15 @@ private struct TypingStatsMacKeycap: View {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .stroke(BattutaVisualStyle.separator.opacity(0.55))
             )
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("锁定或 Touch ID 键")
-            .accessibilityValue("系统不提供普通按键计数")
-            .help("锁定或 Touch ID 键：系统不提供普通按键事件")
+
+            if exposesEmptyMetadata {
+                content
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("锁定或 Touch ID 键")
+                    .accessibilityValue("系统不提供普通按键计数")
+            } else {
+                content.accessibilityHidden(true)
+            }
         }
     }
 }

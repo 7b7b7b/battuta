@@ -68,11 +68,64 @@ struct MacKeyboardRenderedKey: Identifiable, Hashable {
     var isDecorative: Bool { descriptor == nil }
 }
 
+private struct MacKeyboardLayoutRenderEntry: Identifiable {
+    let renderedKey: MacKeyboardRenderedKey
+    let frame: CGRect
+
+    var id: String { renderedKey.id }
+}
+
+private struct MacKeyboardLayoutRenderPlan {
+    let canvasSize: CGSize
+    let entries: [MacKeyboardLayoutRenderEntry]
+}
+
+@MainActor
+private enum MacKeyboardLayoutRenderPlanCache {
+    struct CacheKey: Hashable {
+        let layoutID: String
+        let visualLayoutID: String
+        let metrics: MacKeyboardLayoutMetrics
+    }
+
+    private static var plans: [CacheKey: MacKeyboardLayoutRenderPlan] = [:]
+
+    static func plan(
+        keyboardLayout: KeyboardLayout,
+        visualLayout: KeyboardVisualLayout,
+        metrics: MacKeyboardLayoutMetrics
+    ) -> MacKeyboardLayoutRenderPlan {
+        let cacheKey = CacheKey(
+            layoutID: keyboardLayout.id,
+            visualLayoutID: visualLayout.id,
+            metrics: metrics
+        )
+        if let cached = plans[cacheKey] {
+            return cached
+        }
+
+        let descriptorsByID = Dictionary(uniqueKeysWithValues: keyboardLayout.keys.map { ($0.id, $0) })
+        let plan = MacKeyboardLayoutRenderPlan(
+            canvasSize: metrics.canvasSize(for: visualLayout),
+            entries: visualLayout.placements.map { placement in
+                let descriptor = placement.content.keyID.flatMap { descriptorsByID[$0] }
+                return MacKeyboardLayoutRenderEntry(
+                    renderedKey: MacKeyboardRenderedKey(
+                        placement: placement,
+                        descriptor: descriptor
+                    ),
+                    frame: metrics.frame(for: placement)
+                )
+            }
+        )
+        plans[cacheKey] = plan
+        return plan
+    }
+}
+
 @MainActor
 struct MacKeyboardLayoutView<Keycap: View>: View {
-    let keyboardLayout: KeyboardLayout
-    let visualLayout: KeyboardVisualLayout
-    let metrics: MacKeyboardLayoutMetrics
+    private let renderPlan: MacKeyboardLayoutRenderPlan
     private let keycap: (MacKeyboardRenderedKey, CGSize) -> Keycap
 
     init(
@@ -81,34 +134,26 @@ struct MacKeyboardLayoutView<Keycap: View>: View {
         metrics: MacKeyboardLayoutMetrics,
         @ViewBuilder keycap: @escaping (MacKeyboardRenderedKey, CGSize) -> Keycap
     ) {
-        self.keyboardLayout = keyboardLayout
-        self.visualLayout = visualLayout
-        self.metrics = metrics
+        renderPlan = MacKeyboardLayoutRenderPlanCache.plan(
+            keyboardLayout: keyboardLayout,
+            visualLayout: visualLayout,
+            metrics: metrics
+        )
         self.keycap = keycap
     }
 
-    private var descriptorsByID: [KeyboardKeyID: KeyboardKeyDescriptor] {
-        Dictionary(uniqueKeysWithValues: keyboardLayout.keys.map { ($0.id, $0) })
-    }
-
     var body: some View {
-        let descriptorsByID = descriptorsByID
-        let canvasSize = metrics.canvasSize(for: visualLayout)
-
         ZStack(alignment: .topLeading) {
-            ForEach(visualLayout.placements) { placement in
-                let descriptor = placement.content.keyID.flatMap { descriptorsByID[$0] }
-                let renderedKey = MacKeyboardRenderedKey(
-                    placement: placement,
-                    descriptor: descriptor
-                )
-                let frame = metrics.frame(for: placement)
-
-                keycap(renderedKey, frame.size)
-                    .frame(width: frame.width, height: frame.height)
-                    .position(x: frame.midX, y: frame.midY)
+            ForEach(renderPlan.entries) { entry in
+                keycap(entry.renderedKey, entry.frame.size)
+                    .frame(width: entry.frame.width, height: entry.frame.height)
+                    .position(x: entry.frame.midX, y: entry.frame.midY)
             }
         }
-        .frame(width: canvasSize.width, height: canvasSize.height, alignment: .topLeading)
+        .frame(
+            width: renderPlan.canvasSize.width,
+            height: renderPlan.canvasSize.height,
+            alignment: .topLeading
+        )
     }
 }

@@ -2,7 +2,51 @@ import Combine
 import Foundation
 
 @MainActor
+final class TypingStatsReadStatus: ObservableObject {
+    @Published private(set) var lastReadAt: Date?
+
+    func markRead(at date: Date) {
+        guard lastReadAt != date else { return }
+        lastReadAt = date
+    }
+}
+
+enum TypingStatsRefreshTarget: Sendable {
+    case summary
+    case overview
+    case history
+    case keyboard
+
+    func merged(with other: Self) -> Self {
+        func breadth(_ target: Self) -> Int {
+            switch target {
+            case .summary, .history: 0
+            case .keyboard: 1
+            case .overview: 2
+            }
+        }
+
+        return breadth(self) > breadth(other) ? self : other
+    }
+}
+
+@MainActor
 final class TypingStatsModel: ObservableObject {
+    private struct PendingRefreshRequest {
+        let target: TypingStatsRefreshTarget
+        let showsActivity: Bool
+        let publishesUnchangedSnapshot: Bool
+
+        func merged(with other: Self) -> Self {
+            Self(
+                target: target.merged(with: other.target),
+                showsActivity: showsActivity || other.showsActivity,
+                publishesUnchangedSnapshot: publishesUnchangedSnapshot
+                    || other.publishesUnchangedSnapshot
+            )
+        }
+    }
+
     private struct PendingCharacterKey: Hashable {
         let secondStart: Int64
         let localDate: String
@@ -23,10 +67,13 @@ final class TypingStatsModel: ObservableObject {
     @Published private(set) var reportSnapshot: TypingRangeReportSnapshot?
     @Published private(set) var isLoadingReport = false
     @Published private(set) var reportErrorMessage: String?
+    let readStatus = TypingStatsReadStatus()
 
     private let persistence: any TypingStatsPersistence
     private var pendingCharacters: [PendingCharacterKey: Int64] = [:]
     private var pendingKeyPresses: [PendingKeyPressKey: Int64] = [:]
+    private var isRefreshInFlight = false
+    private var pendingRefreshRequest: PendingRefreshRequest?
     /// A failed, already-materialized batch is kept separate so retrying never re-sorts
     /// the continuously growing live dictionaries on the main actor.
     private var retryBatch: TypingStatsWriteBatch?
@@ -58,7 +105,7 @@ final class TypingStatsModel: ObservableObject {
     func selectTimelineRange(_ range: TypingTimelineRange) {
         guard timelineRange != range else { return }
         timelineRange = range
-        Task { await refresh() }
+        Task { await refresh(for: .overview, showsActivity: true) }
     }
 
     /// O(1) hot-path aggregation. No database work or detached task is created per event.
@@ -117,7 +164,7 @@ final class TypingStatsModel: ObservableObject {
                 try await persistence.record(batch)
                 lastWriteError = nil
                 consecutiveWriteFailures = 0
-                isRecordingSuspended = false
+                if isRecordingSuspended { isRecordingSuspended = false }
             } catch is CancellationError {
                 retryBatch = batch
                 scheduleFlush()
@@ -134,7 +181,7 @@ final class TypingStatsModel: ObservableObject {
                     let retrySeconds = min(60, 1 << consecutiveWriteFailures)
                     scheduleFlush(after: .seconds(retrySeconds))
                 }
-                sourceStatus = .failed(lastWriteError ?? error.localizedDescription)
+                setSourceStatus(.failed(lastWriteError ?? error.localizedDescription))
                 succeeded = false
                 break
             }
@@ -149,30 +196,70 @@ final class TypingStatsModel: ObservableObject {
     }
 
     func refresh() async {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        defer { isRefreshing = false }
+        await refresh(for: .overview)
+    }
+
+    func refresh(
+        for target: TypingStatsRefreshTarget,
+        showsActivity: Bool = false,
+        publishesUnchangedSnapshot: Bool = false
+    ) async {
+        guard !isRefreshInFlight else {
+            let incomingRequest = PendingRefreshRequest(
+                target: target,
+                showsActivity: showsActivity,
+                publishesUnchangedSnapshot: publishesUnchangedSnapshot
+            )
+            pendingRefreshRequest = pendingRefreshRequest?.merged(with: incomingRequest)
+                ?? incomingRequest
+            if showsActivity { isRefreshing = true }
+            return
+        }
+        isRefreshInFlight = true
+        if showsActivity { isRefreshing = true }
+        defer {
+            isRefreshInFlight = false
+            if let pendingRefreshRequest {
+                self.pendingRefreshRequest = nil
+                if !pendingRefreshRequest.showsActivity, showsActivity {
+                    isRefreshing = false
+                }
+                Task { [weak self] in
+                    await self?.refresh(
+                        for: pendingRefreshRequest.target,
+                        showsActivity: pendingRefreshRequest.showsActivity,
+                        publishesUnchangedSnapshot: pendingRefreshRequest.publishesUnchangedSnapshot
+                    )
+                }
+            } else if showsActivity {
+                isRefreshing = false
+            }
+        }
 
         let didFlush = await flushPending()
         while !Task.isCancelled {
-            let requestedRange = timelineRange
+            let request = snapshotRequest(for: target)
             do {
-                let loadedSnapshot = try await persistence.loadSnapshot(
-                    timelineRange: requestedRange
-                )
-                guard requestedRange == timelineRange else { continue }
-                snapshot = loadedSnapshot
+                let loadedSnapshot = try await persistence.loadSnapshot(request: request)
+                guard request.timelineRange == timelineRange else { continue }
+                readStatus.markRead(at: loadedSnapshot.generatedAt)
+                let mergedSnapshot = mergeSnapshot(loadedSnapshot, request: request)
+                if publishesUnchangedSnapshot
+                    || snapshot?.hasSameVisibleContent(as: mergedSnapshot) != true
+                {
+                    snapshot = mergedSnapshot
+                }
                 if didFlush {
-                    sourceStatus = .available
+                    setSourceStatus(.available)
                 } else if let lastWriteError {
-                    sourceStatus = .failed(lastWriteError)
+                    setSourceStatus(.failed(lastWriteError))
                 }
                 return
             } catch is CancellationError {
                 return
             } catch {
-                guard requestedRange == timelineRange else { continue }
-                sourceStatus = .failed(error.localizedDescription)
+                guard request.timelineRange == timelineRange else { continue }
+                setSourceStatus(.failed(error.localizedDescription))
                 return
             }
         }
@@ -198,8 +285,10 @@ final class TypingStatsModel: ObservableObject {
                 comparisonRange: comparisonRange
             )
             guard requestID == reportRequestID, !Task.isCancelled else { return }
-            reportSnapshot = report
-            reportErrorMessage = nil
+            if reportSnapshot?.hasSameVisibleContent(as: report) != true {
+                reportSnapshot = report
+            }
+            if reportErrorMessage != nil { reportErrorMessage = nil }
         } catch is CancellationError {
             return
         } catch {
@@ -237,7 +326,9 @@ final class TypingStatsModel: ObservableObject {
             consecutiveWriteFailures = 0
             lastWriteError = nil
             isRecordingSuspended = false
-            snapshot = try await persistence.loadSnapshot(timelineRange: timelineRange)
+            let loadedSnapshot = try await persistence.loadSnapshot(timelineRange: timelineRange)
+            readStatus.markRead(at: loadedSnapshot.generatedAt)
+            snapshot = loadedSnapshot
             if let previousReportRange {
                 reportSnapshot = try await persistence.loadReport(
                     range: previousReportRange,
@@ -329,5 +420,58 @@ final class TypingStatsModel: ObservableObject {
         cachedDateKey = key
         cachedTimeZoneIdentifier = timeZone.identifier
         return key
+    }
+
+    private func snapshotRequest(for target: TypingStatsRefreshTarget) -> TypingStatsSnapshotRequest {
+        let sections: TypingStatsSnapshotSections
+        switch target {
+        case .summary, .history:
+            sections = []
+        case .overview:
+            sections = .all
+        case .keyboard:
+            sections = [.keyCounts]
+        }
+        return TypingStatsSnapshotRequest(
+            timelineRange: timelineRange,
+            sections: sections
+        )
+    }
+
+    private func mergeSnapshot(
+        _ incoming: TypingStatsSnapshot,
+        request: TypingStatsSnapshotRequest
+    ) -> TypingStatsSnapshot {
+        guard let snapshot else { return incoming }
+        let sections = request.sections
+        return TypingStatsSnapshot(
+            generatedAt: incoming.generatedAt,
+            lastInputAt: incoming.lastInputAt,
+            today: incoming.today,
+            timelineRange: incoming.timelineRange,
+            recentBuckets: sections.contains(.recentBuckets)
+                ? incoming.recentBuckets
+                : snapshot.recentBuckets,
+            apps: sections.contains(.applications)
+                ? incoming.apps
+                : snapshot.apps,
+            recentAppTimelines: sections.contains(.recentAppTimelines)
+                ? incoming.recentAppTimelines
+                : snapshot.recentAppTimelines,
+            history: sections.contains(.history)
+                ? incoming.history
+                : snapshot.history,
+            todayKeyCounts: sections.contains(.keyCounts)
+                ? incoming.todayKeyCounts
+                : snapshot.todayKeyCounts,
+            allTimeKeyCounts: sections.contains(.keyCounts)
+                ? incoming.allTimeKeyCounts
+                : snapshot.allTimeKeyCounts
+        )
+    }
+
+    private func setSourceStatus(_ status: TypingStatsSourceStatus) {
+        guard sourceStatus != status else { return }
+        sourceStatus = status
     }
 }

@@ -50,7 +50,7 @@ struct TypingStatsSummarySection: View {
         .task { await refreshWhileVisible() }
         .onChange(of: settings.isTypingStatsEnabled) { enabled in
             guard enabled else { return }
-            Task { await model.refresh() }
+            Task { await model.refresh(for: .summary) }
         }
     }
 
@@ -134,14 +134,14 @@ struct TypingStatsSummarySection: View {
     }
 
     private func refreshWhileVisible() async {
-        await model.refresh()
+        await model.refresh(for: .summary)
         while !Task.isCancelled {
             do {
                 try await Task.sleep(for: .seconds(5))
             } catch {
                 return
             }
-            await model.refresh()
+            await model.refresh(for: .summary)
         }
     }
 }
