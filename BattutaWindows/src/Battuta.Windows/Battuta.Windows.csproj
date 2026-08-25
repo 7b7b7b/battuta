@@ -31,6 +31,11 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+    <Content Include="..\..\..\SimuBoardMac\SimuBoardMac\Resources\BundledSoundPacks\**\*.*">
+      <Link>BundledSoundPacks\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <Resource Include="..\..\..\SimuBoardMac\Design\AppIconSquare.png">
       <Link>Assets\AppIconSquare.png</Link>
     </Resource>

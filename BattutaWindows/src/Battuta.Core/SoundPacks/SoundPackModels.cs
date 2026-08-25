@@ -280,6 +280,18 @@ public static class SoundPackDescriptors
             IsReadOnly: true,
             CustomPackId: null)).ToArray();
 
+    public static SoundPackDescriptor BundledPack(SoundPackManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        return new SoundPackDescriptor(
+            $"custom:{manifest.Id:D}".ToLowerInvariant(),
+            manifest.Name,
+            manifest.Family ?? "DIY",
+            manifest.Tone ?? "自定义音色",
+            IsReadOnly: true,
+            CustomPackId: manifest.Id);
+    }
+
     public static SoundPackDescriptor Custom(SoundPackManifest manifest)
     {
         ArgumentNullException.ThrowIfNull(manifest);

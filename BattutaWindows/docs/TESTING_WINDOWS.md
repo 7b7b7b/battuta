@@ -129,7 +129,7 @@ WPF Dispatcher 消息循环、真实托盘或跨进程 UI Automation 的用例�
 2. 音色解析优先级：逐键、特殊键、R0–R4、generic、内置回退；`inherit`、
    `silent` 和 broken asset。
 3. 四套 gain/rate 均衡轮换、无连续重复；关闭自然变化后只播放原音。
-4. 237 个内置资源、20 个键盘 profile、5 个点击 profile 的目录与解码检查。
+4. 237 个基础内置资源、1 个 bundled BCP `.simuboardpack`（28 个 WAV）、20 个静态键盘 profile、5 个点击 profile 的目录与解码检查。
 5. manifest schema、SHA-256、大小/数量/时长限制和导入导出往返。
 6. ZIP traversal、绝对/UNC/设备路径、ADS、大小写重复项、reparse point、压缩炸弹。
 7. PCM 归一化、64 MiB 解码上限、算术溢出、超时/取消清理和拆音边界。
@@ -204,7 +204,7 @@ Remove-Item Env:\BATTUTA_REQUIRE_INTERACTIVE_TRAY_TEST
 发布目录必须验证：
 
 - PE/RID 为 `win-x64`，版本、产品名与包清单一致。
-- 237 个音频及其哈希完整，包含第三方许可和隐私说明。
+- 237 个基础音频、28 个 bundled BCP WAV 及其哈希完整，包含第三方许可和隐私说明。
 - `NAudio.Wasapi` 与 SQLite native runtime 实际进入发布结果。
 - 不包含 DMG、macOS Sparkle、用户数据库、日志、证书、私钥或临时 fixture。
 - 安装、覆盖升级和卸载不会意外删除设置、统计或 DIY 音色。
