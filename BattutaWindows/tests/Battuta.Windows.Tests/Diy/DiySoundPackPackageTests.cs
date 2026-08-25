@@ -35,7 +35,10 @@ public sealed class DiySoundPackPackageTests
         Assert.Equal("Round trip", loaded.Manifest.Name);
         Assert.Equal(prepared.AssetId, WaveFixture.Sha256(
             loaded.AssetPath(new SoundPackAssetId(prepared.AssetId))));
-        Assert.Single(await library.DescriptorsAsync());
+        var savedCustomPacks = (await library.DescriptorsAsync())
+            .Where(item => !item.IsReadOnly)
+            .ToArray();
+        Assert.Equal(manifest.Id, Assert.Single(savedCustomPacks).CustomPackId);
 
         _ = await library.SaveAsync(loaded.Manifest with { Name = "Renamed" });
         Assert.Equal("Renamed", (await library.LoadAsync(manifest.Id)).Manifest.Name);
@@ -52,7 +55,9 @@ public sealed class DiySoundPackPackageTests
         Assert.Equal(manifest.Id, first.CustomPackId);
         var duplicated = await archive.ImportAsync(exportedPath, importedLibrary);
         Assert.NotEqual(manifest.Id, duplicated.CustomPackId);
-        Assert.Equal(2, (await importedLibrary.DescriptorsAsync()).Count);
+        Assert.Equal(
+            2,
+            (await importedLibrary.DescriptorsAsync()).Count(item => !item.IsReadOnly));
 
         var collision = await Assert.ThrowsAsync<SoundPackException>(() => archive.ImportAsync(
             exportedPath,
