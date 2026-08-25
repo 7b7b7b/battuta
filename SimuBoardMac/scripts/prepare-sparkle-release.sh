@@ -34,8 +34,8 @@ BUILD_SETTINGS=$(xcodebuild \
   -scheme SimuBoardMac \
   -configuration Release \
   -showBuildSettings)
-VERSION=$(print -r -- "$BUILD_SETTINGS" | awk '/^[[:space:]]*MARKETING_VERSION = /{print $3; exit}')
-BUILD=$(print -r -- "$BUILD_SETTINGS" | awk '/^[[:space:]]*CURRENT_PROJECT_VERSION = /{print $3; exit}')
+VERSION=$(awk '/^[[:space:]]*MARKETING_VERSION = /{print $3; exit}' <<< "$BUILD_SETTINGS")
+BUILD=$(awk '/^[[:space:]]*CURRENT_PROJECT_VERSION = /{print $3; exit}' <<< "$BUILD_SETTINGS")
 if [[ ! "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' || ! "$BUILD" =~ '^[0-9]+$' ]]; then
   print -u2 "Invalid release version/build: $VERSION ($BUILD)"
   exit 1
@@ -60,7 +60,11 @@ for tool in "$GENERATE_APPCAST" "$GENERATE_KEYS" "$SIGN_UPDATE"; do
 done
 
 APP_PUBLIC_KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$SOURCE_INFO_PLIST")
-KEYCHAIN_PUBLIC_KEY=$("$GENERATE_KEYS" --account "$KEY_ACCOUNT" -p)
+if ! KEYCHAIN_PUBLIC_KEY=$("$GENERATE_KEYS" --account "$KEY_ACCOUNT" -p); then
+  print -u2 -- "$KEYCHAIN_PUBLIC_KEY"
+  print -u2 "Restore the existing Sparkle signing key for Keychain account '$KEY_ACCOUNT'."
+  exit 1
+fi
 if [[ "$APP_PUBLIC_KEY" != "$KEYCHAIN_PUBLIC_KEY" ]]; then
   print -u2 "The app's SUPublicEDKey does not match Keychain account '$KEY_ACCOUNT'."
   exit 1
