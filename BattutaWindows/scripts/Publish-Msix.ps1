@@ -51,7 +51,11 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
 $outputRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
 $stagingRoot = Join-Path $outputRoot 'staging-msix'
 $stage = Join-Path $stagingRoot ([Guid]::NewGuid().ToString('N'))
-$safeStagingPrefix = [System.IO.Path]::GetFullPath($stagingRoot).TrimEnd('\') + '\'
+$directorySeparators = [char[]]@(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar)
+$safeStagingPrefix = [System.IO.Path]::GetFullPath($stagingRoot).TrimEnd($directorySeparators) +
+    [System.IO.Path]::DirectorySeparatorChar
 
 Assert-BattutaPackageIdentityName -Name $PackageName
 if ([string]::IsNullOrWhiteSpace($Publisher) -or $Publisher -notmatch '=') {
