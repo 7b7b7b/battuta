@@ -8,7 +8,7 @@ private struct TypingReportRequest: Hashable {
     let comparisonEndDate: Date?
 }
 
-private enum TypingRhythmMode: String, CaseIterable, Identifiable {
+private enum TypingRhythmMode: String, CaseIterable, Identifiable, Equatable {
     case current = "当前"
     case difference = "差异"
 
@@ -65,6 +65,9 @@ struct TypingStatsHistoryView: View {
     var body: some View {
         GeometryReader { geometry in
             let heatmapMetrics = heatmapMetrics(for: geometry.size.width)
+            let usesHorizontalTopPanels = usesHorizontalTopPanels(
+                for: geometry.size.width
+            )
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -73,7 +76,11 @@ struct TypingStatsHistoryView: View {
                     }
 
                     if let report = model.reportSnapshot {
-                        reportContent(report, heatmapMetrics: heatmapMetrics)
+                        reportContent(
+                            report,
+                            heatmapMetrics: heatmapMetrics,
+                            usesHorizontalTopPanels: usesHorizontalTopPanels
+                        )
                             .opacity(model.isLoadingReport ? 0.62 : 1)
                             .overlay {
                                 if model.isLoadingReport {
@@ -127,12 +134,13 @@ struct TypingStatsHistoryView: View {
     @ViewBuilder
     private func reportContent(
         _ report: TypingRangeReportSnapshot,
-        heatmapMetrics: TypingHeatmapCellMetrics
+        heatmapMetrics: TypingHeatmapCellMetrics,
+        usesHorizontalTopPanels: Bool
     ) -> some View {
         let topPanelHeight = 144 + heatmapMetrics.cellSize * 7
 
         VStack(alignment: .leading, spacing: 16) {
-            ViewThatFits(in: .horizontal) {
+            if usesHorizontalTopPanels {
                 HStack(alignment: .top, spacing: 16) {
                     rhythmChanges(
                         report,
@@ -143,7 +151,7 @@ struct TypingStatsHistoryView: View {
                     applicationChanges(report, panelHeight: topPanelHeight)
                         .frame(minWidth: 400, maxWidth: 470, alignment: .topLeading)
                 }
-
+            } else {
                 VStack(alignment: .leading, spacing: 16) {
                     rhythmChanges(
                         report,
@@ -160,6 +168,7 @@ struct TypingStatsHistoryView: View {
                 calendar: calendar,
                 metrics: heatmapMetrics
             )
+            .equatable()
             .padding(16)
             .historyInstrumentPanel()
 
@@ -179,6 +188,11 @@ struct TypingStatsHistoryView: View {
             cellSize: cellSize,
             spacing: TypingHeatmapCellMetrics.spacing
         )
+    }
+
+    private func usesHorizontalTopPanels(for viewportWidth: CGFloat) -> Bool {
+        let contentWidth = min(1_080, max(0, viewportWidth)) - 40
+        return contentWidth >= 530 + 16 + 400
     }
 
     private func reportOverviewStrip(_ report: TypingRangeReportSnapshot) -> some View {
@@ -314,6 +328,7 @@ struct TypingStatsHistoryView: View {
                 } ?? [:],
                 metrics: heatmapMetrics
             )
+            .equatable()
 
             rhythmLegend(hasComparison: report.comparisonRange != nil)
         }
@@ -847,7 +862,8 @@ struct TypingStatsHistoryView: View {
     }
 }
 
-private struct TypingWeekdayHourHeatmap: View {
+@MainActor
+private struct TypingWeekdayHourHeatmap: View, Equatable {
     let values: [TypingWeekdayHourAggregate]
     let mode: TypingRhythmMode
     let currentWeekdayOccurrences: [Int: Int]
@@ -856,19 +872,15 @@ private struct TypingWeekdayHourHeatmap: View {
 
     private let weekdays = [2, 3, 4, 5, 6, 7, 1]
 
-    private var valuesByID: [Int: TypingWeekdayHourAggregate] {
-        Dictionary(uniqueKeysWithValues: values.map { ($0.id, $0) })
-    }
-
-    private var maximumCurrent: Double {
-        values.map(currentAverage).max() ?? 0
-    }
-
-    private var maximumDifference: Double {
-        values.map { abs(significantDifference(for: $0)) }.max() ?? 0
-    }
-
     var body: some View {
+        let valuesByID = Dictionary(uniqueKeysWithValues: values.map { ($0.id, $0) })
+        let maximumCurrent = values.lazy.map { currentAverage($0) }.max() ?? 0
+        let maximumDifference = values.lazy.map {
+            abs(significantDifference(for: $0))
+        }.max() ?? 0
+        let exposesEmptyCellsToAssistiveTech = NSWorkspace.shared.isVoiceOverEnabled
+            || NSWorkspace.shared.isSwitchControlEnabled
+
         Grid(
             alignment: .center,
             horizontalSpacing: metrics.spacing,
@@ -901,13 +913,17 @@ private struct TypingWeekdayHourHeatmap: View {
 
                     ForEach(0..<24, id: \.self) { hour in
                         let id = (weekday - 1) * 24 + hour
+                        let value = valuesByID[id] ?? TypingWeekdayHourAggregate(
+                            weekday: weekday,
+                            hour: hour,
+                            characterCount: 0,
+                            comparisonCharacterCount: 0
+                        )
                         rhythmCell(
-                            valuesByID[id] ?? TypingWeekdayHourAggregate(
-                                weekday: weekday,
-                                hour: hour,
-                                characterCount: 0,
-                                comparisonCharacterCount: 0
-                            )
+                            value,
+                            maximumCurrent: maximumCurrent,
+                            maximumDifference: maximumDifference,
+                            exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
                         )
                     }
                 }
@@ -916,7 +932,12 @@ private struct TypingWeekdayHourHeatmap: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func rhythmCell(_ value: TypingWeekdayHourAggregate) -> some View {
+    private func rhythmCell(
+        _ value: TypingWeekdayHourAggregate,
+        maximumCurrent: Double,
+        maximumDifference: Double,
+        exposesEmptyCellsToAssistiveTech: Bool
+    ) -> some View {
         let delta = significantDifference(for: value)
         let color: Color
         let opacity: Double
@@ -946,7 +967,7 @@ private struct TypingWeekdayHourHeatmap: View {
             }
         }
 
-        return Text(symbol)
+        let content = Text(symbol)
             .font(.system(size: max(6, metrics.cellSize * 0.62), weight: .semibold))
             .foregroundStyle(Color.white.opacity(mode == .difference && delta == 0 ? 0.42 : 0.90))
             .frame(width: metrics.cellSize, height: metrics.cellSize)
@@ -957,11 +978,26 @@ private struct TypingWeekdayHourHeatmap: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .stroke(Color.white.opacity(0.035), lineWidth: 1)
+        }
+
+        let hasInput = value.characterCount > 0 || value.comparisonCharacterCount > 0
+        let detail = hasInput || exposesEmptyCellsToAssistiveTech ? detailText(value) : ""
+        return Group {
+            if hasInput {
+                content
+                    .help(detail)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(weekdayTitle(value.weekday)) \(value.hour) 点")
+                    .accessibilityValue(detail)
+            } else if exposesEmptyCellsToAssistiveTech {
+                content
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(weekdayTitle(value.weekday)) \(value.hour) 点")
+                    .accessibilityValue(detail)
+            } else {
+                content.accessibilityHidden(true)
             }
-            .help(helpText(value))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(weekdayTitle(value.weekday)) \(value.hour) 点")
-            .accessibilityValue(helpText(value))
+        }
     }
 
     private func normalized(_ value: Double, maximum: Double) -> Double {
@@ -992,7 +1028,7 @@ private struct TypingWeekdayHourHeatmap: View {
         return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday - 1]
     }
 
-    private func helpText(_ value: TypingWeekdayHourAggregate) -> String {
+    private func detailText(_ value: TypingWeekdayHourAggregate) -> String {
         let hour = String(format: "%02d:00–%02d:00", value.hour, (value.hour + 1) % 24)
         if mode == .current {
             return "\(weekdayTitle(value.weekday)) \(hour)：合计 \(statsCount(value.characterCount))，每个该星期平均 \(averageText(currentAverage(value))) 个字符"
@@ -1010,14 +1046,27 @@ private struct TypingWeekdayHourHeatmap: View {
 }
 
 @MainActor
+private enum TypingReportApplicationIconCache {
+    private static var icons: [String: NSImage] = [:]
+
+    static func icon(for bundleIdentifier: String) -> NSImage? {
+        if let cached = icons[bundleIdentifier] { return cached }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+            return nil
+        }
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        icons[bundleIdentifier] = icon
+        return icon
+    }
+}
+
+@MainActor
 private struct TypingReportApplicationIcon: View {
     let application: TypingApplicationIdentity
 
     private var applicationIcon: NSImage? {
-        guard let bundleIdentifier = application.bundleIdentifier,
-              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
-        else { return nil }
-        return NSWorkspace.shared.icon(forFile: url.path)
+        guard let bundleIdentifier = application.bundleIdentifier else { return nil }
+        return TypingReportApplicationIconCache.icon(for: bundleIdentifier)
     }
 
     var body: some View {
