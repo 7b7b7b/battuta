@@ -1,62 +1,202 @@
-# BCP (Suit80) Built-in Sound Profile Design
+# BCP (Suit80) Local Custom Sound Pack Design
 
 ## Goal
 
-Add a local built-in `BCP (Suit80)` keyboard profile to Battuta from the supplied Bilibili recording, preserving the recording's thick, woody character while reducing stationary room noise and retaining natural press/release variation.
+Turn the supplied Bilibili recording into a local-only `BCP (Suit80)` custom
+sound pack that can be auditioned and installed on one machine without adding a
+new built-in switch profile, app-bundled resources, or redistributable release
+artifacts.
 
-## Scope
+## Final Architecture
 
-- Add one built-in linear-switch profile with raw identifier `bcp`.
-- Export five matched normal-key press/release pairs as row variants (`GENERIC_R0` through `GENERIC_R4`).
-- Use the explicitly identified sequence at `01:36-01:41` to export dedicated `BACKSPACE`, `ENTER`, and `SPACE` press/release pairs.
-- Treat both Shift strikes in that sequence as normal-key candidates because Battuta maps Shift through the generic row samples rather than a dedicated special-key slot.
-- Keep the source video unchanged.
-- Preserve all existing absolute-volume worktree changes.
+- `scripts/render-local-bcp-profile.sh` renders deterministic local WAV assets
+  into the ignored repo paths `SimuBoardMac/build/BCP-rendered-assets` and
+  `SimuBoardMac/build/BCP-audition`.
+- `scripts/install-local-bcp-sound-pack.sh` validates those WAVs and installs a
+  fixed-UUID custom pack into
+  `~/Library/Application Support/SimuBoard/SoundPacks`.
+- The app discovers the installed pack through the existing custom
+  `SoundPackLibrary`, so it appears in the same picker as built-in sounds with
+  selection ID `custom:15d04652-5265-4ea7-a376-8a7e11ff6813`.
+- No `SwitchProfile.bcp` case is added.
+- No `SimuBoardMac/Resources/Audio/bcp` tree is added.
+- No BCP audio enters the app bundle, public build, DMG, appcast, or release.
 
-The resulting profile contains 16 WAV files: ten generic row files plus six dedicated large-key files.
+## Render Specification
 
-## Source Selection
+The renderer keeps the source video unchanged, stages all output in a temp
+directory, and only swaps the fixed local output roots after validation.
 
-The main typing section runs continuously, so candidate normal keys must be selected as complete, non-overlapping press/release cycles with a visible low-energy valley between the two mechanical events. Selection uses a 4 ms RMS envelope, spectral flux, and manual waveform inspection.
+Exact master filter:
 
-For `01:36-01:41`, video order supplies the semantic labels:
+```text
+pan=mono|c0=0.5*c0+0.5*c1,volume=-3dB,highpass=f=55,afftdn=nr=6:nf=-51:tn=1:ad=0.25:fo=1:gs=1,atrim=start=0.025,asetpts=PTS-STARTPTS
+```
 
-1. Shift: normal-key candidate
-2. Backspace: dedicated `BACKSPACE`
-3. Enter: dedicated `ENTER`
-4. Shift: normal-key candidate
-5. Space presses: dedicated `SPACE`, choosing the cleanest complete cycle
+Raw-preview filter:
 
-The waveform determines press/release boundaries; the video sequence determines the key label.
+```text
+pan=mono|c0=0.5*c0+0.5*c1,asetpts=PTS-STARTPTS
+```
 
-## Audio Processing
+Residual-preview filter:
 
-1. Decode the 48 kHz stereo AAC track and downmix it to mono.
-2. Measure stationary noise from low-energy gaps surrounding the large-key sequence and from other nearby room-tone gaps.
-3. Compare FFmpeg `afftdn` and `anlmdn` at conservative strengths. Select the setting that lowers gap RMS without materially changing transient peak level, spectral centroid, or press/release timing.
-4. Apply a 55 Hz high-pass filter, a small low-mid lift near 180 Hz, a mild upper-mid reduction near 3.2 kHz, and a 12 kHz low-pass filter only when the measured output stays within the established Battuta BCP target range.
-5. Retain about 2 ms of pre-roll, add a 4 ms press tail fade, and add 2 ms/4 ms release head/tail fades.
-6. Preserve relative variation while targeting conservative headroom: roughly -10 to -6 dBFS press peaks and -16 to -11 dBFS release peaks.
-7. Export 48 kHz, mono, 16-bit PCM WAV.
+```text
+pan=mono|c0=0.5*c0+0.5*c1,volume=-3dB,highpass=f=55,afftdn=nr=6:nf=-51:tn=1:ad=0.25:fo=1:gs=1:om=n,atrim=start=95.525:end=102.025,asetpts=PTS-STARTPTS
+```
 
-Noise reduction must not use a hard gate or aggressive compression. If either denoiser audibly or measurably smears the attack, fall back to high-pass/EQ plus conservative trimming.
+Audited cut list:
 
-## Application Integration
+```text
+press|GENERIC_R0|16.539|16.598|4.0
+release|GENERIC_R0|16.616|16.710|2.0
+press|GENERIC_R1|40.512|40.566|1.0
+release|GENERIC_R1|40.615|40.678|6.5
+press|GENERIC_R2|58.248|58.344|3.5
+release|GENERIC_R2|58.355|58.420|3.0
+press|GENERIC_R3|59.050|59.107|1.0
+release|GENERIC_R3|59.125|59.171|4.5
+press|GENERIC_R4|66.579|66.612|4.5
+release|GENERIC_R4|66.671|66.736|6.5
+press|GENERIC_R0_ALT|20.000|20.077|-4.0
+release|GENERIC_R0_ALT|20.107|20.145|2.0
+press|GENERIC_R1_ALT|39.165|39.231|2.0
+release|GENERIC_R1_ALT|39.261|39.299|-4.7
+press|GENERIC_R2_ALT|43.650|43.727|0.0
+release|GENERIC_R2_ALT|43.761|43.807|-4.9
+press|GENERIC_R3_ALT|49.506|49.596|-0.5
+release|GENERIC_R3_ALT|49.610|49.634|-3.3
+press|GENERIC_R4_ALT|72.798|72.891|-0.5
+release|GENERIC_R4_ALT|72.915|72.961|-4.7
+press|SHIFT|99.524|99.608|0.0
+release|SHIFT|99.659|99.782|0.0
+press|BACKSPACE|97.648|97.714|2.0
+release|BACKSPACE|97.726|97.844|2.0
+press|ENTER|98.663|98.713|2.0
+release|ENTER|98.726|98.846|2.0
+press|SPACE|101.444|101.498|-0.5
+release|SPACE|101.522|101.626|2.0
+```
 
-- Add `bcp` to `SwitchProfile` with display name `BCP (Suit80)`, family `线性`, and tone `厚实、木感`.
-- Mark the profile as having dedicated special-key samples and row-specific release samples.
-- Place audio under `SimuBoardMac/SimuBoardMac/Resources/Audio/bcp/press` and `release`.
-- Rely on the existing folder-reference resource copy and `SwitchProfile.allCases` discovery; no audio-engine, menu, library, or Xcode project wiring changes are required.
+Exact fade policy:
+
+- Generic press: apply listed gain, trim by exact sample index, add a light
+  `95 Hz` high-pass to limit stacked desk resonance during rapid typing, fade
+  out over 192 samples (`4 ms`), then pad one zero sample. The R1 cut excludes
+  its late secondary impact.
+- Generic release: apply listed gain and a light `108 Hz` high-pass, fade in
+  over 48 samples (`1 ms`), fade out over 192 samples (`4 ms`), trim to
+  `sample_count - 1`, then pad one zero sample. The R3 base and alternate cuts
+  exclude their late secondary impacts.
+- Dedicated big-key release assets retain the prior 96-sample (`2 ms`) fade-in.
+- All exported files are `48 kHz`, mono, `pcm_s16le`.
+
+The renderer also emits:
+
+- `build/BCP-audition/BCP-raw-preview.wav`
+- `build/BCP-audition/BCP-processed-preview.wav`
+- `build/BCP-audition/BCP-rapid-typing-preview.wav`
+- `build/BCP-audition/BCP-denoise-residual.wav`
+
+## Installed Pack Shape
+
+The installer creates a fixed package
+`15d04652-5265-4ea7-a376-8a7e11ff6813.simuboardpack` with:
+
+- `name`: `BCP (Suit80)`
+- `family`: `线性`
+- `tone`: `厚实、木感`
+- `layoutID`: `mac-ansi-tkl-v1`
+- `baseProfileID`: `holypanda`
+- one attribution entry naming the local source filename and visible uploader
+  `J_Eason001`, with a local-only non-redistribution notice
+
+Manifest assignment policy:
+
+- `press.generic = nil`
+- `release.generic = nil`
+- `press.rows` maps `R0` through `R4` to the five generic press assets
+- `release.rows` maps `R0` through `R4` to the five generic release assets
+- alternate per-key overrides distribute five additional matched press/release
+  recordings across approximately half of each small-key row
+- `press.specials` maps `backspace`, `enter`, and `space` to the dedicated
+  press assets
+- `release.specials` maps `backspace`, `enter`, and `space` to the dedicated
+  release assets
+- `press.keyOverrides` and `release.keyOverrides` retain dedicated Shift assets
+  while also assigning the five alternate small-key pairs
+
+This keeps the BCP pack in the same picker as built-in sounds while remaining a
+custom pack loaded from Application Support.
+
+## Migration And Failure Semantics
+
+Renderer transaction boundary:
+
+- Validate the source hash/mtime before and after rendering.
+- Validate all 28 rendered WAVs and all 4 audition WAVs before installation.
+- Replace `build/BCP-rendered-assets` and `build/BCP-audition` transactionally.
+- Roll back both output roots if a swap or final verification fails.
+
+Installer transaction boundary:
+
+- Refuse to overwrite an existing fixed BCP pack with an invalid manifest.
+- Strictly validate and upgrade both the prior 16-asset BCP pack and the
+  Shift-only 18-asset pack while preserving their creation timestamps.
+- Tolerate regular, non-symlink Finder `.DS_Store` files only at the pack root
+  and `assets/`; continue rejecting every other extra entry.
+- Stage the full `.simuboardpack` under the target library root first.
+- Back up the previous fixed BCP pack before swapping in the new one.
+- Roll back exactly to the previous pack if failure occurs after backup or
+  after install but before commit.
+- Leave unrelated custom packs untouched.
+
+Legacy selection migration:
+
+- If the install target is the default
+  `~/Library/Application Support/SimuBoard/SoundPacks` path, migrate
+  `selectedProfile = "bcp"` to
+  `selectedProfile = "custom:15d04652-5265-4ea7-a376-8a7e11ff6813"`.
+- This also applies when the caller passes the default library root explicitly.
+- Non-default explicit library roots do not rewrite the user's selection.
+
+Timestamp semantics:
+
+- `createdAt` is preserved from the first successful install of this fixed UUID.
+- `modifiedAt` is preserved for byte-identical reinstalls.
+- `modifiedAt` advances to the new install time only when the manifest
+  fingerprint changes.
 
 ## Validation
 
-- Add a resource-integrity test before adding the profile/resources. It must require all 16 filenames and validate the profile flags.
-- Verify every output is 48 kHz mono 16-bit PCM, non-empty, below clipping, and within safe one-shot duration limits.
-- Compare pre/post-denoise gap RMS, transient peaks, spectral centroid, and waveform timing.
-- Run the DIY core harness and the audio-variant harness, reporting pre-existing failures separately from BCP failures.
-- Build with full Xcode if available; otherwise report the local toolchain limitation rather than claiming a successful app build.
-- Produce a short before/after audition file and a profile preview for user review.
+Latest working-tree verification for this design:
 
-## Distribution Boundary
+- `./Tests/run-diy-core-harness.sh` -> `493` assertions
+- `./Tests/run-audio-variant-core-harness.sh` -> blocked by the pre-existing
+  `KeyboardAbsoluteVolumeCompensator` symbol drift on the separate
+  absolute-volume workstream
+- `./Tests/run-typing-stats-core-harness.sh` -> `163` assertions
+- `./Tests/run-update-installer-core-harness.sh` -> `8` assertions
 
-The source is an externally authored Bilibili recording whose redistribution rights are not verified. The profile is for local evaluation only. Do not commit or push the extracted WAV files, and do not include them in a public DMG or release until the recording rightsholder grants redistribution permission.
+Automated coverage:
+
+- The DIY harness covers the local BCP installer contract: manifest validity,
+  picker discovery, legacy selection migration, timestamp behavior, and
+  installer rollback behavior.
+- The typing-stats and update-installer auxiliary harnesses confirm those
+  unaffected paths. The audio-variant harness is tracked separately from BCP.
+
+Renderer coverage against the real source is explicit rather than repo-embedded:
+
+- The repository does not ship the source MP4 fixture.
+- Exact cuts, source hash/mtime integrity, repeatability, and renderer rollback
+  are verified with real-source smoke runs, injected renderer failures, and
+  `ffprobe` validation of the generated WAV inventory.
+
+## Historical Note
+
+This work started as a built-in `SwitchProfile.bcp` proposal. Quality review
+and release-boundary review rejected that direction because the recording is
+local-only and permission to redistribute is unverified. The final design
+therefore pivots to an Application Support custom pack with ignored local render
+artifacts and an installer-managed lifecycle.
