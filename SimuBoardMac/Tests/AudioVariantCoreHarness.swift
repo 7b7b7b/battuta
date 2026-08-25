@@ -91,6 +91,7 @@ private struct AudioVariantCoreHarness {
             )
 
             try testLeadingSilenceTrimming(passed: &passed)
+            try testOutputSnapshotRefreshGate(passed: &passed)
             try testRuntimeKeyboardOutputCompensationAndPoolDefaults(passed: &passed)
             try testKeyboardAndPointerRouteIntegration(passed: &passed)
 
@@ -150,6 +151,68 @@ private struct AudioVariantCoreHarness {
         try check(
             KeyboardLeadingSilenceTrimmer.trim(immediate) === immediate,
             "already-aligned recordings should not be copied or shifted",
+            passed: &passed
+        )
+    }
+
+    private static func testOutputSnapshotRefreshGate(passed: inout Int) throws {
+        try check(
+            KeyboardOutputSnapshotRefreshGate().minimumRefreshInterval == 0.25,
+            "the default output snapshot cache should span normal typing intervals",
+            passed: &passed
+        )
+
+        var gate = KeyboardOutputSnapshotRefreshGate(minimumRefreshInterval: 0.25)
+        var readCount = 0
+
+        let first = gate.resolveSnapshot(now: 10, readSnapshot: {
+            readCount += 1
+            return .init(isMuted: false, attenuationDB: -30)
+        })
+        try check(
+            readCount == 1 && first == .init(isMuted: false, attenuationDB: -30),
+            "the first refresh-gated output snapshot should always query Core Audio",
+            passed: &passed
+        )
+
+        let cached = gate.resolveSnapshot(now: 10.01, readSnapshot: {
+            readCount += 1
+            return .init(isMuted: true, attenuationDB: nil)
+        })
+        try check(
+            readCount == 1 && cached == first,
+            "keystrokes inside the refresh window should reuse the cached output snapshot",
+            passed: &passed
+        )
+
+        let refreshed = gate.resolveSnapshot(now: 10.26, readSnapshot: {
+            readCount += 1
+            return .init(isMuted: true, attenuationDB: nil)
+        })
+        try check(
+            readCount == 2 && refreshed == .init(isMuted: true, attenuationDB: nil),
+            "the cache should refresh once the throttle interval expires",
+            passed: &passed
+        )
+
+        let forced = gate.resolveSnapshot(now: 10.261, forceRefresh: true, readSnapshot: {
+            readCount += 1
+            return .init(isMuted: false, attenuationDB: -12)
+        })
+        try check(
+            readCount == 3 && forced == .init(isMuted: false, attenuationDB: -12),
+            "forced refreshes should bypass the throttle interval",
+            passed: &passed
+        )
+
+        gate.invalidate()
+        let invalidated = gate.resolveSnapshot(now: 10.262, readSnapshot: {
+            readCount += 1
+            return .init(isMuted: false, attenuationDB: -9)
+        })
+        try check(
+            readCount == 4 && invalidated == .init(isMuted: false, attenuationDB: -9),
+            "invalidating the cache should force the next keystroke to re-read output volume",
             passed: &passed
         )
     }
@@ -258,13 +321,14 @@ private struct AudioVariantCoreHarness {
         try check(
             engineSource.contains("keyboardGainStages")
                 && engineSource.contains("kAudioUnitSubType_PeakLimiter")
-                && engineSource.contains("refreshKeyboardOutputCompensation("),
+                && engineSource.contains("refreshKeyboardOutputCompensation(")
+                && engineSource.contains("KeyboardOutputSnapshotRefreshGate"),
             "keyboard playback should define a gain-stage and limiter chain with a compensation refresh path",
             passed: &passed
         )
         try check(
             engineSource.contains("outputVolumeReader.snapshot()"),
-            "keyboard compensation refresh should read a fresh synchronous output snapshot",
+            "keyboard compensation refresh should still route through a synchronous output snapshot reader",
             passed: &passed
         )
 
@@ -321,8 +385,15 @@ private struct AudioVariantCoreHarness {
         let pointerBufferSource = engineSource[pointerBufferPlayStart..<startEngineIfNeeded]
         try check(
             pointerBufferSource.contains("let voice = pointerVoices[pointerVoiceCursor]")
-                && pointerBufferSource.contains("voice.player.scheduleBuffer"),
+                && pointerBufferSource.contains("schedule("),
             "pointer helper playback should consume the pointer voice pool directly",
+            passed: &passed
+        )
+        try check(
+            engineSource.contains("options: [.interrupts]")
+                && engineSource.contains("if !voice.player.isPlaying")
+                && !engineSource.contains("voice.player.stop()"),
+            "voice reuse should interrupt active buffers without a stop/play cycle on every keystroke",
             passed: &passed
         )
 
