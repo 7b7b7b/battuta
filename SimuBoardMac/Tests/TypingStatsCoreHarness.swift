@@ -382,6 +382,7 @@ struct TypingStatsCoreHarness {
             application: appOne
         )
         try await testFutureSchema(in: directory, now: now)
+        try testHeatmapHoverSourceContract()
 
         try expect(
             TypingStatsStore.defaultDatabaseURL().lastPathComponent == "typing-stats.sqlite3",
@@ -1007,6 +1008,75 @@ struct TypingStatsCoreHarness {
         }
         let schemaVersion = try readUserVersion(url)
         try expect(schemaVersion == 99, "does not rewrite an unsupported future schema")
+    }
+
+    private static func testHeatmapHoverSourceContract() throws {
+        let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let annualSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/Views/TypingYearHeatmap.swift"
+            ),
+            encoding: .utf8
+        )
+        let rhythmSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/Views/TypingStatsReportView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        let annualGrid = try sourceSlice(
+            annualSource,
+            from: "    private func contributionGrid(",
+            to: "    private func legend("
+        )
+        let annualHelp = try sourceOffset(of: ".help(cell.helpText)", in: annualGrid)
+        let annualInputBranch = try sourceOffset(of: "if cell.hasInput", in: annualGrid)
+        try expect(
+            annualGrid.contains(".filter(\\.isVisible)") && annualHelp < annualInputBranch,
+            "attaches annual hover details before separating zero-input cells"
+        )
+        try expect(
+            annualSource.contains("helpText: \"\\(dateText) · \\(formattedCount) 个字符\"")
+                && annualSource.contains(": \"0 个字符\""),
+            "precomputes a date and character count for zero-input annual cells"
+        )
+
+        let rhythmCell = try sourceSlice(
+            rhythmSource,
+            from: "    private func rhythmInteraction(",
+            to: "    private func normalized("
+        )
+        let rhythmHelp = try sourceOffset(of: ".help(cell.detail)", in: rhythmCell)
+        let rhythmInputBranch = try sourceOffset(of: "if cell.hasInput", in: rhythmCell)
+        try expect(
+            rhythmSource.contains("ForEach(cells)") && rhythmHelp < rhythmInputBranch,
+            "attaches rhythm hover details before separating zero-input cells"
+        )
+        try expect(
+            rhythmSource.contains("statsCount(value.characterCount)")
+                && rhythmSource.contains("statsCount(value.comparisonCharacterCount)"),
+            "includes current and comparison character totals in rhythm hover details"
+        )
+    }
+
+    private static func sourceSlice(
+        _ source: String,
+        from startMarker: String,
+        to endMarker: String
+    ) throws -> Substring {
+        guard let start = source.range(of: startMarker)?.lowerBound,
+              let end = source.range(of: endMarker, range: start..<source.endIndex)?.lowerBound else {
+            throw HarnessError.message("could not isolate source contract between markers")
+        }
+        return source[start..<end]
+    }
+
+    private static func sourceOffset(of marker: String, in source: Substring) throws -> Int {
+        guard let range = source.range(of: marker) else {
+            throw HarnessError.message("source contract is missing: \(marker)")
+        }
+        return source.distance(from: source.startIndex, to: range.lowerBound)
     }
 
     private static func readUserVersion(_ url: URL) throws -> Int64 {

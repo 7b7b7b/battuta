@@ -307,7 +307,7 @@ private struct DIYCoreHarness {
             try await testAudioLibraryAndArchive(&results)
             try await testAudioSplit(&results)
             try testEngineLoadFailureContract(&results)
-            try testAbsoluteKeyboardVolumeMessagingContract(&results)
+            try testNormalKeyboardVolumeMessagingContract(&results)
             try await testUpdateCachingAndThrottling(&results)
             print("DIY core harness passed: \(results.passed) assertions")
         } catch {
@@ -1977,7 +1977,7 @@ private struct DIYCoreHarness {
         )
     }
 
-    private static func testAbsoluteKeyboardVolumeMessagingContract(
+    private static func testNormalKeyboardVolumeMessagingContract(
         _ results: inout HarnessResults
     ) throws {
         let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
@@ -1993,8 +1993,8 @@ private struct DIYCoreHarness {
         )
 
         try results.check(
-            menuBarSource.contains("Text(\"键盘绝对音量\")"),
-            "keyboard volume row must expose the absolute-volume title"
+            menuBarSource.contains("Text(\"键盘音量\")"),
+            "keyboard volume row must expose the ordinary volume title"
         )
         try results.check(
             menuBarSource.contains("Int(settings.volume * 100)")
@@ -2002,18 +2002,18 @@ private struct DIYCoreHarness {
             "keyboard volume percentage must describe perceptual slider position"
         )
         try results.check(
-            menuBarSource.contains(".accessibilityLabel(\"键盘绝对音量\")"),
-            "keyboard volume slider must expose the absolute-volume accessibility label"
+            menuBarSource.contains(".accessibilityLabel(\"键盘音量\")"),
+            "keyboard volume slider must expose the ordinary volume accessibility label"
         )
         try results.check(
-            menuBarSource.contains(".help(\"系统未静音且音量不为 0 时尽量保持此键盘响度；系统过低时会自动收敛补偿避免失真\")"),
-            "keyboard volume slider help must describe both mute behavior and low-volume safety limiting"
+            !menuBarSource.contains("键盘绝对音量")
+                && !menuBarSource.contains("系统过低时会自动收敛补偿避免失真"),
+            "keyboard volume controls must not promise system-volume compensation"
         )
         try results.check(
-            readmeSource.contains("系统未静音且有效输出音量不为 0 时尽量保持应用内设定的键盘响度；如果 macOS 已静音或当前有效输出音量为 0，则不会播放键盘声音")
-                && readmeSource.contains("补偿会按当前音色包的最高样本峰值与应用内音量自动收敛")
-                && readmeSource.contains("共享键盘总线也会限制重叠按键的峰值"),
-            "README must document both mute behavior and low-volume safety limiting for absolute keyboard volume"
+            !readmeSource.contains("键盘绝对音量")
+                && !readmeSource.contains("反向补偿系统主音量"),
+            "README must not document the removed absolute-volume feature"
         )
     }
 

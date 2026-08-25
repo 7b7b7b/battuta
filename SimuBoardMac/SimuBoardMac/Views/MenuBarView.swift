@@ -236,15 +236,14 @@ struct MenuBarView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("键盘绝对音量")
+                    Text("键盘音量")
                     Spacer()
                     Text("\(Int(settings.volume * 100))%")
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
                 Slider(value: $settings.volume, in: 0...1, step: 0.01)
-                    .accessibilityLabel("键盘绝对音量")
-                    .help("系统未静音且音量不为 0 时尽量保持此键盘响度；系统过低时会自动收敛补偿避免失真")
+                    .accessibilityLabel("键盘音量")
             }
             .disabled(!settings.isEnabled)
 

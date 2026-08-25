@@ -162,9 +162,8 @@ Timestamp rules:
 Current final verification in the working tree:
 
 - `./Tests/run-diy-core-harness.sh` passed with `493` assertions
-- `./Tests/run-audio-variant-core-harness.sh` remains blocked by the
-  pre-existing `KeyboardAbsoluteVolumeCompensator` symbol drift on the separate
-  absolute-volume workstream
+- `./Tests/run-audio-variant-core-harness.sh` validates the shared audio
+  playback path independently of the local BCP installer fixture
 - `./Tests/run-typing-stats-core-harness.sh` passed with `163` assertions
 - `./Tests/run-update-installer-core-harness.sh` passed with `8` assertions
 

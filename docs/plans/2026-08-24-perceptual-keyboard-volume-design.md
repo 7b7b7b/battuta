@@ -2,7 +2,7 @@
 
 ## Goal
 
-Give the keyboard-volume slider useful precision at quiet levels while preserving Battuta's existing audible level during upgrade. The macOS absolute-volume compensation remains independent and continues to operate in decibels.
+Give the keyboard-volume slider useful precision at quiet levels while preserving Battuta's existing audible level during upgrade. Final output remains system-relative and follows the macOS output volume normally.
 
 ## Decision
 
@@ -26,7 +26,7 @@ After migration, `newPosition ^ 3 == oldLinearGain`, preserving audible output. 
 
 ## Data Flow
 
-`AppSettings.volume` stores and displays the perceptual slider position. A read-only `keyboardPlaybackGain` converts that position to linear gain. All keyboard playback and previews pass this converted gain to `KeyboardAudioEngine`; pointer playback continues to pass `pointerVolume` directly. The existing Core Audio scalar-to-decibel lookup and inverse compensation stages are untouched.
+`AppSettings.volume` stores and displays the perceptual slider position. A read-only `keyboardPlaybackGain` converts that position to linear gain. All keyboard playback and previews pass this converted gain to `KeyboardAudioEngine`; pointer playback continues to pass `pointerVolume` directly. Both paths then flow through the normal macOS system-volume control.
 
 ## Tests
 

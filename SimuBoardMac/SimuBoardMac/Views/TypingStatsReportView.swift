@@ -926,13 +926,9 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
                     value,
                     frame: frame,
                     maximumCurrent: maximumCurrent,
-                    maximumDifference: maximumDifference,
-                    includesEmptyDetail: exposesEmptyCellsToAssistiveTech
+                    maximumDifference: maximumDifference
                 )
             }
-        }
-        let interactiveCells = cells.filter {
-            $0.hasInput || exposesEmptyCellsToAssistiveTech
         }
 
         return ZStack(alignment: .topLeading) {
@@ -990,8 +986,11 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
             .frame(width: canvasWidth, height: canvasHeight)
             .accessibilityHidden(true)
 
-            ForEach(interactiveCells) { cell in
-                rhythmInteraction(cell)
+            ForEach(cells) { cell in
+                rhythmInteraction(
+                    cell,
+                    exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
+                )
                     .offset(x: cell.frame.minX, y: cell.frame.minY)
             }
         }
@@ -1003,8 +1002,7 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
         _ value: TypingWeekdayHourAggregate,
         frame: CGRect,
         maximumCurrent: Double,
-        maximumDifference: Double,
-        includesEmptyDetail: Bool
+        maximumDifference: Double
     ) -> CellPresentation {
         let delta = significantDifference(for: value)
         let color: Color
@@ -1042,22 +1040,31 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
             opacity: opacity,
             symbol: symbol,
             symbolOpacity: mode == .difference && delta == 0 ? 0.42 : 0.90,
-            detail: value.characterCount > 0
-                || value.comparisonCharacterCount > 0
-                || includesEmptyDetail
-                ? detailText(value)
-                : ""
+            detail: detailText(value)
         )
     }
 
-    private func rhythmInteraction(_ cell: CellPresentation) -> some View {
-        Color.clear
+    private func rhythmInteraction(
+        _ cell: CellPresentation,
+        exposesEmptyCellsToAssistiveTech: Bool
+    ) -> some View {
+        let hitTarget = Color.clear
             .frame(width: cell.frame.width, height: cell.frame.height)
             .contentShape(Rectangle())
-            .help(cell.hasInput ? cell.detail : "")
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(weekdayTitle(cell.value.weekday)) \(cell.value.hour) 点")
-            .accessibilityValue(cell.detail)
+            .help(cell.detail)
+
+        return Group {
+            if cell.hasInput || exposesEmptyCellsToAssistiveTech {
+                hitTarget
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(
+                        "\(weekdayTitle(cell.value.weekday)) \(cell.value.hour) 点"
+                    )
+                    .accessibilityValue(cell.detail)
+            } else {
+                hitTarget.accessibilityHidden(true)
+            }
+        }
     }
 
     private func normalized(_ value: Double, maximum: Double) -> Double {
@@ -1091,13 +1098,13 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
     private func detailText(_ value: TypingWeekdayHourAggregate) -> String {
         let hour = String(format: "%02d:00–%02d:00", value.hour, (value.hour + 1) % 24)
         if mode == .current {
-            return "\(weekdayTitle(value.weekday)) \(hour)：合计 \(statsCount(value.characterCount))，每个该星期平均 \(averageText(currentAverage(value))) 个字符"
+            return "\(weekdayTitle(value.weekday)) \(hour) · 合计 \(statsCount(value.characterCount)) 个字符；每个该星期平均 \(averageText(currentAverage(value))) 个字符"
         }
         let current = currentAverage(value)
         let comparison = comparisonAverage(value)
         let delta = current - comparison
         let deltaText = delta > 0 ? "+\(averageText(delta))" : averageText(delta)
-        return "\(weekdayTitle(value.weekday)) \(hour)：当前平均 \(averageText(current))，上期平均 \(averageText(comparison))，变化 \(deltaText)"
+        return "\(weekdayTitle(value.weekday)) \(hour) · 本期 \(statsCount(value.characterCount)) 个字符，上期 \(statsCount(value.comparisonCharacterCount)) 个字符；每个该星期平均变化 \(deltaText) 个字符"
     }
 
     private func averageText(_ value: Double) -> String {

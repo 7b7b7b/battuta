@@ -12,7 +12,6 @@
 		A10000000000000000000004 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* AppSettings.swift */; };
 		A10000000000000000000005 /* KeyboardMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* KeyboardMonitor.swift */; };
 		A10000000000000000000006 /* KeyboardAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* KeyboardAudioEngine.swift */; };
-		A1000000000000000000000D /* SystemOutputVolume.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000F /* SystemOutputVolume.swift */; };
 		A10000000000000000000007 /* InputMonitoringPermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* InputMonitoringPermissionManager.swift */; };
 		A10000000000000000000008 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* AppModel.swift */; };
 		A10000000000000000000009 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* MenuBarView.swift */; };
@@ -63,7 +62,6 @@
 		B10000000000000000000004 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		B10000000000000000000005 /* KeyboardMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardMonitor.swift; sourceTree = "<group>"; };
 		B10000000000000000000006 /* KeyboardAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardAudioEngine.swift; sourceTree = "<group>"; };
-		B1000000000000000000000F /* SystemOutputVolume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemOutputVolume.swift; sourceTree = "<group>"; };
 		B10000000000000000000007 /* InputMonitoringPermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputMonitoringPermissionManager.swift; sourceTree = "<group>"; };
 		B10000000000000000000008 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		B10000000000000000000009 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
@@ -163,7 +161,6 @@
 			children = (
 				B10000000000000000000005 /* KeyboardMonitor.swift */,
 				B10000000000000000000006 /* KeyboardAudioEngine.swift */,
-				B1000000000000000000000F /* SystemOutputVolume.swift */,
 				B10000000000000000000007 /* InputMonitoringPermissionManager.swift */,
 				B70000000000000000000001 /* LaunchAtLoginController.swift */,
 				B10000000000000000000008 /* AppModel.swift */,
@@ -300,7 +297,6 @@
 				A10000000000000000000004 /* AppSettings.swift in Sources */,
 				A10000000000000000000005 /* KeyboardMonitor.swift in Sources */,
 				A10000000000000000000006 /* KeyboardAudioEngine.swift in Sources */,
-				A1000000000000000000000D /* SystemOutputVolume.swift in Sources */,
 				A10000000000000000000007 /* InputMonitoringPermissionManager.swift in Sources */,
 				A70000000000000000000001 /* LaunchAtLoginController.swift in Sources */,
 				A10000000000000000000008 /* AppModel.swift in Sources */,
@@ -403,7 +399,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -425,7 +421,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;

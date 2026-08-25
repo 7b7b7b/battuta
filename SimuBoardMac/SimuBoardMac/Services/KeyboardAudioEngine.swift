@@ -1,5 +1,4 @@
 import AVFAudio
-import AudioToolbox
 import Foundation
 
 struct KeyboardPlaybackVariant: Equatable, Hashable, Sendable {
@@ -89,52 +88,6 @@ enum KeyboardLeadingSilenceTrimmer {
     }
 }
 
-struct KeyboardOutputSnapshotRefreshGate: Sendable {
-    // Core Audio property reads are synchronous. A quarter-second cache keeps
-    // volume and mute changes responsive while removing them from the per-key
-    // hot path at normal typing speeds.
-    static let defaultMinimumRefreshInterval: TimeInterval = 0.25
-
-    private(set) var cachedSnapshot: SystemOutputVolumeSnapshot?
-    private(set) var lastRefreshUptime: TimeInterval?
-    let minimumRefreshInterval: TimeInterval
-
-    init(minimumRefreshInterval: TimeInterval = Self.defaultMinimumRefreshInterval) {
-        self.minimumRefreshInterval = max(0, minimumRefreshInterval)
-    }
-
-    mutating func resolveSnapshot(
-        now: TimeInterval,
-        forceRefresh: Bool = false,
-        readSnapshot: () -> SystemOutputVolumeSnapshot
-    ) -> SystemOutputVolumeSnapshot {
-        let shouldRefresh: Bool
-        if forceRefresh {
-            shouldRefresh = true
-        } else if cachedSnapshot == nil || lastRefreshUptime == nil {
-            shouldRefresh = true
-        } else if now < lastRefreshUptime! {
-            shouldRefresh = true
-        } else {
-            shouldRefresh = now - lastRefreshUptime! >= minimumRefreshInterval
-        }
-
-        if shouldRefresh {
-            let snapshot = readSnapshot()
-            cachedSnapshot = snapshot
-            lastRefreshUptime = now
-            return snapshot
-        }
-
-        return cachedSnapshot!
-    }
-
-    mutating func invalidate() {
-        cachedSnapshot = nil
-        lastRefreshUptime = nil
-    }
-}
-
 @MainActor
 final class KeyboardAudioEngine {
     private static let playbackSampleRate = 48_000.0
@@ -162,39 +115,14 @@ final class KeyboardAudioEngine {
 
     private final class PreparedKeyboardSample {
         let buffer: AVAudioPCMBuffer
-        let peakAmplitude: Float
         private var variants = KeyboardPlaybackVariantCycle()
 
         init(buffer: AVAudioPCMBuffer) {
-            let trimmedBuffer = KeyboardLeadingSilenceTrimmer.trim(buffer)
-            self.buffer = trimmedBuffer
-            peakAmplitude = Self.measurePeakAmplitude(trimmedBuffer)
+            self.buffer = KeyboardLeadingSilenceTrimmer.trim(buffer)
         }
 
         func nextVariant(variationEnabled: Bool) -> KeyboardPlaybackVariant {
             variants.next(variationEnabled: variationEnabled)
-        }
-
-        private static func measurePeakAmplitude(_ buffer: AVAudioPCMBuffer) -> Float {
-            guard buffer.frameLength > 0,
-                  buffer.format.commonFormat == .pcmFormatFloat32,
-                  !buffer.format.isInterleaved,
-                  let channels = buffer.floatChannelData else {
-                return 1
-            }
-
-            let frameCount = Int(buffer.frameLength)
-            let channelCount = Int(buffer.format.channelCount)
-            var peak = Float.zero
-
-            for channel in 0..<channelCount {
-                let samples = channels[channel]
-                for frame in 0..<frameCount {
-                    peak = max(peak, abs(samples[frame]))
-                }
-            }
-
-            return peak
         }
     }
 
@@ -203,23 +131,14 @@ final class KeyboardAudioEngine {
         standardFormatWithSampleRate: playbackSampleRate,
         channels: 1
     )!
-    private let keyboardMixer: AVAudioMixerNode
-    private let keyboardGainStages: [AVAudioUnitEQ]
-    private let keyboardLimiter: AVAudioUnitEffect
-    private let outputVolumeReader: any SystemOutputVolumeReading
     private var keyboardVoices: [Voice] = []
     private var pointerVoices: [Voice] = []
     private var buffers: [BufferKey: PreparedKeyboardSample] = [:]
     private var pointerBuffers: [PointerBufferKey: AVAudioPCMBuffer] = [:]
     private var customBuffers: [SoundPackAssetID: PreparedKeyboardSample] = [:]
     private var customResolver: SoundPackResolver?
-    private var keyboardPeakAmplitude: Float?
     private var keyboardVoiceCursor = 0
     private var pointerVoiceCursor = 0
-    private var outputSnapshotRefreshGate = KeyboardOutputSnapshotRefreshGate()
-    private var keyboardOutputCompensationPlan = KeyboardAbsoluteVolumeCompensation.plan(
-        for: .init(isMuted: false, attenuationDB: nil)
-    )
     private var configurationObserver: NSObjectProtocol?
     private(set) var loadedProfile: SwitchProfile = .holyPanda
     private(set) var loadedSelectionID: String = SwitchProfile.holyPanda.rawValue
@@ -232,34 +151,9 @@ final class KeyboardAudioEngine {
 
     init(
         voiceCount: Int = 16,
-        pointerVoiceCount: Int? = nil,
-        outputVolumeReader: any SystemOutputVolumeReading = CoreAudioSystemOutputVolumeReader()
+        pointerVoiceCount: Int? = nil
     ) {
-        self.keyboardMixer = AVAudioMixerNode()
-        self.keyboardGainStages = (0..<KeyboardAbsoluteVolumeCompensation.stageCount).map { _ in
-            let stage = AVAudioUnitEQ(numberOfBands: 0)
-            stage.globalGain = 0
-            return stage
-        }
-        self.keyboardLimiter = AVAudioUnitEffect(
-            audioComponentDescription: AudioComponentDescription(
-                componentType: kAudioUnitType_Effect,
-                componentSubType: kAudioUnitSubType_PeakLimiter,
-                componentManufacturer: kAudioUnitManufacturer_Apple,
-                componentFlags: 0,
-                componentFlagsMask: 0
-            )
-        )
-        self.outputVolumeReader = outputVolumeReader
-
-        engine.attach(keyboardMixer)
-        for stage in keyboardGainStages {
-            engine.attach(stage)
-        }
-        engine.attach(keyboardLimiter)
-        configureKeyboardLimiter()
-        connectKeyboardOutputChain()
-        keyboardVoices = makeVoicePool(count: voiceCount, output: keyboardMixer)
+        keyboardVoices = makeVoicePool(count: voiceCount, output: engine.mainMixerNode)
         pointerVoices = makeVoicePool(
             count: pointerVoiceCount ?? voiceCount,
             output: engine.mainMixerNode
@@ -274,16 +168,12 @@ final class KeyboardAudioEngine {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.engine.prepare()
-                self.invalidateOutputSnapshotCache()
-                self.refreshKeyboardOutputCompensation(forceApply: true)
                 _ = self.startEngineIfNeeded()
             }
         }
     }
 
     func warmUp() {
-        invalidateOutputSnapshotCache()
-        refreshKeyboardOutputCompensation(forceApply: true)
         engine.prepare()
         _ = startEngineIfNeeded()
     }
@@ -297,7 +187,6 @@ final class KeyboardAudioEngine {
         buffers = nextBuffers
         customBuffers = [:]
         customResolver = nil
-        keyboardPeakAmplitude = maximumKeyboardPeak(builtIn: nextBuffers, custom: [:])
         return true
     }
 
@@ -330,10 +219,6 @@ final class KeyboardAudioEngine {
         buffers = nextBuiltInBuffers
         customBuffers = nextCustomBuffers
         customResolver = SoundPackResolver(manifest: document.manifest)
-        keyboardPeakAmplitude = maximumKeyboardPeak(
-            builtIn: nextBuiltInBuffers,
-            custom: nextCustomBuffers
-        )
         return true
     }
 
@@ -415,8 +300,7 @@ final class KeyboardAudioEngine {
         playKeyboard(
             buffer: preparedSample.buffer,
             volume: volume,
-            pitchVariation: pitchVariation,
-            samplePeak: preparedSample.peakAmplitude
+            pitchVariation: pitchVariation
         )
     }
 
@@ -519,8 +403,7 @@ final class KeyboardAudioEngine {
             buffer: sample.buffer,
             volume: volume * Double(variant.gain),
             pitchVariation: false,
-            baseRate: variant.rate,
-            samplePeak: sample.peakAmplitude
+            baseRate: variant.rate
         )
     }
 
@@ -528,14 +411,8 @@ final class KeyboardAudioEngine {
         buffer: AVAudioPCMBuffer,
         volume: Double,
         pitchVariation: Bool,
-        baseRate: Float = 1,
-        samplePeak: Float? = nil
+        baseRate: Float = 1
     ) {
-        let plan = refreshKeyboardOutputCompensation(
-            playbackGain: Float(max(0, min(1, volume))),
-            samplePeak: resolvedKeyboardPeak(localPeak: samplePeak)
-        )
-        guard plan.shouldPlay else { return }
         guard startEngineIfNeeded() else { return }
         guard !keyboardVoices.isEmpty else { return }
 
@@ -583,42 +460,6 @@ final class KeyboardAudioEngine {
         }
     }
 
-    private func connectKeyboardOutputChain() {
-        guard let firstStage = keyboardGainStages.first,
-              let lastStage = keyboardGainStages.last else {
-            engine.connect(keyboardMixer, to: keyboardLimiter, format: playbackFormat)
-            engine.connect(keyboardLimiter, to: engine.mainMixerNode, format: playbackFormat)
-            return
-        }
-
-        engine.connect(keyboardMixer, to: firstStage, format: playbackFormat)
-        for (upstream, downstream) in zip(keyboardGainStages, keyboardGainStages.dropFirst()) {
-            engine.connect(upstream, to: downstream, format: playbackFormat)
-        }
-        engine.connect(lastStage, to: keyboardLimiter, format: playbackFormat)
-        engine.connect(keyboardLimiter, to: engine.mainMixerNode, format: playbackFormat)
-    }
-
-    private func configureKeyboardLimiter() {
-        keyboardLimiter.bypass = false
-        _ = AudioUnitSetParameter(
-            keyboardLimiter.audioUnit,
-            kLimiterParam_AttackTime,
-            kAudioUnitScope_Global,
-            0,
-            0.001,
-            0
-        )
-        _ = AudioUnitSetParameter(
-            keyboardLimiter.audioUnit,
-            kLimiterParam_DecayTime,
-            kAudioUnitScope_Global,
-            0,
-            0.024,
-            0
-        )
-    }
-
     private func makeVoicePool(count: Int, output: AVAudioNode) -> [Voice] {
         var voices = [Voice]()
         voices.reserveCapacity(count)
@@ -650,75 +491,6 @@ final class KeyboardAudioEngine {
         if !voice.player.isPlaying {
             voice.player.play()
         }
-    }
-
-    @discardableResult
-    private func refreshKeyboardOutputCompensation(
-        playbackGain: Float = 1,
-        samplePeak: Float? = nil,
-        forceApply: Bool = false
-    ) -> KeyboardAbsoluteVolumePlan {
-        let nextPlan = KeyboardAbsoluteVolumeCompensation.plan(
-            for: currentOutputVolumeSnapshot(forceRefresh: forceApply),
-            playbackGain: playbackGain,
-            samplePeak: samplePeak
-        )
-        let didChange = nextPlan != keyboardOutputCompensationPlan
-        if didChange || forceApply {
-            applyKeyboardOutputCompensation(nextPlan)
-            keyboardOutputCompensationPlan = nextPlan
-        }
-        return nextPlan
-    }
-
-    private func currentOutputVolumeSnapshot(
-        forceRefresh: Bool = false
-    ) -> SystemOutputVolumeSnapshot {
-        outputSnapshotRefreshGate.resolveSnapshot(
-            now: ProcessInfo.processInfo.systemUptime,
-            forceRefresh: forceRefresh
-        ) {
-            outputVolumeReader.snapshot()
-        }
-    }
-
-    private func invalidateOutputSnapshotCache() {
-        outputSnapshotRefreshGate.invalidate()
-    }
-
-    private func applyKeyboardOutputCompensation(_ plan: KeyboardAbsoluteVolumePlan) {
-        for (stage, gain) in zip(keyboardGainStages, plan.stageGainsDB) {
-            stage.globalGain = gain
-        }
-        if plan.stageGainsDB.count < keyboardGainStages.count {
-            for stage in keyboardGainStages.dropFirst(plan.stageGainsDB.count) {
-                stage.globalGain = 0
-            }
-        }
-    }
-
-    private func resolvedKeyboardPeak(localPeak: Float?) -> Float? {
-        // The gain stages are shared by every active voice, so a quieter new key
-        // must not raise the bus gain while a hotter sample tail is still playing.
-        switch (localPeak, keyboardPeakAmplitude) {
-        case let (.some(localPeak), .some(globalPeak)):
-            return max(localPeak, globalPeak)
-        case let (.some(localPeak), .none):
-            return localPeak
-        case let (.none, .some(globalPeak)):
-            return globalPeak
-        case (.none, .none):
-            return nil
-        }
-    }
-
-    private func maximumKeyboardPeak(
-        builtIn: [BufferKey: PreparedKeyboardSample],
-        custom: [SoundPackAssetID: PreparedKeyboardSample]
-    ) -> Float? {
-        let builtInPeaks = builtIn.values.map(\.peakAmplitude)
-        let customPeaks = custom.values.map(\.peakAmplitude)
-        return (builtInPeaks + customPeaks).max()
     }
 
     private func loadBuffer(

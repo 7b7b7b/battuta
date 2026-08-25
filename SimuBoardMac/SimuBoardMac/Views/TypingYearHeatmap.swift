@@ -181,9 +181,7 @@ struct TypingYearHeatmap: View, Equatable {
         let interactiveCells = presentation.weeks
             .lazy
             .flatMap(\.cells)
-            .filter {
-                $0.isVisible && ($0.hasInput || exposesEmptyCellsToAssistiveTech)
-            }
+            .filter(\.isVisible)
 
         return ZStack(alignment: .topLeading) {
             Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) {
@@ -240,21 +238,20 @@ struct TypingYearHeatmap: View, Equatable {
         let hitTarget = Color.clear
             .frame(width: metrics.cellSize, height: metrics.cellSize)
             .contentShape(Rectangle())
+            .help(cell.helpText)
 
         if cell.hasInput {
             hitTarget
-                .help(cell.helpText)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(cell.dateText)
                 .accessibilityValue(cell.accessibilityValue)
         } else if exposesEmptyCellsToAssistiveTech {
             hitTarget
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(
-                    cell.date?.formatted(.dateTime.year().month().day().weekday(.wide))
-                        ?? "没有输入的日期"
-                )
-                .accessibilityValue("0 个字符")
+                .accessibilityLabel(cell.dateText)
+                .accessibilityValue(cell.accessibilityValue)
+        } else {
+            hitTarget.accessibilityHidden(true)
         }
     }
 
@@ -406,18 +403,6 @@ private struct TypingYearHeatmapPresentation: Equatable {
 
                 let count = countsByDate[date] ?? 0
                 let level = Self.heatLevel(for: count, maximumCount: maximumCount)
-                guard count > 0 else {
-                    return DayCell(
-                        id: id,
-                        date: date,
-                        isVisible: true,
-                        hasInput: false,
-                        level: level,
-                        dateText: "",
-                        helpText: "",
-                        accessibilityValue: ""
-                    )
-                }
                 let dateText = date.formatted(.dateTime.year().month().day().weekday(.wide))
                 let formattedCount = count.formatted(.number.grouping(.automatic))
                 return DayCell(
@@ -427,8 +412,10 @@ private struct TypingYearHeatmapPresentation: Equatable {
                     hasInput: count > 0,
                     level: level,
                     dateText: dateText,
-                    helpText: "\(dateText)：\(formattedCount) 个字符",
-                    accessibilityValue: "\(formattedCount) 个字符，活跃度第 \(level + 1) 级，共 5 级"
+                    helpText: "\(dateText) · \(formattedCount) 个字符",
+                    accessibilityValue: count > 0
+                        ? "\(formattedCount) 个字符，活跃度第 \(level + 1) 级，共 5 级"
+                        : "0 个字符"
                 )
             }
             return Week(index: weekIndex, cells: cells)

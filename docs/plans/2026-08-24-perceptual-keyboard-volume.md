@@ -4,7 +4,7 @@
 
 **Goal:** Replace Battuta's linear keyboard slider mapping with a cubic perceptual taper while preserving every existing user's audible volume across upgrade.
 
-**Architecture:** `AppSettings.volume` remains the UI position. Pure curve helpers expose cubic playback gain and inverse legacy migration; a versioned `UserDefaults` migration runs once. `AppModel` passes only the converted keyboard gain to keyboard and preview playback, while the pointer path and Core Audio compensation remain unchanged.
+**Architecture:** `AppSettings.volume` remains the UI position. Pure curve helpers expose cubic playback gain and inverse legacy migration; a versioned `UserDefaults` migration runs once. `AppModel` passes only the converted keyboard gain to keyboard and preview playback, while pointer volume remains independent and both paths follow the normal macOS output volume.
 
 **Tech Stack:** Swift 6, SwiftUI, Combine, Foundation/UserDefaults, AVFAudio, zsh core harnesses, Xcode.
 
