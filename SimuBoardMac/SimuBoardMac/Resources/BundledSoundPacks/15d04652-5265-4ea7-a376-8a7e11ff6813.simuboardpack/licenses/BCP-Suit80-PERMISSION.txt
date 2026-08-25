@@ -1,0 +1,10 @@
+BCP (Suit80) audio recording
+
+Visible uploader: J_Eason001
+Source recording: 【打字声音】Suit80｜BCP轴｜GMK Ursa 大熊 - Original.mp4
+
+Redistribution of the derived BCP (Suit80) audio assets in Battuta's public
+application bundle, DMG, appcast, source repository, and GitHub releases is
+authorized. The permission record is retained privately by the Battuta
+maintainer. This notice records the release status confirmed on 2026-08-25;
+it does not expand the permission beyond Battuta.

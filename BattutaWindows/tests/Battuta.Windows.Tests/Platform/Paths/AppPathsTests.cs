@@ -26,7 +26,7 @@ public sealed class AppPathsTests
         using var directory = new TestDirectory();
         var identity = new PackageIdentityInfo(
             true,
-            "Wormforce.Battuta_1.1.0.0_x64__publisher",
+            "Wormforce.Battuta_1.1.1.0_x64__publisher",
             "Wormforce.Battuta_publisher");
 
         var paths = AppPaths.ForCurrentProcess(identity, directory.Path);

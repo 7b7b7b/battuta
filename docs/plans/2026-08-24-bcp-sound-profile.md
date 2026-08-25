@@ -3,6 +3,12 @@
 Status: implemented in the current working tree as a local custom-pack workflow, not a built-in
 bundled switch profile.
 
+> Release update (2026-08-25): redistribution permission was subsequently
+> confirmed by the Battuta maintainer. The local-only shipping boundary in
+> this historical plan is superseded for Battuta 1.1.1, which embeds the same
+> audited package as a read-only bundled sound pack. The rendering and mapping
+> decisions below remain the reproducibility record.
+
 ## Goal
 
 Provide a deterministic local pipeline that:

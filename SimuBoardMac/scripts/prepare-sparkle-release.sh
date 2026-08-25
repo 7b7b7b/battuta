@@ -88,6 +88,8 @@ DMG_IS_MOUNTED=true
 PACKAGED_APP="$DMG_MOUNT_POINT/Battuta.app"
 PACKAGED_INFO_PLIST="$PACKAGED_APP/Contents/Info.plist"
 PACKAGED_SPARKLE_INFO_PLIST="$PACKAGED_APP/Contents/Frameworks/Sparkle.framework/Resources/Info.plist"
+PACKAGED_BCP_ROOT="$PACKAGED_APP/Contents/Resources/BundledSoundPacks/15d04652-5265-4ea7-a376-8a7e11ff6813.simuboardpack"
+PACKAGED_BCP_MANIFEST="$PACKAGED_BCP_ROOT/manifest.json"
 if [[ ! -d "$PACKAGED_APP" || ! -f "$PACKAGED_INFO_PLIST" ]]; then
   print -u2 "The DMG does not contain Battuta.app at its top level."
   exit 1
@@ -155,6 +157,43 @@ if [[ "$PACKAGED_SPARKLE_VERSION" != 2.9.6 ]]; then
   print -u2 "Unexpected packaged Sparkle version: $PACKAGED_SPARKLE_VERSION"
   exit 1
 fi
+
+if [[ ! -f "$PACKAGED_BCP_MANIFEST" \
+  || ! -f "$PACKAGED_BCP_ROOT/licenses/BCP-Suit80-PERMISSION.txt" ]]; then
+  print -u2 "The packaged app is missing the authorized BCP (Suit80) sound pack or notice."
+  exit 1
+fi
+if ! jq -e '
+  (.schemaVersion == 1)
+  and (.id == "15d04652-5265-4ea7-a376-8a7e11ff6813")
+  and (.name == "BCP (Suit80)")
+  and (.assets | type == "object" and length == 28)
+  and (.attributions == [{
+    title: "【打字声音】Suit80｜BCP轴｜GMK Ursa 大熊 - Original.mp4",
+    author: "J_Eason001",
+    sourceURL: null,
+    licenseName: "Used with permission",
+    notice: "Redistribution authorized; the permission record is retained by the Battuta maintainer."
+  }])
+' "$PACKAGED_BCP_MANIFEST" >/dev/null; then
+  print -u2 "The packaged BCP (Suit80) manifest does not match the release contract."
+  exit 1
+fi
+
+PACKAGED_BCP_ASSET_COUNT=$(find "$PACKAGED_BCP_ROOT/assets" -type f -name '*.wav' | wc -l | tr -d ' ')
+if [[ "$PACKAGED_BCP_ASSET_COUNT" != 28 ]]; then
+  print -u2 "The packaged BCP (Suit80) asset inventory is incomplete."
+  exit 1
+fi
+while IFS=$'\t' read -r relative_path expected_hash expected_bytes; do
+  packaged_asset="$PACKAGED_BCP_ROOT/$relative_path"
+  if [[ ! -f "$packaged_asset" \
+    || "$(stat -f%z "$packaged_asset")" != "$expected_bytes" \
+    || "$(shasum -a 256 "$packaged_asset" | awk '{print $1}')" != "$expected_hash" ]]; then
+    print -u2 "Packaged BCP asset verification failed: $relative_path"
+    exit 1
+  fi
+done < <(jq -r '.assets[] | [.relativePath, .sha256, (.byteCount | tostring)] | @tsv' "$PACKAGED_BCP_MANIFEST")
 
 hdiutil detach "$DMG_MOUNT_POINT"
 DMG_IS_MOUNTED=false

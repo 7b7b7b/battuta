@@ -16,5 +16,3 @@ BattutaWindows/store-assets/raw/
 *sparkle-private-key*
 
 SimuBoardMac/build/*
-!SimuBoardMac/build/SimuBoard-*.dmg
-!SimuBoardMac/build/Battuta-*.dmg

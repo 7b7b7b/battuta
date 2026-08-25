@@ -7,6 +7,17 @@ under its MIT license. The complete Sparkle license and notices for its bundled
 components are distributed with the application in
 [`SPARKLE_LICENSE.txt`](SimuBoardMac/SimuBoardMac/Resources/SPARKLE_LICENSE.txt).
 
+## Audio used with permission
+
+**BCP (Suit80)** uses 28 derived press/release samples from the recording
+`【打字声音】Suit80｜BCP轴｜GMK Ursa 大熊 - Original.mp4`, whose visible uploader
+is **J_Eason001**. Redistribution of these derived assets in Battuta's public
+application bundle, DMG, source repository, appcast release set, and GitHub
+releases is authorized. The permission record is retained privately by the
+Battuta maintainer. Battuta downmixed and denoised the recording, then produced
+audited 48 kHz mono PCM cuts for keyboard rows, alternate small keys, Shift,
+Backspace, Enter, and Space. No endorsement is implied.
+
 ## Windows application dependencies
 
 The Windows application uses the following MIT-licensed NuGet packages. Exact

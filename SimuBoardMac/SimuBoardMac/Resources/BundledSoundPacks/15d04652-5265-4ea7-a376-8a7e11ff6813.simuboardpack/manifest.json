@@ -1,0 +1,622 @@
+{
+  "assets": {
+    "0ff361f96177a1aafbcf1bb72a257bb1014436fe5a3f1cff246d1c12141fed33": {
+      "byteCount": 8718,
+      "channelCount": 1,
+      "durationSeconds": 0.090000,
+      "id": "0ff361f96177a1aafbcf1bb72a257bb1014436fe5a3f1cff246d1c12141fed33",
+      "license": null,
+      "originalFilename": "press/GENERIC_R3_ALT.wav",
+      "relativePath": "assets/0ff361f96177a1aafbcf1bb72a257bb1014436fe5a3f1cff246d1c12141fed33.wav",
+      "sampleRate": 48000,
+      "sha256": "0ff361f96177a1aafbcf1bb72a257bb1014436fe5a3f1cff246d1c12141fed33"
+    },
+    "125576a176c7a8540e8985fbf6602aa3ae7113bea23bbc24025383f7b2afdf6a": {
+      "byteCount": 6318,
+      "channelCount": 1,
+      "durationSeconds": 0.065000,
+      "id": "125576a176c7a8540e8985fbf6602aa3ae7113bea23bbc24025383f7b2afdf6a",
+      "license": null,
+      "originalFilename": "release/GENERIC_R2.wav",
+      "relativePath": "assets/125576a176c7a8540e8985fbf6602aa3ae7113bea23bbc24025383f7b2afdf6a.wav",
+      "sampleRate": 48000,
+      "sha256": "125576a176c7a8540e8985fbf6602aa3ae7113bea23bbc24025383f7b2afdf6a"
+    },
+    "18312a75f30af7df1d2ab273bfd8cd9d2fffe17a13166f48a0555a6fcf589d7c": {
+      "byteCount": 6126,
+      "channelCount": 1,
+      "durationSeconds": 0.063000,
+      "id": "18312a75f30af7df1d2ab273bfd8cd9d2fffe17a13166f48a0555a6fcf589d7c",
+      "license": null,
+      "originalFilename": "release/GENERIC_R1.wav",
+      "relativePath": "assets/18312a75f30af7df1d2ab273bfd8cd9d2fffe17a13166f48a0555a6fcf589d7c.wav",
+      "sampleRate": 48000,
+      "sha256": "18312a75f30af7df1d2ab273bfd8cd9d2fffe17a13166f48a0555a6fcf589d7c"
+    },
+    "249a77a877872894afdb325d2212e34554d0bdf5aaff5c72c37e46426f83201d": {
+      "byteCount": 5550,
+      "channelCount": 1,
+      "durationSeconds": 0.057000,
+      "id": "249a77a877872894afdb325d2212e34554d0bdf5aaff5c72c37e46426f83201d",
+      "license": null,
+      "originalFilename": "press/GENERIC_R3.wav",
+      "relativePath": "assets/249a77a877872894afdb325d2212e34554d0bdf5aaff5c72c37e46426f83201d.wav",
+      "sampleRate": 48000,
+      "sha256": "249a77a877872894afdb325d2212e34554d0bdf5aaff5c72c37e46426f83201d"
+    },
+    "2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9": {
+      "byteCount": 6414,
+      "channelCount": 1,
+      "durationSeconds": 0.066000,
+      "id": "2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9",
+      "license": null,
+      "originalFilename": "press/GENERIC_R1_ALT.wav",
+      "relativePath": "assets/2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9.wav",
+      "sampleRate": 48000,
+      "sha256": "2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9"
+    },
+    "32e6b6fee39795472a8553a2dd65e3745d5a5a6592f4c6bbfa92814116f7ab3e": {
+      "byteCount": 9102,
+      "channelCount": 1,
+      "durationSeconds": 0.094000,
+      "id": "32e6b6fee39795472a8553a2dd65e3745d5a5a6592f4c6bbfa92814116f7ab3e",
+      "license": null,
+      "originalFilename": "release/GENERIC_R0.wav",
+      "relativePath": "assets/32e6b6fee39795472a8553a2dd65e3745d5a5a6592f4c6bbfa92814116f7ab3e.wav",
+      "sampleRate": 48000,
+      "sha256": "32e6b6fee39795472a8553a2dd65e3745d5a5a6592f4c6bbfa92814116f7ab3e"
+    },
+    "336715af18229f8c7704cb30c8e280b8b05c10f789a6b4be9fc03d687aa829c1": {
+      "byteCount": 4494,
+      "channelCount": 1,
+      "durationSeconds": 0.046000,
+      "id": "336715af18229f8c7704cb30c8e280b8b05c10f789a6b4be9fc03d687aa829c1",
+      "license": null,
+      "originalFilename": "release/GENERIC_R3.wav",
+      "relativePath": "assets/336715af18229f8c7704cb30c8e280b8b05c10f789a6b4be9fc03d687aa829c1.wav",
+      "sampleRate": 48000,
+      "sha256": "336715af18229f8c7704cb30c8e280b8b05c10f789a6b4be9fc03d687aa829c1"
+    },
+    "454e7fc94fb6408f137d6b144c9dbe2115cdd70f48c7d4845b87ca43a2d8b45e": {
+      "byteCount": 10062,
+      "channelCount": 1,
+      "durationSeconds": 0.104000,
+      "id": "454e7fc94fb6408f137d6b144c9dbe2115cdd70f48c7d4845b87ca43a2d8b45e",
+      "license": null,
+      "originalFilename": "release/SPACE.wav",
+      "relativePath": "assets/454e7fc94fb6408f137d6b144c9dbe2115cdd70f48c7d4845b87ca43a2d8b45e.wav",
+      "sampleRate": 48000,
+      "sha256": "454e7fc94fb6408f137d6b144c9dbe2115cdd70f48c7d4845b87ca43a2d8b45e"
+    },
+    "5197be7c04c98f5657d2dff9612ab0db4a4af6f423ccd452dd40e5eddd8b1c59": {
+      "byteCount": 5262,
+      "channelCount": 1,
+      "durationSeconds": 0.054000,
+      "id": "5197be7c04c98f5657d2dff9612ab0db4a4af6f423ccd452dd40e5eddd8b1c59",
+      "license": null,
+      "originalFilename": "press/SPACE.wav",
+      "relativePath": "assets/5197be7c04c98f5657d2dff9612ab0db4a4af6f423ccd452dd40e5eddd8b1c59.wav",
+      "sampleRate": 48000,
+      "sha256": "5197be7c04c98f5657d2dff9612ab0db4a4af6f423ccd452dd40e5eddd8b1c59"
+    },
+    "5297cf8a91a87f0e4db9025007212f38b618eb7d65d6249cd3d0ac11dd1d6f5e": {
+      "byteCount": 11886,
+      "channelCount": 1,
+      "durationSeconds": 0.123000,
+      "id": "5297cf8a91a87f0e4db9025007212f38b618eb7d65d6249cd3d0ac11dd1d6f5e",
+      "license": null,
+      "originalFilename": "release/SHIFT.wav",
+      "relativePath": "assets/5297cf8a91a87f0e4db9025007212f38b618eb7d65d6249cd3d0ac11dd1d6f5e.wav",
+      "sampleRate": 48000,
+      "sha256": "5297cf8a91a87f0e4db9025007212f38b618eb7d65d6249cd3d0ac11dd1d6f5e"
+    },
+    "60c12f623aca8b5d9f6582cc58492d1c4741c28c38c3513bd0ab72112733f58c": {
+      "byteCount": 6318,
+      "channelCount": 1,
+      "durationSeconds": 0.065000,
+      "id": "60c12f623aca8b5d9f6582cc58492d1c4741c28c38c3513bd0ab72112733f58c",
+      "license": null,
+      "originalFilename": "release/GENERIC_R4.wav",
+      "relativePath": "assets/60c12f623aca8b5d9f6582cc58492d1c4741c28c38c3513bd0ab72112733f58c.wav",
+      "sampleRate": 48000,
+      "sha256": "60c12f623aca8b5d9f6582cc58492d1c4741c28c38c3513bd0ab72112733f58c"
+    },
+    "69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca": {
+      "byteCount": 3726,
+      "channelCount": 1,
+      "durationSeconds": 0.038000,
+      "id": "69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca",
+      "license": null,
+      "originalFilename": "release/GENERIC_R1_ALT.wav",
+      "relativePath": "assets/69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca.wav",
+      "sampleRate": 48000,
+      "sha256": "69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca"
+    },
+    "8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb": {
+      "byteCount": 3726,
+      "channelCount": 1,
+      "durationSeconds": 0.038000,
+      "id": "8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb",
+      "license": null,
+      "originalFilename": "release/GENERIC_R0_ALT.wav",
+      "relativePath": "assets/8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb.wav",
+      "sampleRate": 48000,
+      "sha256": "8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb"
+    },
+    "8a12500df036acf1b6e62efd8d9e84398fee58e2f0880a3568ed90d11d32a1ca": {
+      "byteCount": 11598,
+      "channelCount": 1,
+      "durationSeconds": 0.120000,
+      "id": "8a12500df036acf1b6e62efd8d9e84398fee58e2f0880a3568ed90d11d32a1ca",
+      "license": null,
+      "originalFilename": "release/ENTER.wav",
+      "relativePath": "assets/8a12500df036acf1b6e62efd8d9e84398fee58e2f0880a3568ed90d11d32a1ca.wav",
+      "sampleRate": 48000,
+      "sha256": "8a12500df036acf1b6e62efd8d9e84398fee58e2f0880a3568ed90d11d32a1ca"
+    },
+    "972fd538056ff394eb789ac912be6d55fb0189d893cd91e4232afbd167e1eb23": {
+      "byteCount": 4878,
+      "channelCount": 1,
+      "durationSeconds": 0.050000,
+      "id": "972fd538056ff394eb789ac912be6d55fb0189d893cd91e4232afbd167e1eb23",
+      "license": null,
+      "originalFilename": "press/ENTER.wav",
+      "relativePath": "assets/972fd538056ff394eb789ac912be6d55fb0189d893cd91e4232afbd167e1eb23.wav",
+      "sampleRate": 48000,
+      "sha256": "972fd538056ff394eb789ac912be6d55fb0189d893cd91e4232afbd167e1eb23"
+    },
+    "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff": {
+      "byteCount": 9006,
+      "channelCount": 1,
+      "durationSeconds": 0.093000,
+      "id": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff",
+      "license": null,
+      "originalFilename": "press/GENERIC_R4_ALT.wav",
+      "relativePath": "assets/9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff.wav",
+      "sampleRate": 48000,
+      "sha256": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff"
+    },
+    "b896dd623e5f05a27403da35c2b499378bd16d2cef2e430edbcb827505042990": {
+      "byteCount": 5262,
+      "channelCount": 1,
+      "durationSeconds": 0.054000,
+      "id": "b896dd623e5f05a27403da35c2b499378bd16d2cef2e430edbcb827505042990",
+      "license": null,
+      "originalFilename": "press/GENERIC_R1.wav",
+      "relativePath": "assets/b896dd623e5f05a27403da35c2b499378bd16d2cef2e430edbcb827505042990.wav",
+      "sampleRate": 48000,
+      "sha256": "b896dd623e5f05a27403da35c2b499378bd16d2cef2e430edbcb827505042990"
+    },
+    "c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a": {
+      "byteCount": 7470,
+      "channelCount": 1,
+      "durationSeconds": 0.077000,
+      "id": "c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a",
+      "license": null,
+      "originalFilename": "press/GENERIC_R0_ALT.wav",
+      "relativePath": "assets/c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a.wav",
+      "sampleRate": 48000,
+      "sha256": "c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a"
+    },
+    "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1": {
+      "byteCount": 4494,
+      "channelCount": 1,
+      "durationSeconds": 0.046000,
+      "id": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1",
+      "license": null,
+      "originalFilename": "release/GENERIC_R4_ALT.wav",
+      "relativePath": "assets/c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1.wav",
+      "sampleRate": 48000,
+      "sha256": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1"
+    },
+    "c4144f31f2fd684e53868a67a6e8af0c9b83908f145b6bb53a0844f2e20e21af": {
+      "byteCount": 2382,
+      "channelCount": 1,
+      "durationSeconds": 0.024000,
+      "id": "c4144f31f2fd684e53868a67a6e8af0c9b83908f145b6bb53a0844f2e20e21af",
+      "license": null,
+      "originalFilename": "release/GENERIC_R3_ALT.wav",
+      "relativePath": "assets/c4144f31f2fd684e53868a67a6e8af0c9b83908f145b6bb53a0844f2e20e21af.wav",
+      "sampleRate": 48000,
+      "sha256": "c4144f31f2fd684e53868a67a6e8af0c9b83908f145b6bb53a0844f2e20e21af"
+    },
+    "c999beffec4d34692191e371ac4095fe7a7f2c8af0e0abaaa549a36670954bfb": {
+      "byteCount": 7470,
+      "channelCount": 1,
+      "durationSeconds": 0.077000,
+      "id": "c999beffec4d34692191e371ac4095fe7a7f2c8af0e0abaaa549a36670954bfb",
+      "license": null,
+      "originalFilename": "press/GENERIC_R2_ALT.wav",
+      "relativePath": "assets/c999beffec4d34692191e371ac4095fe7a7f2c8af0e0abaaa549a36670954bfb.wav",
+      "sampleRate": 48000,
+      "sha256": "c999beffec4d34692191e371ac4095fe7a7f2c8af0e0abaaa549a36670954bfb"
+    },
+    "d4d83fd9d61825440214f092a13c0b558b4386285b40548a7d8ddae2941d0f77": {
+      "byteCount": 4494,
+      "channelCount": 1,
+      "durationSeconds": 0.046000,
+      "id": "d4d83fd9d61825440214f092a13c0b558b4386285b40548a7d8ddae2941d0f77",
+      "license": null,
+      "originalFilename": "release/GENERIC_R2_ALT.wav",
+      "relativePath": "assets/d4d83fd9d61825440214f092a13c0b558b4386285b40548a7d8ddae2941d0f77.wav",
+      "sampleRate": 48000,
+      "sha256": "d4d83fd9d61825440214f092a13c0b558b4386285b40548a7d8ddae2941d0f77"
+    },
+    "da6987c41bf06b7392c9be7317cd00121c975bfa6ac8ff01fb8beaf50001c537": {
+      "byteCount": 5742,
+      "channelCount": 1,
+      "durationSeconds": 0.059000,
+      "id": "da6987c41bf06b7392c9be7317cd00121c975bfa6ac8ff01fb8beaf50001c537",
+      "license": null,
+      "originalFilename": "press/GENERIC_R0.wav",
+      "relativePath": "assets/da6987c41bf06b7392c9be7317cd00121c975bfa6ac8ff01fb8beaf50001c537.wav",
+      "sampleRate": 48000,
+      "sha256": "da6987c41bf06b7392c9be7317cd00121c975bfa6ac8ff01fb8beaf50001c537"
+    },
+    "dd16f9708c900831a46a2bd7cb302503e8516c7be8b8bafe397996c8b072dc17": {
+      "byteCount": 9294,
+      "channelCount": 1,
+      "durationSeconds": 0.096000,
+      "id": "dd16f9708c900831a46a2bd7cb302503e8516c7be8b8bafe397996c8b072dc17",
+      "license": null,
+      "originalFilename": "press/GENERIC_R2.wav",
+      "relativePath": "assets/dd16f9708c900831a46a2bd7cb302503e8516c7be8b8bafe397996c8b072dc17.wav",
+      "sampleRate": 48000,
+      "sha256": "dd16f9708c900831a46a2bd7cb302503e8516c7be8b8bafe397996c8b072dc17"
+    },
+    "f33d6484b8942c0f4dad2277ce12eb63daae4651fc4720df4963c4b8ed3fcb90": {
+      "byteCount": 3246,
+      "channelCount": 1,
+      "durationSeconds": 0.033000,
+      "id": "f33d6484b8942c0f4dad2277ce12eb63daae4651fc4720df4963c4b8ed3fcb90",
+      "license": null,
+      "originalFilename": "press/GENERIC_R4.wav",
+      "relativePath": "assets/f33d6484b8942c0f4dad2277ce12eb63daae4651fc4720df4963c4b8ed3fcb90.wav",
+      "sampleRate": 48000,
+      "sha256": "f33d6484b8942c0f4dad2277ce12eb63daae4651fc4720df4963c4b8ed3fcb90"
+    },
+    "f4129e5a5390e1b2bf697a603c4d6a9698e2568c2554c1f42e29695ccc0b726b": {
+      "byteCount": 6414,
+      "channelCount": 1,
+      "durationSeconds": 0.066000,
+      "id": "f4129e5a5390e1b2bf697a603c4d6a9698e2568c2554c1f42e29695ccc0b726b",
+      "license": null,
+      "originalFilename": "press/BACKSPACE.wav",
+      "relativePath": "assets/f4129e5a5390e1b2bf697a603c4d6a9698e2568c2554c1f42e29695ccc0b726b.wav",
+      "sampleRate": 48000,
+      "sha256": "f4129e5a5390e1b2bf697a603c4d6a9698e2568c2554c1f42e29695ccc0b726b"
+    },
+    "f4ce0b59d0c96aa81ace31dcd7c43eef1039c5b56eadf976a7b26710a49c6a28": {
+      "byteCount": 11406,
+      "channelCount": 1,
+      "durationSeconds": 0.118000,
+      "id": "f4ce0b59d0c96aa81ace31dcd7c43eef1039c5b56eadf976a7b26710a49c6a28",
+      "license": null,
+      "originalFilename": "release/BACKSPACE.wav",
+      "relativePath": "assets/f4ce0b59d0c96aa81ace31dcd7c43eef1039c5b56eadf976a7b26710a49c6a28.wav",
+      "sampleRate": 48000,
+      "sha256": "f4ce0b59d0c96aa81ace31dcd7c43eef1039c5b56eadf976a7b26710a49c6a28"
+    },
+    "fd3a6968ab57598cddaf0cee4e14b73d2b7690c08b7af8c1cad1f507cd45c940": {
+      "byteCount": 8142,
+      "channelCount": 1,
+      "durationSeconds": 0.084000,
+      "id": "fd3a6968ab57598cddaf0cee4e14b73d2b7690c08b7af8c1cad1f507cd45c940",
+      "license": null,
+      "originalFilename": "press/SHIFT.wav",
+      "relativePath": "assets/fd3a6968ab57598cddaf0cee4e14b73d2b7690c08b7af8c1cad1f507cd45c940.wav",
+      "sampleRate": 48000,
+      "sha256": "fd3a6968ab57598cddaf0cee4e14b73d2b7690c08b7af8c1cad1f507cd45c940"
+    }
+  },
+  "attributions": [
+    {
+      "author": "J_Eason001",
+      "licenseName": "Used with permission",
+      "notice": "Redistribution authorized; the permission record is retained by the Battuta maintainer.",
+      "sourceURL": null,
+      "title": "【打字声音】Suit80｜BCP轴｜GMK Ursa 大熊 - Original.mp4"
+    }
+  ],
+  "author": null,
+  "baseProfileID": "holypanda",
+  "createdAt": "2026-08-24T15:10:30Z",
+  "family": "线性",
+  "id": "15d04652-5265-4ea7-a376-8a7e11ff6813",
+  "layoutID": "mac-ansi-tkl-v1",
+  "modifiedAt": "2026-08-25T09:06:34Z",
+  "name": "BCP (Suit80)",
+  "notes": null,
+  "press": {
+    "generic": null,
+    "keyOverrides": {
+      "comma": {
+        "assetID": "0ff361f96177a1aafbcf1bb72a257bb1014436fe5a3f1cff246d1c12141fed33",
+        "kind": "asset"
+      },
+      "digit0": {
+        "assetID": "c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a",
+        "kind": "asset"
+      },
+      "digit2": {
+        "assetID": "c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a",
+        "kind": "asset"
+      },
+      "digit4": {
+        "assetID": "c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a",
+        "kind": "asset"
+      },
+      "digit6": {
+        "assetID": "c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a",
+        "kind": "asset"
+      },
+      "digit8": {
+        "assetID": "c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a",
+        "kind": "asset"
+      },
+      "equal": {
+        "assetID": "c2a3a71ba26b3f5d8df0542b70b1fa56fa563a58e6f7798811c2b3f0ff2efa3a",
+        "kind": "asset"
+      },
+      "f": {
+        "assetID": "c999beffec4d34692191e371ac4095fe7a7f2c8af0e0abaaa549a36670954bfb",
+        "kind": "asset"
+      },
+      "f10": {
+        "assetID": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff",
+        "kind": "asset"
+      },
+      "f12": {
+        "assetID": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff",
+        "kind": "asset"
+      },
+      "f2": {
+        "assetID": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff",
+        "kind": "asset"
+      },
+      "f4": {
+        "assetID": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff",
+        "kind": "asset"
+      },
+      "f6": {
+        "assetID": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff",
+        "kind": "asset"
+      },
+      "f8": {
+        "assetID": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff",
+        "kind": "asset"
+      },
+      "h": {
+        "assetID": "c999beffec4d34692191e371ac4095fe7a7f2c8af0e0abaaa549a36670954bfb",
+        "kind": "asset"
+      },
+      "i": {
+        "assetID": "2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9",
+        "kind": "asset"
+      },
+      "k": {
+        "assetID": "c999beffec4d34692191e371ac4095fe7a7f2c8af0e0abaaa549a36670954bfb",
+        "kind": "asset"
+      },
+      "leftShift": {
+        "assetID": "fd3a6968ab57598cddaf0cee4e14b73d2b7690c08b7af8c1cad1f507cd45c940",
+        "kind": "asset"
+      },
+      "n": {
+        "assetID": "0ff361f96177a1aafbcf1bb72a257bb1014436fe5a3f1cff246d1c12141fed33",
+        "kind": "asset"
+      },
+      "p": {
+        "assetID": "2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9",
+        "kind": "asset"
+      },
+      "r": {
+        "assetID": "2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9",
+        "kind": "asset"
+      },
+      "rightArrow": {
+        "assetID": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff",
+        "kind": "asset"
+      },
+      "rightBracket": {
+        "assetID": "2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9",
+        "kind": "asset"
+      },
+      "rightShift": {
+        "assetID": "fd3a6968ab57598cddaf0cee4e14b73d2b7690c08b7af8c1cad1f507cd45c940",
+        "kind": "asset"
+      },
+      "s": {
+        "assetID": "c999beffec4d34692191e371ac4095fe7a7f2c8af0e0abaaa549a36670954bfb",
+        "kind": "asset"
+      },
+      "semicolon": {
+        "assetID": "c999beffec4d34692191e371ac4095fe7a7f2c8af0e0abaaa549a36670954bfb",
+        "kind": "asset"
+      },
+      "slash": {
+        "assetID": "0ff361f96177a1aafbcf1bb72a257bb1014436fe5a3f1cff246d1c12141fed33",
+        "kind": "asset"
+      },
+      "upArrow": {
+        "assetID": "9f79d731f83c6b9c23df5656d546c2dd91734c0691753cb9f5f61b4d58c4e2ff",
+        "kind": "asset"
+      },
+      "v": {
+        "assetID": "0ff361f96177a1aafbcf1bb72a257bb1014436fe5a3f1cff246d1c12141fed33",
+        "kind": "asset"
+      },
+      "w": {
+        "assetID": "2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9",
+        "kind": "asset"
+      },
+      "x": {
+        "assetID": "0ff361f96177a1aafbcf1bb72a257bb1014436fe5a3f1cff246d1c12141fed33",
+        "kind": "asset"
+      },
+      "y": {
+        "assetID": "2c338383ed3a4f7a05e3f430124e93ad7feb27e624e629c332f14e8579fed5f9",
+        "kind": "asset"
+      }
+    },
+    "rows": {
+      "R0": "da6987c41bf06b7392c9be7317cd00121c975bfa6ac8ff01fb8beaf50001c537",
+      "R1": "b896dd623e5f05a27403da35c2b499378bd16d2cef2e430edbcb827505042990",
+      "R2": "dd16f9708c900831a46a2bd7cb302503e8516c7be8b8bafe397996c8b072dc17",
+      "R3": "249a77a877872894afdb325d2212e34554d0bdf5aaff5c72c37e46426f83201d",
+      "R4": "f33d6484b8942c0f4dad2277ce12eb63daae4651fc4720df4963c4b8ed3fcb90"
+    },
+    "specials": {
+      "backspace": "f4129e5a5390e1b2bf697a603c4d6a9698e2568c2554c1f42e29695ccc0b726b",
+      "enter": "972fd538056ff394eb789ac912be6d55fb0189d893cd91e4232afbd167e1eb23",
+      "space": "5197be7c04c98f5657d2dff9612ab0db4a4af6f423ccd452dd40e5eddd8b1c59"
+    }
+  },
+  "release": {
+    "generic": null,
+    "keyOverrides": {
+      "comma": {
+        "assetID": "c4144f31f2fd684e53868a67a6e8af0c9b83908f145b6bb53a0844f2e20e21af",
+        "kind": "asset"
+      },
+      "digit0": {
+        "assetID": "8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb",
+        "kind": "asset"
+      },
+      "digit2": {
+        "assetID": "8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb",
+        "kind": "asset"
+      },
+      "digit4": {
+        "assetID": "8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb",
+        "kind": "asset"
+      },
+      "digit6": {
+        "assetID": "8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb",
+        "kind": "asset"
+      },
+      "digit8": {
+        "assetID": "8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb",
+        "kind": "asset"
+      },
+      "equal": {
+        "assetID": "8066a41f6e940e6cdd0c6745f172760d906b2c5b29618a2b14b5b7a3c72ba0bb",
+        "kind": "asset"
+      },
+      "f": {
+        "assetID": "d4d83fd9d61825440214f092a13c0b558b4386285b40548a7d8ddae2941d0f77",
+        "kind": "asset"
+      },
+      "f10": {
+        "assetID": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1",
+        "kind": "asset"
+      },
+      "f12": {
+        "assetID": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1",
+        "kind": "asset"
+      },
+      "f2": {
+        "assetID": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1",
+        "kind": "asset"
+      },
+      "f4": {
+        "assetID": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1",
+        "kind": "asset"
+      },
+      "f6": {
+        "assetID": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1",
+        "kind": "asset"
+      },
+      "f8": {
+        "assetID": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1",
+        "kind": "asset"
+      },
+      "h": {
+        "assetID": "d4d83fd9d61825440214f092a13c0b558b4386285b40548a7d8ddae2941d0f77",
+        "kind": "asset"
+      },
+      "i": {
+        "assetID": "69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca",
+        "kind": "asset"
+      },
+      "k": {
+        "assetID": "d4d83fd9d61825440214f092a13c0b558b4386285b40548a7d8ddae2941d0f77",
+        "kind": "asset"
+      },
+      "leftShift": {
+        "assetID": "5297cf8a91a87f0e4db9025007212f38b618eb7d65d6249cd3d0ac11dd1d6f5e",
+        "kind": "asset"
+      },
+      "n": {
+        "assetID": "c4144f31f2fd684e53868a67a6e8af0c9b83908f145b6bb53a0844f2e20e21af",
+        "kind": "asset"
+      },
+      "p": {
+        "assetID": "69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca",
+        "kind": "asset"
+      },
+      "r": {
+        "assetID": "69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca",
+        "kind": "asset"
+      },
+      "rightArrow": {
+        "assetID": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1",
+        "kind": "asset"
+      },
+      "rightBracket": {
+        "assetID": "69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca",
+        "kind": "asset"
+      },
+      "rightShift": {
+        "assetID": "5297cf8a91a87f0e4db9025007212f38b618eb7d65d6249cd3d0ac11dd1d6f5e",
+        "kind": "asset"
+      },
+      "s": {
+        "assetID": "d4d83fd9d61825440214f092a13c0b558b4386285b40548a7d8ddae2941d0f77",
+        "kind": "asset"
+      },
+      "semicolon": {
+        "assetID": "d4d83fd9d61825440214f092a13c0b558b4386285b40548a7d8ddae2941d0f77",
+        "kind": "asset"
+      },
+      "slash": {
+        "assetID": "c4144f31f2fd684e53868a67a6e8af0c9b83908f145b6bb53a0844f2e20e21af",
+        "kind": "asset"
+      },
+      "upArrow": {
+        "assetID": "c3d202f0f6a6145108b0b4926394c5d791f5671c246195370e4430631cb908f1",
+        "kind": "asset"
+      },
+      "v": {
+        "assetID": "c4144f31f2fd684e53868a67a6e8af0c9b83908f145b6bb53a0844f2e20e21af",
+        "kind": "asset"
+      },
+      "w": {
+        "assetID": "69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca",
+        "kind": "asset"
+      },
+      "x": {
+        "assetID": "c4144f31f2fd684e53868a67a6e8af0c9b83908f145b6bb53a0844f2e20e21af",
+        "kind": "asset"
+      },
+      "y": {
+        "assetID": "69d410939ddb4607a14af0e1152a9ec88c757c1530fcde3db0ff6e6b4f4ebeca",
+        "kind": "asset"
+      }
+    },
+    "rows": {
+      "R0": "32e6b6fee39795472a8553a2dd65e3745d5a5a6592f4c6bbfa92814116f7ab3e",
+      "R1": "18312a75f30af7df1d2ab273bfd8cd9d2fffe17a13166f48a0555a6fcf589d7c",
+      "R2": "125576a176c7a8540e8985fbf6602aa3ae7113bea23bbc24025383f7b2afdf6a",
+      "R3": "336715af18229f8c7704cb30c8e280b8b05c10f789a6b4be9fc03d687aa829c1",
+      "R4": "60c12f623aca8b5d9f6582cc58492d1c4741c28c38c3513bd0ab72112733f58c"
+    },
+    "specials": {
+      "backspace": "f4ce0b59d0c96aa81ace31dcd7c43eef1039c5b56eadf976a7b26710a49c6a28",
+      "enter": "8a12500df036acf1b6e62efd8d9e84398fee58e2f0880a3568ed90d11d32a1ca",
+      "space": "454e7fc94fb6408f137d6b144c9dbe2115cdd70f48c7d4845b87ca43a2d8b45e"
+    }
+  },
+  "schemaVersion": 1,
+  "tone": "厚实、木感"
+}

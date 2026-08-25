@@ -9,7 +9,7 @@
 - 当前 Git 远端为：`https://github.com/7b7b7b/battuta.git`
 - 必须从远端最新 `main` 开始，不要从旧的 `v0.3.2` Release 标签开始移植。
 - 本文编写时，核心源码基线是 commit `cce3b87`；Windows clone 后应确认位于该 commit 或其更新版本。
-- 当前源码工程的产品版本为 Battuta `1.1.0`，build `24`。
+- 当前源码工程的产品版本为 Battuta `1.1.1`，build `26`。
 - Windows 代码应放在独立目录中，默认不要改写或删除 `SimuBoardMac/`。
 
 注意：本文编写时，本机的 `Promo/`、`website/`、`wormforce-integration/` 仍是未跟踪的本地目录，不会自动出现在普通 Git clone 中。若 Windows 端需要其中的宣传截图、视频或网页，必须先单独提交并 push，或手工传到 Windows。不要把本地未提交资源误认为远端仓库内容。
@@ -63,9 +63,9 @@ Windows 版目标：
 
 - 15,818 行 Swift 产品代码。
 - 3,117 行核心测试 Harness。
-- 20 种键盘/轴体音色。
+- 21 种键盘/轴体音色；其中 BCP (Suit80) 以只读 `.simuboardpack` 形式内置。
 - 5 种鼠标与触控板点击风格。
-- 237 段按下/抬起录音。
+- 265 段按下/抬起录音（`Audio/` 237 段，加内置 BCP 包 28 段）。
 - 系统级键鼠监听、音量调节、自然音色轮换、登录启动。
 - 本地输入统计、逐键热力图、七日趋势和年度热力图。
 - DIY 音色编辑器、逐键映射、导入转换、完整击键自动拆音、音色包导入导出。
