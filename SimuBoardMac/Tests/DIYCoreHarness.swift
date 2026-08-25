@@ -109,7 +109,7 @@ private struct PCM16MonoWave {
               format.channels == 1,
               format.bits == 16,
               sampleBytes.count.isMultiple(of: 2) else {
-            throw HarnessFailure.assertion("pointer WAV must be mono 16-bit PCM: \(url.path)")
+            throw HarnessFailure.assertion("WAV must be mono 16-bit PCM: \(url.path)")
         }
 
         var decoded = [Int16]()
@@ -122,7 +122,7 @@ private struct PCM16MonoWave {
             sampleOffset += 2
         }
         guard !decoded.isEmpty else {
-            throw HarnessFailure.assertion("pointer WAV has no samples: \(url.path)")
+            throw HarnessFailure.assertion("WAV has no samples: \(url.path)")
         }
 
         sampleRate = Int(format.sampleRate)
@@ -281,8 +281,17 @@ private actor FetchRecorder {
     var callCount: Int { etags.count }
 }
 
+private struct PackSnapshot: Equatable {
+    let manifestData: Data
+    let assetHashes: [String: String]
+}
+
 @main
 private struct DIYCoreHarness {
+    private static let bcpFixtureTitle = "【打字声音】Suit80｜BCP轴｜GMK Ursa 大熊 - Original.mp4"
+    private static let bcpPackUUID = UUID(uuidString: "15d04652-5265-4ea7-a376-8a7e11ff6813")!
+    private static let bcpSelectionID = "custom:15d04652-5265-4ea7-a376-8a7e11ff6813"
+
     static func main() async {
         var results = HarnessResults()
         do {
@@ -291,6 +300,7 @@ private struct DIYCoreHarness {
             try testPointerEventMapping(&results)
             try testPerceptualKeyboardVolume(&results)
             try testPointerSettingsAndResources(&results)
+            try await testLocalBCPSoundPackInstaller(&results)
             try testLaunchAtLoginInstallPaths(&results)
             try testValidatorAndResolver(&results)
             try await testAudioLibraryAndArchive(&results)
@@ -771,6 +781,534 @@ private struct DIYCoreHarness {
         try results.check(
             orderedCentroids.sorted()[orderedCentroids.count / 2] < 6_000,
             "the median pointer profile must remain comfortably below a 6 kHz spectral centroid"
+        )
+    }
+
+    private static func testLocalBCPSoundPackInstaller(
+        _ results: inout HarnessResults
+    ) async throws {
+        let fileManager = FileManager.default
+        let projectRoot = URL(fileURLWithPath: fileManager.currentDirectoryPath)
+        let scriptURL = projectRoot.appendingPathComponent(
+            "SimuBoardMac/scripts/install-local-bcp-sound-pack.sh"
+        )
+        try results.check(
+            fileManager.isExecutableFile(atPath: scriptURL.path),
+            "local BCP installer script must exist and be executable"
+        )
+
+        let root = fileManager.temporaryDirectory.appendingPathComponent(
+            "SimuBoard-LocalBCPInstaller-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let assetRoot = root.appendingPathComponent("assets", isDirectory: true)
+        try fileManager.createDirectory(at: assetRoot, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        try makeBCPInstallerFixtureAssets(at: assetRoot, variantOffset: 0)
+
+        let homeRoot = root.appendingPathComponent("home", isDirectory: true)
+        try fileManager.createDirectory(
+            at: homeRoot.appendingPathComponent("Library/Preferences", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        let defaultLibraryRoot = defaultBCPLibraryRoot(forHome: homeRoot)
+        let migrationDomain = "com.simuboard.bcp-installer.migration.\(UUID().uuidString)"
+        try writeSelectedProfile(
+            "bcp",
+            domain: migrationDomain,
+            homeDirectory: homeRoot
+        )
+        let firstRun = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "HOME": homeRoot.path,
+                "SIMUBOARD_DEFAULTS_DOMAIN": migrationDomain,
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T08:00:00Z",
+            ]
+        )
+        try results.check(
+            firstRun.terminationStatus == 0,
+            "local BCP installer must succeed: \(firstRun.stderr)"
+        )
+        let migratedSelectedProfile = try readSelectedProfile(
+            domain: migrationDomain,
+            homeDirectory: homeRoot
+        )
+        try results.check(
+            migratedSelectedProfile == bcpSelectionID,
+            "installing into the default local library root must migrate the legacy bundled BCP selection"
+        )
+
+        let explicitDefaultDomain = "com.simuboard.bcp-installer.explicit-default.\(UUID().uuidString)"
+        let explicitDefaultHomeRoot = root.appendingPathComponent(
+            "explicit-default-home",
+            isDirectory: true
+        )
+        try fileManager.createDirectory(
+            at: explicitDefaultHomeRoot.appendingPathComponent(
+                "Library/Preferences",
+                isDirectory: true
+            ),
+            withIntermediateDirectories: true
+        )
+        let explicitDefaultLibraryRoot = defaultBCPLibraryRoot(forHome: explicitDefaultHomeRoot)
+        try writeSelectedProfile(
+            "bcp",
+            domain: explicitDefaultDomain,
+            homeDirectory: explicitDefaultHomeRoot
+        )
+        let explicitDefaultRun = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, explicitDefaultLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "HOME": explicitDefaultHomeRoot.path,
+                "SIMUBOARD_DEFAULTS_DOMAIN": explicitDefaultDomain,
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T08:00:00Z",
+            ]
+        )
+        try results.check(
+            explicitDefaultRun.terminationStatus == 0,
+            "explicit default library-root install must still succeed: \(explicitDefaultRun.stderr)"
+        )
+        let explicitDefaultSelectedProfile = try readSelectedProfile(
+            domain: explicitDefaultDomain,
+            homeDirectory: explicitDefaultHomeRoot
+        )
+        try results.check(
+            explicitDefaultSelectedProfile == bcpSelectionID,
+            "explicit default library-root installs must still migrate the legacy bundled BCP selection"
+        )
+
+        let installedPackURLs = try fileManager.contentsOfDirectory(
+            at: defaultLibraryRoot,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ).filter { $0.pathExtension.lowercased() == "simuboardpack" }
+        try results.check(
+            installedPackURLs.count == 1,
+            "installer must publish exactly one BCP custom pack"
+        )
+        guard let installedPackURL = installedPackURLs.first else { return }
+
+        let manifest = try SoundPackPackageValidator.validatePackage(at: installedPackURL)
+        try results.check(
+            installedPackURL.lastPathComponent == "\(manifest.id.uuidString.lowercased()).simuboardpack",
+            "installer directory name must match manifest UUID"
+        )
+        try results.check(manifest.name == "BCP (Suit80)", "installed pack name must match the picker label")
+        try results.check(manifest.family == "线性", "installed pack family must remain linear")
+        try results.check(manifest.tone == "厚实、木感", "installed pack tone must remain thick and woody")
+        try results.check(
+            manifest.layoutID == KeyboardLayoutCatalog.defaultLayoutID,
+            "installed pack must target the persisted ANSI TKL layout"
+        )
+        try results.check(
+            manifest.baseProfileID == SwitchProfile.holyPanda.rawValue,
+            "installed pack must fall back to Holy Panda"
+        )
+        try results.check(manifest.press.generic == nil, "press mapping must not use a generic fallback asset")
+        try results.check(manifest.release.generic == nil, "release mapping must not use a generic fallback asset")
+        try results.check(
+            manifest.press.rows.keys.sorted() == KeyboardRowID.allCases.map(\.rawValue).sorted(),
+            "press mapping must cover every keyboard row"
+        )
+        try results.check(
+            manifest.release.rows.keys.sorted() == KeyboardRowID.allCases.map(\.rawValue).sorted(),
+            "release mapping must cover every keyboard row"
+        )
+        try results.check(
+            manifest.press.specials.keys.sorted() == KeyboardSpecialKeyID.allCases.map(\.rawValue).sorted(),
+            "press mapping must cover every supported special key"
+        )
+        try results.check(
+            manifest.release.specials.keys.sorted() == KeyboardSpecialKeyID.allCases.map(\.rawValue).sorted(),
+            "release mapping must cover every supported special key"
+        )
+        let expectedOverrideKeys = Set([
+            "digit2", "digit4", "digit6", "digit8", "digit0", "equal",
+            "w", "r", "y", "i", "p", "rightBracket",
+            "s", "f", "h", "k", "semicolon",
+            "x", "v", "n", "comma", "slash",
+            "f2", "f4", "f6", "f8", "f10", "f12", "upArrow", "rightArrow",
+            "leftShift", "rightShift",
+        ])
+        try results.check(
+            Set(manifest.press.keyOverrides.keys) == expectedOverrideKeys
+                && Set(manifest.release.keyOverrides.keys) == expectedOverrideKeys,
+            "installer must map all alternate row samples and both Shift keys"
+        )
+        try results.check(
+            manifest.press.override(for: KeyboardKeyID("leftShift"))
+                == manifest.press.override(for: KeyboardKeyID("rightShift"))
+                && manifest.release.override(for: KeyboardKeyID("leftShift"))
+                    == manifest.release.override(for: KeyboardKeyID("rightShift")),
+            "left and right Shift must share the dedicated Shift sample in each phase"
+        )
+        try results.check(manifest.assets.count == 28, "installer must preserve all 28 rendered assets")
+        try results.check(manifest.attributions.count == 1, "installer must emit one attribution entry")
+        if let attribution = manifest.attributions.first {
+            try results.check(
+                attribution.title == bcpFixtureTitle,
+                "attribution title must preserve the recording filename"
+            )
+            try results.check(
+                attribution.author == "J_Eason001",
+                "attribution author must preserve the visible uploader"
+            )
+            try results.check(attribution.sourceURL == nil, "attribution must not invent a source URL")
+            try results.check(attribution.licenseName == nil, "attribution must not invent a license")
+            try results.check(
+                attribution.notice == "Permission unverified. Local evaluation only. Do not redistribute.",
+                "attribution notice must preserve the local-only shipping boundary"
+            )
+        }
+
+        let firstPressR0Asset = manifest.press.asset(for: .r0)
+        let firstReleaseSpaceAsset = manifest.release.asset(for: .space)
+        try results.check(firstPressR0Asset != nil, "press R0 assignment must exist")
+        try results.check(firstReleaseSpaceAsset != nil, "release Space assignment must exist")
+
+        let library = SoundPackLibrary(rootURL: defaultLibraryRoot, builtInDescriptors: [])
+        let descriptors = try await library.descriptors()
+        try results.check(descriptors.count == 1, "installed pack should appear in the custom library")
+        try results.check(
+            descriptors.first?.customPackID == manifest.id,
+            "installed pack descriptor must point to the installed UUID"
+        )
+
+        let explicitDomain = "com.simuboard.bcp-installer.explicit.\(UUID().uuidString)"
+        let explicitHomeRoot = root.appendingPathComponent("explicit-home", isDirectory: true)
+        try fileManager.createDirectory(
+            at: explicitHomeRoot.appendingPathComponent("Library/Preferences", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        let explicitLibraryRoot = root.appendingPathComponent("explicit-library", isDirectory: true)
+        try writeSelectedProfile(
+            "bcp",
+            domain: explicitDomain,
+            homeDirectory: explicitHomeRoot
+        )
+        let explicitRun = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, explicitLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "HOME": explicitHomeRoot.path,
+                "SIMUBOARD_DEFAULTS_DOMAIN": explicitDomain,
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T08:00:00Z",
+            ]
+        )
+        try results.check(
+            explicitRun.terminationStatus == 0,
+            "explicit library-root install must still succeed: \(explicitRun.stderr)"
+        )
+        let explicitSelectedProfile = try readSelectedProfile(
+            domain: explicitDomain,
+            homeDirectory: explicitHomeRoot
+        )
+        try results.check(
+            explicitSelectedProfile == "bcp",
+            "explicit library-root installs must not rewrite the user's selected profile"
+        )
+
+        let timestampLibraryRoot = root.appendingPathComponent("timestamp-library", isDirectory: true)
+        let timestampInstall1 = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, timestampLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T08:00:00Z",
+            ]
+        )
+        try results.check(
+            timestampInstall1.terminationStatus == 0,
+            "first timestamp fixture install must succeed: \(timestampInstall1.stderr)"
+        )
+        let timestampPackURL = bcpPackURL(in: timestampLibraryRoot)
+        let timestampManifest1 = try SoundPackPackageValidator.validatePackage(at: timestampPackURL)
+        let timestampInstall2 = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, timestampLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T09:00:00Z",
+            ]
+        )
+        try results.check(
+            timestampInstall2.terminationStatus == 0,
+            "same-input reinstall must succeed: \(timestampInstall2.stderr)"
+        )
+        let timestampManifest2 = try SoundPackPackageValidator.validatePackage(at: timestampPackURL)
+        try results.check(
+            timestampManifest2.createdAt == timestampManifest1.createdAt,
+            "same-input reinstall must preserve createdAt"
+        )
+        try results.check(
+            timestampManifest2.modifiedAt == timestampManifest1.modifiedAt,
+            "same-input reinstall must preserve modifiedAt for byte-stable manifests"
+        )
+
+        try makeBCPInstallerFixtureAssets(at: assetRoot, variantOffset: 1)
+        let timestampInstall3 = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, timestampLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T10:00:00Z",
+            ]
+        )
+        try results.check(
+            timestampInstall3.terminationStatus == 0,
+            "changed-input reinstall must succeed: \(timestampInstall3.stderr)"
+        )
+        let timestampManifest3 = try SoundPackPackageValidator.validatePackage(at: timestampPackURL)
+        try results.check(
+            timestampManifest3.createdAt == timestampManifest1.createdAt,
+            "changed-input reinstall must preserve the original createdAt"
+        )
+        try results.check(
+            timestampManifest3.modifiedAt == iso8601Date("2026-08-24T10:00:00Z"),
+            "changed-input reinstall must update modifiedAt to the new install time"
+        )
+
+        try makeBCPInstallerFixtureAssets(at: assetRoot, variantOffset: 0)
+
+        let corruptTimestampLibraryRoot = root.appendingPathComponent(
+            "corrupt-timestamp-library",
+            isDirectory: true
+        )
+        let corruptTimestampPackURL = try installBCPFixturePack(
+            scriptURL: scriptURL,
+            assetRoot: assetRoot,
+            libraryRoot: corruptTimestampLibraryRoot,
+            projectRoot: projectRoot,
+            installTime: "2026-08-24T10:30:00Z"
+        )
+        try rewriteManifestJSONObject(at: corruptTimestampPackURL) { manifest in
+            manifest["createdAt"] = "2026-08-24T10:30:00+08:00"
+        }
+        let corruptTimestampSnapshot = try snapshot(packAt: corruptTimestampPackURL)
+        let corruptTimestampRun = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, corruptTimestampLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T10:31:00Z",
+            ]
+        )
+        try results.check(
+            corruptTimestampRun.terminationStatus != 0,
+            "installer must reject an existing fixed BCP pack with non-UTC timestamps"
+        )
+        let corruptTimestampSnapshotAfterRun = try snapshot(packAt: corruptTimestampPackURL)
+        try results.check(
+            corruptTimestampSnapshotAfterRun == corruptTimestampSnapshot,
+            "rejecting corrupt timestamps must leave the old fixed BCP pack untouched"
+        )
+
+        let corruptAssetLibraryRoot = root.appendingPathComponent(
+            "corrupt-asset-library",
+            isDirectory: true
+        )
+        let corruptAssetPackURL = try installBCPFixturePack(
+            scriptURL: scriptURL,
+            assetRoot: assetRoot,
+            libraryRoot: corruptAssetLibraryRoot,
+            projectRoot: projectRoot,
+            installTime: "2026-08-24T10:40:00Z"
+        )
+        try corruptOneBCPAsset(at: corruptAssetPackURL)
+        let corruptAssetSnapshot = try snapshot(packAt: corruptAssetPackURL)
+        let corruptAssetRun = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, corruptAssetLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T10:41:00Z",
+            ]
+        )
+        try results.check(
+            corruptAssetRun.terminationStatus != 0,
+            "installer must reject an existing fixed BCP pack whose asset bytes no longer match the manifest"
+        )
+        let corruptAssetSnapshotAfterRun = try snapshot(packAt: corruptAssetPackURL)
+        try results.check(
+            corruptAssetSnapshotAfterRun == corruptAssetSnapshot,
+            "rejecting corrupt asset bytes must leave the old fixed BCP pack untouched"
+        )
+
+        let malformedMappingLibraryRoot = root.appendingPathComponent(
+            "malformed-mapping-library",
+            isDirectory: true
+        )
+        let malformedMappingPackURL = try installBCPFixturePack(
+            scriptURL: scriptURL,
+            assetRoot: assetRoot,
+            libraryRoot: malformedMappingLibraryRoot,
+            projectRoot: projectRoot,
+            installTime: "2026-08-24T10:50:00Z"
+        )
+        try rewriteManifestJSONObject(at: malformedMappingPackURL) { manifest in
+            guard var press = manifest["press"] as? [String: Any] else {
+                throw HarnessFailure.assertion("fixture press assignments must exist")
+            }
+            press["generic"] = String(repeating: "a", count: 64)
+            manifest["press"] = press
+        }
+        let malformedMappingSnapshot = try snapshot(packAt: malformedMappingPackURL)
+        let malformedMappingRun = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, malformedMappingLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T10:51:00Z",
+            ]
+        )
+        try results.check(
+            malformedMappingRun.terminationStatus != 0,
+            "installer must reject an existing fixed BCP pack with malformed fixed-row assignments"
+        )
+        let malformedMappingSnapshotAfterRun = try snapshot(packAt: malformedMappingPackURL)
+        try results.check(
+            malformedMappingSnapshotAfterRun == malformedMappingSnapshot,
+            "rejecting malformed mappings must leave the old fixed BCP pack untouched"
+        )
+
+        try makeBCPInstallerFixtureAssets(at: assetRoot, variantOffset: 0)
+        let sentinelID = UUID()
+        let rollbackLibraryRoot = root.appendingPathComponent("rollback-library", isDirectory: true)
+        let rollbackInitialAssetRoot = root.appendingPathComponent(
+            "rollback-initial-assets",
+            isDirectory: true
+        )
+        try makeBCPInstallerFixtureAssets(at: rollbackInitialAssetRoot, variantOffset: 9)
+        let rollbackLegacyPackURL = try installBCPFixturePack(
+            scriptURL: scriptURL,
+            assetRoot: rollbackInitialAssetRoot,
+            libraryRoot: rollbackLibraryRoot,
+            projectRoot: projectRoot,
+            installTime: "2026-08-20T08:00:00Z"
+        )
+        try setManifestTimestamps(
+            at: rollbackLegacyPackURL,
+            createdAt: iso8601Date("2026-08-20T08:00:00Z"),
+            modifiedAt: iso8601Date("2026-08-21T09:30:00Z")
+        )
+        let rollbackLegacySnapshot = try snapshot(packAt: rollbackLegacyPackURL)
+        let rollbackLibrary = SoundPackLibrary(rootURL: rollbackLibraryRoot, builtInDescriptors: [])
+        _ = try await rollbackLibrary.save(
+            manifest: SoundPackManifest(
+                id: sentinelID,
+                name: "Sentinel",
+                baseProfileID: SwitchProfile.holyPanda.rawValue
+            )
+        )
+        let sentinelPackURL = await rollbackLibrary.packURL(id: sentinelID)
+        let sentinelSnapshot = try snapshot(packAt: sentinelPackURL)
+        try results.check(
+            fileManager.fileExists(atPath: sentinelPackURL.path),
+            "fixture sentinel pack must exist before reinstall"
+        )
+
+        let failAfterBackup = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, rollbackLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_FAIL_AT": "after-backup",
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T11:00:00Z",
+            ]
+        )
+        try results.check(
+            failAfterBackup.terminationStatus != 0,
+            "after-backup failure injection must fail the installer"
+        )
+        let rollbackSnapshotAfterBackup = try snapshot(packAt: rollbackLegacyPackURL)
+        try results.check(
+            rollbackSnapshotAfterBackup == rollbackLegacySnapshot,
+            "after-backup rollback must restore the original BCP pack exactly"
+        )
+        let sentinelSnapshotAfterBackup = try snapshot(packAt: sentinelPackURL)
+        try results.check(
+            sentinelSnapshotAfterBackup == sentinelSnapshot,
+            "after-backup rollback must leave unrelated packs untouched"
+        )
+
+        let failAfterInstallBeforeCommit = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, rollbackLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_FAIL_AT": "after-install-before-commit",
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T12:00:00Z",
+            ]
+        )
+        try results.check(
+            failAfterInstallBeforeCommit.terminationStatus != 0,
+            "after-install-before-commit failure injection must fail the installer"
+        )
+        let rollbackSnapshotAfterInstallFailure = try snapshot(packAt: rollbackLegacyPackURL)
+        try results.check(
+            rollbackSnapshotAfterInstallFailure == rollbackLegacySnapshot,
+            "after-install-before-commit rollback must restore the original BCP pack exactly"
+        )
+        let sentinelSnapshotAfterInstallFailure = try snapshot(packAt: sentinelPackURL)
+        try results.check(
+            sentinelSnapshotAfterInstallFailure == sentinelSnapshot,
+            "after-install-before-commit rollback must leave unrelated packs untouched"
+        )
+
+        let noExistingLibraryRoot = root.appendingPathComponent("no-existing-library", isDirectory: true)
+        let failWithoutExisting = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, noExistingLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_FAIL_AT": "after-install-before-commit",
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T12:30:00Z",
+            ]
+        )
+        try results.check(
+            failWithoutExisting.terminationStatus != 0,
+            "after-install-before-commit must fail even when there was no prior pack"
+        )
+        try results.check(
+            !fileManager.fileExists(atPath: bcpPackURL(in: noExistingLibraryRoot).path),
+            "failed first-time install must not leave a partial BCP pack behind"
+        )
+
+        let invalidLibraryRoot = root.appendingPathComponent("invalid-existing-library", isDirectory: true)
+        let invalidPackURL = bcpPackURL(in: invalidLibraryRoot)
+        try fileManager.createDirectory(
+            at: invalidPackURL.appendingPathComponent("assets", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try Data("not-json".utf8).write(
+            to: invalidPackURL.appendingPathComponent("manifest.json"),
+            options: .atomic
+        )
+        let invalidRun = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, invalidLibraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_NOW": "2026-08-24T13:00:00Z",
+            ]
+        )
+        try results.check(
+            invalidRun.terminationStatus != 0,
+            "installer must reject an invalid existing fixed-pack manifest instead of overwriting it"
+        )
+        try results.check(
+            fileManager.fileExists(atPath: invalidPackURL.path)
+                && !fileManager.fileExists(
+                    atPath: invalidPackURL.appendingPathComponent("assets").appendingPathComponent("03598ddc778f4bcc03a28f59ada841dd663750846bc6449ff0fb3d9169fce057.wav").path
+                ),
+            "rejecting an invalid existing fixed-pack manifest must leave the original directory untouched"
         )
     }
 
@@ -1648,6 +2186,235 @@ private struct DIYCoreHarness {
         SoundPackAssetID(String(repeating: String(character), count: 64))
     }
 
+    private static func runProcess(
+        executableURL: URL,
+        arguments: [String],
+        currentDirectoryURL: URL,
+        environmentOverrides: [String: String] = [:]
+    ) throws -> (terminationStatus: Int32, stdout: String, stderr: String) {
+        let process = Process()
+        process.executableURL = executableURL
+        process.arguments = arguments
+        process.currentDirectoryURL = currentDirectoryURL
+        if !environmentOverrides.isEmpty {
+            process.environment = ProcessInfo.processInfo.environment.merging(environmentOverrides) { _, new in new }
+        }
+
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+
+        try process.run()
+        process.waitUntilExit()
+
+        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        return (
+            process.terminationStatus,
+            String(decoding: stdoutData, as: UTF8.self),
+            String(decoding: stderrData, as: UTF8.self)
+        )
+    }
+
+    private static func defaultBCPLibraryRoot(forHome homeDirectory: URL) -> URL {
+        homeDirectory
+            .appendingPathComponent("Library/Application Support/SimuBoard", isDirectory: true)
+            .appendingPathComponent("SoundPacks", isDirectory: true)
+    }
+
+    private static func bcpPackURL(in libraryRoot: URL) -> URL {
+        libraryRoot.appendingPathComponent(
+            "\(bcpPackUUID.uuidString.lowercased()).simuboardpack",
+            isDirectory: true
+        )
+    }
+
+    private static func writeSelectedProfile(
+        _ value: String,
+        domain: String,
+        homeDirectory: URL
+    ) throws {
+        let result = try runProcess(
+            executableURL: URL(fileURLWithPath: "/usr/bin/defaults"),
+            arguments: ["write", domain, "selectedProfile", "-string", value],
+            currentDirectoryURL: homeDirectory,
+            environmentOverrides: ["HOME": homeDirectory.path]
+        )
+        guard result.terminationStatus == 0 else {
+            throw HarnessFailure.assertion("defaults write failed: \(result.stderr)")
+        }
+    }
+
+    private static func readSelectedProfile(
+        domain: String,
+        homeDirectory: URL
+    ) throws -> String? {
+        let result = try runProcess(
+            executableURL: URL(fileURLWithPath: "/usr/bin/defaults"),
+            arguments: ["read", domain, "selectedProfile"],
+            currentDirectoryURL: homeDirectory,
+            environmentOverrides: ["HOME": homeDirectory.path]
+        )
+        guard result.terminationStatus == 0 else { return nil }
+        return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func iso8601Date(_ value: String) -> Date {
+        let formatter = ISO8601DateFormatter()
+        guard let date = formatter.date(from: value) else {
+            preconditionFailure("invalid ISO-8601 fixture: \(value)")
+        }
+        return date
+    }
+
+    private static func installBCPFixturePack(
+        scriptURL: URL,
+        assetRoot: URL,
+        libraryRoot: URL,
+        projectRoot: URL,
+        installTime: String
+    ) throws -> URL {
+        let result = try runProcess(
+            executableURL: scriptURL,
+            arguments: [assetRoot.path, libraryRoot.path],
+            currentDirectoryURL: projectRoot.appendingPathComponent("SimuBoardMac", isDirectory: true),
+            environmentOverrides: [
+                "SIMUBOARD_INSTALLER_NOW": installTime,
+            ]
+        )
+        guard result.terminationStatus == 0 else {
+            throw HarnessFailure.assertion(
+                "fixture BCP install failed at \(installTime): \(result.stderr)"
+            )
+        }
+        return bcpPackURL(in: libraryRoot)
+    }
+
+    private static func setManifestTimestamps(
+        at packURL: URL,
+        createdAt: Date,
+        modifiedAt: Date
+    ) throws {
+        var manifest = try SoundPackPackageValidator.validatePackage(at: packURL)
+        manifest.createdAt = createdAt
+        manifest.modifiedAt = modifiedAt
+        try SoundPackCoding.encode(manifest).write(
+            to: packURL.appendingPathComponent("manifest.json"),
+            options: .atomic
+        )
+    }
+
+    private static func rewriteManifestJSONObject(
+        at packURL: URL,
+        mutate: (inout [String: Any]) throws -> Void
+    ) throws {
+        let manifestURL = packURL.appendingPathComponent("manifest.json")
+        let data = try Data(contentsOf: manifestURL, options: [.mappedIfSafe])
+        guard var manifest = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw HarnessFailure.assertion("manifest fixture must decode as a JSON object")
+        }
+        try mutate(&manifest)
+        let rewritten = try JSONSerialization.data(
+            withJSONObject: manifest,
+            options: [.prettyPrinted, .sortedKeys]
+        )
+        try rewritten.write(to: manifestURL, options: .atomic)
+    }
+
+    private static func installFixturePack(
+        in libraryRoot: URL,
+        packID: UUID,
+        name: String,
+        assetVariant: Int,
+        createdAt: Date,
+        modifiedAt: Date,
+        workingRoot: URL
+    ) async throws -> URL {
+        let assetURL = workingRoot.appendingPathComponent(
+            "fixture-\(packID.uuidString)-\(assetVariant).wav"
+        )
+        try makePCM16MonoFixture(
+            at: assetURL,
+            sampleRate: 48_000,
+            duration: 0.072,
+            frequency: 160 + Double(assetVariant * 17),
+            peakAmplitude: 0.28
+        )
+        let info = try AudioImportService.validateNormalizedAudio(at: assetURL)
+        let sha256 = try SoundPackFileUtilities.sha256(of: assetURL)
+        let assetID = SoundPackAssetID(sha256)
+        let manifest = SoundPackManifest(
+            id: packID,
+            name: name,
+            family: "Legacy",
+            tone: "Fixture",
+            baseProfileID: SwitchProfile.holyPanda.rawValue,
+            press: SoundPackPhaseAssignments(generic: assetID),
+            release: SoundPackPhaseAssignments(generic: assetID),
+            assets: [
+                assetID.rawValue: SoundPackAudioAsset(
+                    id: assetID,
+                    relativePath: "assets/\(assetID.rawValue).wav",
+                    sha256: assetID.rawValue,
+                    originalFilename: "fixture.wav",
+                    durationSeconds: info.durationSeconds,
+                    sampleRate: info.sampleRate,
+                    channelCount: info.channelCount,
+                    byteCount: info.byteCount
+                )
+            ]
+        )
+        let library = SoundPackLibrary(rootURL: libraryRoot, builtInDescriptors: [])
+        _ = try await library.save(
+            manifest: manifest,
+            assetFiles: [assetID: assetURL]
+        )
+        let packURL = await library.packURL(id: packID)
+        var installedManifest = try SoundPackPackageValidator.validatePackage(at: packURL)
+        installedManifest.createdAt = createdAt
+        installedManifest.modifiedAt = modifiedAt
+        let manifestData = try SoundPackCoding.encode(installedManifest)
+        try manifestData.write(
+            to: packURL.appendingPathComponent("manifest.json"),
+            options: .atomic
+        )
+        return packURL
+    }
+
+    private static func corruptOneBCPAsset(at packURL: URL) throws {
+        let manifest = try SoundPackPackageValidator.validatePackage(at: packURL)
+        guard let asset = manifest.assets.values.sorted(by: { $0.relativePath < $1.relativePath }).first else {
+            throw HarnessFailure.assertion("fixture BCP pack must contain at least one asset")
+        }
+        let assetURL = packURL.appendingPathComponent(asset.relativePath)
+        try makePCM16MonoFixture(
+            at: assetURL,
+            sampleRate: 48_000,
+            duration: min(asset.durationSeconds + 0.008, 0.16),
+            frequency: 913,
+            peakAmplitude: 0.22
+        )
+    }
+
+    private static func snapshot(packAt packURL: URL) throws -> PackSnapshot {
+        let manifestData = try Data(
+            contentsOf: packURL.appendingPathComponent("manifest.json"),
+            options: [.mappedIfSafe]
+        )
+        let assetURLs = try FileManager.default.contentsOfDirectory(
+            at: packURL.appendingPathComponent("assets", isDirectory: true),
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ).filter { $0.pathExtension.lowercased() == "wav" }
+        let assetHashes = try Dictionary(
+            uniqueKeysWithValues: assetURLs.map { url in
+                (url.lastPathComponent, try SoundPackFileUtilities.sha256(of: url))
+            }
+        )
+        return PackSnapshot(manifestData: manifestData, assetHashes: assetHashes)
+    }
+
     private static func fakeAsset(id: SoundPackAssetID) -> SoundPackAudioAsset {
         SoundPackAudioAsset(
             id: id,
@@ -1656,6 +2423,95 @@ private struct DIYCoreHarness {
             durationSeconds: 0.1,
             byteCount: 9_644
         )
+    }
+
+    private static func makeBCPInstallerFixtureAssets(
+        at root: URL,
+        variantOffset: Int
+    ) throws {
+        let sampleNames = [
+            "GENERIC_R0",
+            "GENERIC_R0_ALT",
+            "GENERIC_R1",
+            "GENERIC_R1_ALT",
+            "GENERIC_R2",
+            "GENERIC_R2_ALT",
+            "GENERIC_R3",
+            "GENERIC_R3_ALT",
+            "GENERIC_R4",
+            "GENERIC_R4_ALT",
+            "SHIFT",
+            "BACKSPACE",
+            "ENTER",
+            "SPACE",
+        ]
+        let phases = KeySoundPhase.allCases
+        var sampleIndex = 0
+        for phase in phases {
+            for sampleName in sampleNames {
+                let fileURL = root
+                    .appendingPathComponent(phase.rawValue, isDirectory: true)
+                    .appendingPathComponent("\(sampleName).wav")
+                let frequency = 220.0 + Double(sampleIndex * 29 + variantOffset * 11)
+                let duration = 0.040 + Double((sampleIndex + variantOffset) % 5) * 0.008
+                try makePCM16MonoFixture(
+                    at: fileURL,
+                    sampleRate: 48_000,
+                    duration: duration,
+                    frequency: frequency,
+                    peakAmplitude: 0.35
+                )
+                sampleIndex += 1
+            }
+        }
+    }
+
+    private static func makePCM16MonoFixture(
+        at url: URL,
+        sampleRate: Int,
+        duration: Double,
+        frequency: Double,
+        peakAmplitude: Double
+    ) throws {
+        let frameCount = max(Int((Double(sampleRate) * duration).rounded()), 32)
+        var samples = [Int16](repeating: 0, count: frameCount)
+        let denominator = Double(max(frameCount - 1, 1))
+        for index in 0..<frameCount {
+            let envelope = sin(Double.pi * Double(index) / denominator)
+            let sample = sin(2 * Double.pi * frequency * Double(index) / Double(sampleRate))
+                * envelope
+                * peakAmplitude
+            let clipped = max(-1.0, min(1.0, sample))
+            samples[index] = Int16((clipped * Double(Int16.max)).rounded())
+        }
+        samples[0] = 0
+        samples[frameCount - 1] = 0
+
+        let dataByteCount = samples.count * MemoryLayout<Int16>.size
+        var data = Data()
+        data.reserveCapacity(44 + dataByteCount)
+        data.append(contentsOf: "RIFF".utf8)
+        data.appendUInt32LE(UInt32(36 + dataByteCount))
+        data.append(contentsOf: "WAVE".utf8)
+        data.append(contentsOf: "fmt ".utf8)
+        data.appendUInt32LE(16)
+        data.appendUInt16LE(1)
+        data.appendUInt16LE(1)
+        data.appendUInt32LE(UInt32(sampleRate))
+        data.appendUInt32LE(UInt32(sampleRate * MemoryLayout<Int16>.size))
+        data.appendUInt16LE(UInt16(MemoryLayout<Int16>.size))
+        data.appendUInt16LE(16)
+        data.append(contentsOf: "data".utf8)
+        data.appendUInt32LE(UInt32(dataByteCount))
+        for sample in samples {
+            data.appendUInt16LE(UInt16(bitPattern: sample))
+        }
+
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try data.write(to: url, options: .atomic)
     }
 
     private static func makeStereoFixture(
@@ -1722,5 +2578,17 @@ private struct DIYCoreHarness {
             try? await Task.sleep(for: .milliseconds(10))
         }
         return FileManager.default.fileExists(atPath: url.path)
+    }
+}
+
+private extension Data {
+    mutating func appendUInt16LE(_ value: UInt16) {
+        var littleEndian = value.littleEndian
+        Swift.withUnsafeBytes(of: &littleEndian) { append(contentsOf: $0) }
+    }
+
+    mutating func appendUInt32LE(_ value: UInt32) {
+        var littleEndian = value.littleEndian
+        Swift.withUnsafeBytes(of: &littleEndian) { append(contentsOf: $0) }
     }
 }
