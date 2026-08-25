@@ -1,12 +1,17 @@
 import Charts
 import SwiftUI
 
-private enum TypingStatsSection: String, CaseIterable, Identifiable {
+private enum TypingStatsSection: String, CaseIterable, Identifiable, Hashable {
     case today = "今日"
     case history = "历史"
     case keyboard = "键盘"
 
     var id: Self { self }
+}
+
+private struct TypingStatsRefreshTask: Hashable {
+    let section: TypingStatsSection
+    let timelineRange: TypingTimelineRange
 }
 
 @MainActor
@@ -35,8 +40,16 @@ struct TypingStatsView: View {
         .frame(minWidth: 820, idealWidth: 1_040, minHeight: 600, idealHeight: 760)
         .battutaWindowGlass()
         .tint(BattutaVisualStyle.actionAccent)
-        .task(id: model.timelineRange) {
-            await refreshWhileVisible(range: model.timelineRange)
+        .task(
+            id: TypingStatsRefreshTask(
+                section: selectedSection,
+                timelineRange: model.timelineRange
+            )
+        ) {
+            await refreshWhileVisible(
+                section: selectedSection,
+                range: model.timelineRange
+            )
         }
         .alert("清除全部输入统计？", isPresented: $showsClearConfirmation) {
             Button("取消", role: .cancel) {}
@@ -240,8 +253,16 @@ struct TypingStatsView: View {
         .monospacedDigit()
     }
 
-    private func refreshWhileVisible(range: TypingTimelineRange) async {
+    private func refreshWhileVisible(
+        section: TypingStatsSection,
+        range: TypingTimelineRange
+    ) async {
         await model.refresh()
+        // The history page owns its one-off annual report refresh. Keeping the
+        // today-page polling loop alive here needlessly rebuilt the full 365-day
+        // chart every few seconds while the user was reading or scrolling it.
+        guard section != .history else { return }
+
         while !Task.isCancelled {
             do {
                 try await Task.sleep(
@@ -250,6 +271,9 @@ struct TypingStatsView: View {
             } catch is CancellationError {
                 return
             } catch {
+                return
+            }
+            guard selectedSection == section, model.timelineRange == range else {
                 return
             }
             await model.refresh()
