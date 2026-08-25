@@ -1,10 +1,10 @@
 # Battuta for macOS
 
-原生 macOS 菜单栏输入音效应用，最低支持 macOS 13。内置 20 种轴体/键盘音色、5 种鼠标与触控板点击风格，共 237 段按下/抬起录音，在浏览器、编辑器、聊天软件等桌面应用中均可工作。应用启动时会预热音频引擎，并在加载音色时把样本预转换为 48 kHz PCM，避免首次输入再启动引擎，也避免在 48 kHz 输出链路中实时转换资源采样率。
+原生 macOS 菜单栏输入音效应用，最低支持 macOS 13。内置 21 种轴体/键盘音色、5 种鼠标与触控板点击风格，共 265 段按下/抬起录音，在浏览器、编辑器、聊天软件等桌面应用中均可工作。应用启动时会预热音频引擎，并在加载音色时把样本预转换为 48 kHz PCM，避免首次输入再启动引擎，也避免在 48 kHz 输出链路中实时转换资源采样率。
 
 开启“自然音色变化”后，每一段键盘样本会在包含原音的 4 个轻微 gain/rate 配方间均衡轮换，连续两次不会选中相同配方。轮换只在播放时移动一个内存游标，4 个配方共享同一份 PCM，所以不会给 DIY 包制造 4 倍内存，也不会在按键路径上做音频处理。加载音色时还会保守清理超过约 0.5 ms 的前导静音，同时保留短预沿，减少部分来源素材自身造成的感知延迟。
 
-新增音色包括 Cherry MX Clear、Logitech G915 TKL Brown、Kailh BOX White、Kailh Low-profile Blue、Keychron Red Linear，以及 Studio Tactile / Studio Clicky。完整击键录音已经按波形里的机械事件分成独立 press/release 样本，按下与抬起会跟随真实键盘事件分别播放。逐项来源、许可和导入方式见 [`AUDIO_SOURCES.md`](AUDIO_SOURCES.md)。
+新增音色包括 BCP (Suit80)、Cherry MX Clear、Logitech G915 TKL Brown、Kailh BOX White、Kailh Low-profile Blue、Keychron Red Linear，以及 Studio Tactile / Studio Clicky。BCP 以只读内置 `.simuboardpack` 提供完整的逐行、大小键和交替小键映射；若旧版本曾安装相同 UUID 的本地评估包，1.1.1 会自动显示内置版本并保留原文件不动。完整击键录音已经按波形里的机械事件分成独立 press/release 样本，按下与抬起会跟随真实键盘事件分别播放。逐项来源、许可和导入方式见 [`AUDIO_SOURCES.md`](AUDIO_SOURCES.md)。
 
 ## 鼠标与触控板点击音
 

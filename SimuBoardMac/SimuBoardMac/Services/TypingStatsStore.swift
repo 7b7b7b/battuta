@@ -16,6 +16,7 @@ private final class TypingStatsSQLiteConnection: @unchecked Sendable {
 protocol TypingStatsPersistence: Sendable {
     func record(_ batch: TypingStatsWriteBatch) async throws
     func loadSnapshot(timelineRange: TypingTimelineRange) async throws -> TypingStatsSnapshot
+    func loadSnapshot(request: TypingStatsSnapshotRequest) async throws -> TypingStatsSnapshot
     func loadReport(
         range: TypingDateRange,
         comparisonRange: TypingDateRange?
@@ -26,6 +27,10 @@ protocol TypingStatsPersistence: Sendable {
 extension TypingStatsPersistence {
     func loadSnapshot() async throws -> TypingStatsSnapshot {
         try await loadSnapshot(timelineRange: .oneHour)
+    }
+
+    func loadSnapshot(request: TypingStatsSnapshotRequest) async throws -> TypingStatsSnapshot {
+        try await loadSnapshot(timelineRange: request.timelineRange)
     }
 
     func loadReport(range: TypingDateRange) async throws -> TypingRangeReportSnapshot {
@@ -157,19 +162,34 @@ actor TypingStatsStore: TypingStatsPersistence {
     }
 
     func loadSnapshot(timelineRange: TypingTimelineRange) async throws -> TypingStatsSnapshot {
+        try await loadSnapshot(
+            request: TypingStatsSnapshotRequest(
+                timelineRange: timelineRange,
+                sections: .all
+            )
+        )
+    }
+
+    func loadSnapshot(request: TypingStatsSnapshotRequest) async throws -> TypingStatsSnapshot {
         let database = try openDatabaseIfNeeded()
         let now = nowProvider()
         let calendar = Self.statisticsCalendar
         let todayKey = Self.dateKey(for: now, calendar: calendar)
+        let sections = request.sections
+        let needsRecentTimeline = !sections.intersection([.recentBuckets, .recentAppTimelines]).isEmpty
 
         try execute("BEGIN;", in: database)
         do {
-            let rankedApps = try loadApps(dateKey: todayKey, limit: 100, from: database)
-            let recentTimeline = try loadRecentTimeline(
-                now: now,
-                range: timelineRange,
-                from: database
-            )
+            let rankedApps = sections.contains(.applications)
+                ? try loadApps(dateKey: todayKey, limit: 100, from: database)
+                : []
+            let recentTimeline = needsRecentTimeline
+                ? try loadRecentTimeline(
+                    now: now,
+                    range: request.timelineRange,
+                    from: database
+                )
+                : RecentTimelineData(buckets: [], appTimelines: [])
             let snapshot = TypingStatsSnapshot(
                 generatedAt: now,
                 lastInputAt: try loadLastInputDate(from: database),
@@ -178,13 +198,19 @@ actor TypingStatsStore: TypingStatsPersistence {
                     date: calendar.startOfDay(for: now),
                     from: database
                 ),
-                timelineRange: timelineRange,
-                recentBuckets: recentTimeline.buckets,
-                apps: Array(rankedApps.prefix(20)),
-                recentAppTimelines: recentTimeline.appTimelines,
-                history: try loadHistory(now: now, calendar: calendar, from: database),
-                todayKeyCounts: try loadKeyCounts(dateKey: todayKey, from: database),
-                allTimeKeyCounts: try loadAllTimeKeyCounts(from: database)
+                timelineRange: request.timelineRange,
+                recentBuckets: sections.contains(.recentBuckets) ? recentTimeline.buckets : [],
+                apps: sections.contains(.applications) ? Array(rankedApps.prefix(20)) : [],
+                recentAppTimelines: sections.contains(.recentAppTimelines) ? recentTimeline.appTimelines : [],
+                history: sections.contains(.history)
+                    ? try loadHistory(now: now, calendar: calendar, from: database)
+                    : [],
+                todayKeyCounts: sections.contains(.keyCounts)
+                    ? try loadKeyCounts(dateKey: todayKey, from: database)
+                    : [:],
+                allTimeKeyCounts: sections.contains(.keyCounts)
+                    ? try loadAllTimeKeyCounts(from: database)
+                    : [:]
             )
             try execute("COMMIT;", in: database)
             return snapshot

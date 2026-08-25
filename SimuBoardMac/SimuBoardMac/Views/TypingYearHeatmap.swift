@@ -89,7 +89,7 @@ struct TypingYearHeatmap: View, Equatable {
                 metrics: preferredMetrics,
                 exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
             )
-                .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -176,64 +176,85 @@ struct TypingYearHeatmap: View, Equatable {
         metrics: TypingHeatmapCellMetrics,
         exposesEmptyCellsToAssistiveTech: Bool
     ) -> some View {
-        HStack(alignment: .top, spacing: metrics.spacing) {
-            ForEach(presentation.weeks) { week in
-                VStack(spacing: metrics.spacing) {
-                    ForEach(week.cells) { cell in
-                        if cell.isVisible {
-                            dayCell(
-                                cell,
-                                metrics: metrics,
-                                exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
-                            )
-                        } else {
-                            Color.clear
-                                .frame(width: metrics.cellSize, height: metrics.cellSize)
-                                .accessibilityHidden(true)
-                        }
+        let gridWidth = gridWidth(presentation: presentation, metrics: metrics)
+        let gridHeight = CGFloat(7) * metrics.cellSize + CGFloat(6) * metrics.spacing
+        let interactiveCells = presentation.weeks
+            .lazy
+            .flatMap(\.cells)
+            .filter {
+                $0.isVisible && ($0.hasInput || exposesEmptyCellsToAssistiveTech)
+            }
+
+        return ZStack(alignment: .topLeading) {
+            Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) {
+                context,
+                _ in
+                for week in presentation.weeks {
+                    for cell in week.cells where cell.isVisible {
+                        let rect = CGRect(
+                            x: CGFloat(week.index) * (metrics.cellSize + metrics.spacing),
+                            y: CGFloat(cell.weekdayIndex) * (metrics.cellSize + metrics.spacing),
+                            width: metrics.cellSize,
+                            height: metrics.cellSize
+                        )
+                        let path = Path(roundedRect: rect, cornerRadius: 2)
+                        context.fill(path, with: .color(color(for: cell.level)))
+                        context.stroke(
+                            path,
+                            with: .color(BattutaVisualStyle.instrumentSeparator),
+                            lineWidth: 0.5
+                        )
                     }
                 }
             }
+            .frame(width: gridWidth, height: gridHeight)
+            .accessibilityHidden(true)
+
+            ForEach(Array(interactiveCells)) { cell in
+                dayInteraction(
+                    cell,
+                    metrics: metrics,
+                    exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
+                )
+                .offset(
+                    x: CGFloat(cell.weekIndex) * (metrics.cellSize + metrics.spacing),
+                    y: CGFloat(cell.weekdayIndex) * (metrics.cellSize + metrics.spacing)
+                )
+            }
         }
         .frame(
-            width: gridWidth(presentation: presentation, metrics: metrics),
+            width: gridWidth,
+            height: gridHeight,
             alignment: .leading
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("每日输入热力图")
     }
 
-    private func dayCell(
+    @ViewBuilder
+    private func dayInteraction(
         _ cell: TypingYearHeatmapPresentation.DayCell,
         metrics: TypingHeatmapCellMetrics,
         exposesEmptyCellsToAssistiveTech: Bool
     ) -> some View {
-        let content = RoundedRectangle(cornerRadius: 2, style: .continuous)
-            .fill(color(for: cell.level))
+        let hitTarget = Color.clear
             .frame(width: metrics.cellSize, height: metrics.cellSize)
-            .overlay {
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .stroke(BattutaVisualStyle.instrumentSeparator, lineWidth: 0.5)
-            }
+            .contentShape(Rectangle())
 
-        return Group {
-            if cell.hasInput {
-                content
-                    .help(cell.helpText)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(cell.dateText)
-                    .accessibilityValue(cell.accessibilityValue)
-            } else if exposesEmptyCellsToAssistiveTech {
-                content
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(
-                        cell.date?.formatted(.dateTime.year().month().day().weekday(.wide))
-                            ?? "没有输入的日期"
-                    )
-                    .accessibilityValue("0 个字符")
-            } else {
-                content.accessibilityHidden(true)
-            }
+        if cell.hasInput {
+            hitTarget
+                .help(cell.helpText)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(cell.dateText)
+                .accessibilityValue(cell.accessibilityValue)
+        } else if exposesEmptyCellsToAssistiveTech {
+            hitTarget
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    cell.date?.formatted(.dateTime.year().month().day().weekday(.wide))
+                        ?? "没有输入的日期"
+                )
+                .accessibilityValue("0 个字符")
         }
     }
 
@@ -313,6 +334,9 @@ private struct TypingYearHeatmapPresentation: Equatable {
         let dateText: String
         let helpText: String
         let accessibilityValue: String
+
+        var weekIndex: Int { id / 7 }
+        var weekdayIndex: Int { id % 7 }
     }
 
     struct Week: Identifiable, Equatable {

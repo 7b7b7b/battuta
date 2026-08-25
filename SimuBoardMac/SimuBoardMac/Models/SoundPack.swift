@@ -246,11 +246,13 @@ struct SoundPackManifest: Codable, Identifiable, Hashable, Sendable {
 
 enum SoundPackOrigin: Codable, Hashable, Sendable {
     case bundled(profileID: String)
+    case bundledPack(packID: UUID)
     case custom(packID: UUID)
 
     var selectionID: String {
         switch self {
         case let .bundled(profileID): profileID
+        case let .bundledPack(packID): "bundled-pack:\(packID.uuidString.lowercased())"
         case let .custom(packID): "custom:\(packID.uuidString.lowercased())"
         }
     }
@@ -265,8 +267,13 @@ struct SoundPackDescriptor: Identifiable, Codable, Hashable, Sendable {
     var id: String { origin.selectionID }
 
     var isReadOnly: Bool {
-        if case .bundled = origin { return true }
-        return false
+        if case .custom = origin { return false }
+        return true
+    }
+
+    var bundledPackID: UUID? {
+        guard case let .bundledPack(packID) = origin else { return nil }
+        return packID
     }
 
     var customPackID: UUID? {
@@ -283,6 +290,15 @@ struct SoundPackDescriptor: Identifiable, Codable, Hashable, Sendable {
                 tone: profile.tone
             )
         }
+    }
+
+    static func bundledPack(manifest: SoundPackManifest) -> SoundPackDescriptor {
+        SoundPackDescriptor(
+            origin: .bundledPack(packID: manifest.id),
+            name: manifest.name,
+            family: manifest.family ?? "内置",
+            tone: manifest.tone ?? "内置音色"
+        )
     }
 
     static func custom(manifest: SoundPackManifest) -> SoundPackDescriptor {

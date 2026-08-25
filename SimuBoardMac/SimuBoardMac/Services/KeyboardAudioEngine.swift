@@ -89,6 +89,52 @@ enum KeyboardLeadingSilenceTrimmer {
     }
 }
 
+struct KeyboardOutputSnapshotRefreshGate: Sendable {
+    // Core Audio property reads are synchronous. A quarter-second cache keeps
+    // volume and mute changes responsive while removing them from the per-key
+    // hot path at normal typing speeds.
+    static let defaultMinimumRefreshInterval: TimeInterval = 0.25
+
+    private(set) var cachedSnapshot: SystemOutputVolumeSnapshot?
+    private(set) var lastRefreshUptime: TimeInterval?
+    let minimumRefreshInterval: TimeInterval
+
+    init(minimumRefreshInterval: TimeInterval = Self.defaultMinimumRefreshInterval) {
+        self.minimumRefreshInterval = max(0, minimumRefreshInterval)
+    }
+
+    mutating func resolveSnapshot(
+        now: TimeInterval,
+        forceRefresh: Bool = false,
+        readSnapshot: () -> SystemOutputVolumeSnapshot
+    ) -> SystemOutputVolumeSnapshot {
+        let shouldRefresh: Bool
+        if forceRefresh {
+            shouldRefresh = true
+        } else if cachedSnapshot == nil || lastRefreshUptime == nil {
+            shouldRefresh = true
+        } else if now < lastRefreshUptime! {
+            shouldRefresh = true
+        } else {
+            shouldRefresh = now - lastRefreshUptime! >= minimumRefreshInterval
+        }
+
+        if shouldRefresh {
+            let snapshot = readSnapshot()
+            cachedSnapshot = snapshot
+            lastRefreshUptime = now
+            return snapshot
+        }
+
+        return cachedSnapshot!
+    }
+
+    mutating func invalidate() {
+        cachedSnapshot = nil
+        lastRefreshUptime = nil
+    }
+}
+
 @MainActor
 final class KeyboardAudioEngine {
     private static let playbackSampleRate = 48_000.0
@@ -170,6 +216,7 @@ final class KeyboardAudioEngine {
     private var keyboardPeakAmplitude: Float?
     private var keyboardVoiceCursor = 0
     private var pointerVoiceCursor = 0
+    private var outputSnapshotRefreshGate = KeyboardOutputSnapshotRefreshGate()
     private var keyboardOutputCompensationPlan = KeyboardAbsoluteVolumeCompensation.plan(
         for: .init(isMuted: false, attenuationDB: nil)
     )
@@ -227,6 +274,7 @@ final class KeyboardAudioEngine {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.engine.prepare()
+                self.invalidateOutputSnapshotCache()
                 self.refreshKeyboardOutputCompensation(forceApply: true)
                 _ = self.startEngineIfNeeded()
             }
@@ -234,6 +282,7 @@ final class KeyboardAudioEngine {
     }
 
     func warmUp() {
+        invalidateOutputSnapshotCache()
         refreshKeyboardOutputCompensation(forceApply: true)
         engine.prepare()
         _ = startEngineIfNeeded()
@@ -492,12 +541,13 @@ final class KeyboardAudioEngine {
 
         let voice = keyboardVoices[keyboardVoiceCursor]
         keyboardVoiceCursor = (keyboardVoiceCursor + 1) % keyboardVoices.count
-        voice.player.stop()
-        voice.player.volume = Float(max(0, min(1, volume)))
-        let variation: Float = pitchVariation ? .random(in: 0.97...1.03) : 1
-        voice.speed.rate = max(0.25, min(4, baseRate * variation))
-        voice.player.scheduleBuffer(buffer, at: nil, options: [])
-        voice.player.play()
+        schedule(
+            buffer: buffer,
+            on: voice,
+            volume: Float(max(0, min(1, volume))),
+            pitchVariation: pitchVariation,
+            baseRate: baseRate
+        )
     }
 
     private func playPointer(
@@ -511,12 +561,13 @@ final class KeyboardAudioEngine {
 
         let voice = pointerVoices[pointerVoiceCursor]
         pointerVoiceCursor = (pointerVoiceCursor + 1) % pointerVoices.count
-        voice.player.stop()
-        voice.player.volume = Float(max(0, min(1, volume)))
-        let variation: Float = pitchVariation ? .random(in: 0.97...1.03) : 1
-        voice.speed.rate = max(0.25, min(4, baseRate * variation))
-        voice.player.scheduleBuffer(buffer, at: nil, options: [])
-        voice.player.play()
+        schedule(
+            buffer: buffer,
+            on: voice,
+            volume: Float(max(0, min(1, volume))),
+            pitchVariation: pitchVariation,
+            baseRate: baseRate
+        )
     }
 
     @discardableResult
@@ -585,6 +636,22 @@ final class KeyboardAudioEngine {
         return voices
     }
 
+    private func schedule(
+        buffer: AVAudioPCMBuffer,
+        on voice: Voice,
+        volume: Float,
+        pitchVariation: Bool,
+        baseRate: Float
+    ) {
+        voice.player.volume = volume
+        let variation: Float = pitchVariation ? .random(in: 0.97...1.03) : 1
+        voice.speed.rate = max(0.25, min(4, baseRate * variation))
+        voice.player.scheduleBuffer(buffer, at: nil, options: [.interrupts])
+        if !voice.player.isPlaying {
+            voice.player.play()
+        }
+    }
+
     @discardableResult
     private func refreshKeyboardOutputCompensation(
         playbackGain: Float = 1,
@@ -592,7 +659,7 @@ final class KeyboardAudioEngine {
         forceApply: Bool = false
     ) -> KeyboardAbsoluteVolumePlan {
         let nextPlan = KeyboardAbsoluteVolumeCompensation.plan(
-            for: outputVolumeReader.snapshot(),
+            for: currentOutputVolumeSnapshot(forceRefresh: forceApply),
             playbackGain: playbackGain,
             samplePeak: samplePeak
         )
@@ -602,6 +669,21 @@ final class KeyboardAudioEngine {
             keyboardOutputCompensationPlan = nextPlan
         }
         return nextPlan
+    }
+
+    private func currentOutputVolumeSnapshot(
+        forceRefresh: Bool = false
+    ) -> SystemOutputVolumeSnapshot {
+        outputSnapshotRefreshGate.resolveSnapshot(
+            now: ProcessInfo.processInfo.systemUptime,
+            forceRefresh: forceRefresh
+        ) {
+            outputVolumeReader.snapshot()
+        }
+    }
+
+    private func invalidateOutputSnapshotCache() {
+        outputSnapshotRefreshGate.invalidate()
     }
 
     private func applyKeyboardOutputCompensation(_ plan: KeyboardAbsoluteVolumePlan) {

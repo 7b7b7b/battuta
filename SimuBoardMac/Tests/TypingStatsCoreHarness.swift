@@ -147,6 +147,28 @@ struct TypingStatsCoreHarness {
         try expect(snapshot.allTimeKeyCounts[0] == 8, "adds lifetime key counts across days")
         try expect(snapshot.allTimePhysicalPresses == 10, "calculates lifetime physical presses")
         try expect(snapshot.lastInputAt != nil, "reads last input timestamp")
+        let keyCountOnlySnapshot = try await store.loadSnapshot(
+            request: TypingStatsSnapshotRequest(
+                timelineRange: .oneHour,
+                sections: [.keyCounts]
+            )
+        )
+        try expect(
+            keyCountOnlySnapshot.today.characterCount == 9,
+            "lightweight snapshot still loads the header day summary"
+        )
+        try expect(
+            keyCountOnlySnapshot.todayKeyCounts[0] == 5
+                && keyCountOnlySnapshot.allTimeKeyCounts[0] == 8,
+            "lightweight snapshot still loads requested key counts"
+        )
+        try expect(keyCountOnlySnapshot.apps.isEmpty, "lightweight snapshot skips application ranking")
+        try expect(
+            keyCountOnlySnapshot.recentBuckets.isEmpty
+                && keyCountOnlySnapshot.recentAppTimelines.isEmpty
+                && keyCountOnlySnapshot.history.isEmpty,
+            "lightweight snapshot skips recent timelines and history"
+        )
 
         let twoDayReport = try await store.loadReport(range: TypingDateRange(
             startDate: yesterday,
@@ -345,6 +367,8 @@ struct TypingStatsCoreHarness {
         try expect(clearedSnapshot.allTimeKeyCounts.isEmpty, "clears lifetime key counts")
 
         try await testModelSemantics(in: directory, now: now, application: appOne)
+        try await testPartialSnapshotRefreshMerging(now: now, application: appOne)
+        try await testQueuedRefreshPriority(now: now)
         try await testFailedBatchMerge(now: now, application: appOne)
         try await testFailureSuspensionAndRecovery(now: now, application: appOne)
         try await testFlushBarrier(now: now, application: appOne)
@@ -451,6 +475,85 @@ struct TypingStatsCoreHarness {
         try expect(snapshot.todayKeyCounts[8] == 1, "shortcut key adds a physical key press")
         try expect(snapshot.todayKeyCounts[36] == 1, "return adds a physical key press")
         try expect(snapshot.todayPhysicalPresses == 4, "counts all non-repeat physical presses")
+    }
+
+    private static func testPartialSnapshotRefreshMerging(
+        now: Date,
+        application: TypingApplicationIdentity
+    ) async throws {
+        let persistence = PartialSnapshotTypingStatsPersistence(now: now, application: application)
+        let model = TypingStatsModel(persistence: persistence)
+
+        await model.refresh()
+        guard let overviewSnapshot = model.snapshot else {
+            throw HarnessError.message("overview refresh did not publish a snapshot")
+        }
+        try expect(overviewSnapshot.apps.count == 1, "overview refresh loads application ranking")
+        try expect(overviewSnapshot.recentBuckets.count == 1, "overview refresh loads recent buckets")
+        try expect(overviewSnapshot.todayKeyCounts[0] == 1, "overview refresh loads key counts")
+        try expect(model.readStatus.lastReadAt == now, "initial refresh publishes its read time")
+
+        let laterReadDate = now.addingTimeInterval(10)
+        await persistence.setGeneratedAt(laterReadDate)
+        await model.refresh(for: .summary)
+        guard let summarySnapshot = model.snapshot else {
+            throw HarnessError.message("summary refresh cleared the snapshot")
+        }
+        try expect(summarySnapshot.apps.count == 1, "summary refresh preserves cached application ranking")
+        try expect(
+            summarySnapshot.recentBuckets.count == 1,
+            "summary refresh preserves cached recent buckets"
+        )
+        try expect(summarySnapshot.todayKeyCounts[0] == 1, "summary refresh preserves cached key counts")
+        try expect(
+            summarySnapshot.generatedAt == overviewSnapshot.generatedAt,
+            "unchanged automatic refresh does not republish the heavy snapshot"
+        )
+        try expect(
+            model.readStatus.lastReadAt == laterReadDate,
+            "unchanged automatic refresh still publishes the visible read time"
+        )
+
+        await persistence.setKeyboardCount(5)
+        await model.refresh(for: .keyboard)
+        guard let keyboardSnapshot = model.snapshot else {
+            throw HarnessError.message("keyboard refresh cleared the snapshot")
+        }
+        try expect(keyboardSnapshot.todayKeyCounts[0] == 5, "keyboard refresh updates key counts")
+        try expect(
+            keyboardSnapshot.apps.count == 1 && keyboardSnapshot.recentBuckets.count == 1,
+            "keyboard refresh preserves overview-only data while updating key counts"
+        )
+    }
+
+    private static func testQueuedRefreshPriority(now: Date) async throws {
+        let persistence = GatedSnapshotTypingStatsPersistence(now: now)
+        let model = TypingStatsModel(persistence: persistence)
+
+        let initialRefresh = Task { await model.refresh(for: .summary) }
+        await persistence.waitUntilLoadStarted(1)
+
+        await model.refresh(for: .keyboard, showsActivity: true)
+        try expect(model.isRefreshing, "queued manual refresh immediately shows activity")
+        await model.refresh(for: .summary)
+
+        await persistence.releaseLoad(1)
+        await initialRefresh.value
+        await persistence.waitUntilLoadStarted(2)
+
+        let requests = await persistence.capturedRequests()
+        try expect(requests.count == 2, "runs a queued refresh after the active request")
+        try expect(
+            requests[1].sections.contains(.keyCounts),
+            "summary polling does not overwrite a queued keyboard refresh"
+        )
+
+        await persistence.releaseLoad(2)
+        for _ in 0..<100 {
+            if !model.isRefreshing { break }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        try expect(!model.isRefreshing, "queued manual refresh clears activity after completion")
     }
 
     private static func testFailedBatchMerge(
@@ -1157,6 +1260,184 @@ private actor CapturingTypingStatsPersistence: TypingStatsPersistence {
     func clearAll() async throws { captured = TypingStatsWriteBatch(characterAggregates: [], keyAggregates: []) }
 
     func capturedBatch() -> TypingStatsWriteBatch { captured }
+}
+
+private actor GatedSnapshotTypingStatsPersistence: TypingStatsPersistence {
+    private let now: Date
+    private var requests: [TypingStatsSnapshotRequest] = []
+    private var gates: [Int: CheckedContinuation<Void, Never>] = [:]
+    private var releasedLoads: Set<Int> = []
+    private var startWaiters: [(attempt: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    init(now: Date) {
+        self.now = now
+    }
+
+    func record(_ batch: TypingStatsWriteBatch) async throws {}
+
+    func loadSnapshot(timelineRange: TypingTimelineRange) async throws -> TypingStatsSnapshot {
+        try await loadSnapshot(
+            request: TypingStatsSnapshotRequest(
+                timelineRange: timelineRange,
+                sections: .all
+            )
+        )
+    }
+
+    func loadSnapshot(request: TypingStatsSnapshotRequest) async throws -> TypingStatsSnapshot {
+        let attempt = requests.count + 1
+        requests.append(request)
+
+        let ready = startWaiters.filter { $0.attempt <= attempt }
+        startWaiters.removeAll { $0.attempt <= attempt }
+        ready.forEach { $0.continuation.resume() }
+
+        if releasedLoads.remove(attempt) == nil {
+            await withCheckedContinuation { continuation in
+                gates[attempt] = continuation
+            }
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        calendar.timeZone = .current
+        let day = TypingDaySummary(
+            dateKey: TypingStatsStore.dateKey(for: now, calendar: calendar),
+            date: calendar.startOfDay(for: now),
+            characterCount: 0,
+            peakCPS: 0,
+            activeMinuteBuckets: 0,
+            activeSeconds: 0,
+            topAppName: nil,
+            lastUpdatedAt: nil
+        )
+        let keyCounts: [UInt16: Int64] = request.sections.contains(.keyCounts)
+            ? [0: Int64(attempt)]
+            : [:]
+        return TypingStatsSnapshot(
+            generatedAt: now.addingTimeInterval(TimeInterval(attempt)),
+            lastInputAt: nil,
+            today: day,
+            timelineRange: request.timelineRange,
+            recentBuckets: [],
+            apps: [],
+            recentAppTimelines: [],
+            history: [],
+            todayKeyCounts: keyCounts,
+            allTimeKeyCounts: keyCounts
+        )
+    }
+
+    func clearAll() async throws {}
+
+    func waitUntilLoadStarted(_ attempt: Int) async {
+        if requests.count >= attempt { return }
+        await withCheckedContinuation { continuation in
+            startWaiters.append((attempt, continuation))
+        }
+    }
+
+    func releaseLoad(_ attempt: Int) {
+        if let continuation = gates.removeValue(forKey: attempt) {
+            continuation.resume()
+        } else {
+            releasedLoads.insert(attempt)
+        }
+    }
+
+    func capturedRequests() -> [TypingStatsSnapshotRequest] { requests }
+}
+
+private actor PartialSnapshotTypingStatsPersistence: TypingStatsPersistence {
+    private let now: Date
+    private let application: TypingApplicationIdentity
+    private var keyboardCount: Int64 = 1
+    private var generatedAt: Date
+
+    init(now: Date, application: TypingApplicationIdentity) {
+        self.now = now
+        self.application = application
+        generatedAt = now
+    }
+
+    func record(_ batch: TypingStatsWriteBatch) async throws {}
+
+    func loadSnapshot(timelineRange: TypingTimelineRange) async throws -> TypingStatsSnapshot {
+        try await loadSnapshot(
+            request: TypingStatsSnapshotRequest(
+                timelineRange: timelineRange,
+                sections: .all
+            )
+        )
+    }
+
+    func loadSnapshot(request: TypingStatsSnapshotRequest) async throws -> TypingStatsSnapshot {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        calendar.timeZone = .current
+        let today = TypingDaySummary(
+            dateKey: TypingStatsStore.dateKey(for: now, calendar: calendar),
+            date: calendar.startOfDay(for: now),
+            characterCount: 3,
+            peakCPS: 3,
+            activeMinuteBuckets: 1,
+            activeSeconds: 1,
+            topAppName: application.displayName,
+            lastUpdatedAt: now
+        )
+        let recentBuckets = request.sections.contains(.recentBuckets)
+            ? [TypingBucket(index: 0, start: now, characterCount: 3)]
+            : []
+        let apps = request.sections.contains(.applications)
+            ? [
+                TypingAppSummary(
+                    processKey: application.processKey,
+                    displayName: application.displayName,
+                    processName: application.processName,
+                    bundleIdentifier: application.bundleIdentifier,
+                    characterCount: 3,
+                    activeMinuteBuckets: 1,
+                    activeSeconds: 1,
+                    peakCPS: 3
+                ),
+            ]
+            : []
+        let appTimelines = request.sections.contains(.recentAppTimelines)
+            ? [TypingAppTimeline(application: application, buckets: recentBuckets)]
+            : []
+        let history = request.sections.contains(.history) ? [today] : []
+        let keyCounts = request.sections.contains(.keyCounts) ? [UInt16(0): keyboardCount] : [:]
+
+        return TypingStatsSnapshot(
+            generatedAt: generatedAt,
+            lastInputAt: now,
+            today: today,
+            timelineRange: request.timelineRange,
+            recentBuckets: recentBuckets,
+            apps: apps,
+            recentAppTimelines: appTimelines,
+            history: history,
+            todayKeyCounts: keyCounts,
+            allTimeKeyCounts: keyCounts
+        )
+    }
+
+    func loadReport(
+        range: TypingDateRange,
+        comparisonRange: TypingDateRange?
+    ) async throws -> TypingRangeReportSnapshot {
+        throw TypingStatsStoreError.queryFailed("not used")
+    }
+
+    func clearAll() async throws {}
+
+    func setKeyboardCount(_ count: Int64) {
+        keyboardCount = count
+    }
+
+    func setGeneratedAt(_ date: Date) {
+        generatedAt = date
+    }
 }
 
 private enum HarnessError: Error, CustomStringConvertible {

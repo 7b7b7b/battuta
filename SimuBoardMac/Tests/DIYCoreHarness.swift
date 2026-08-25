@@ -291,6 +291,7 @@ private struct DIYCoreHarness {
     private static let bcpFixtureTitle = "【打字声音】Suit80｜BCP轴｜GMK Ursa 大熊 - Original.mp4"
     private static let bcpPackUUID = UUID(uuidString: "15d04652-5265-4ea7-a376-8a7e11ff6813")!
     private static let bcpSelectionID = "custom:15d04652-5265-4ea7-a376-8a7e11ff6813"
+    private static let bcpBundledSelectionID = "bundled-pack:15d04652-5265-4ea7-a376-8a7e11ff6813"
 
     static func main() async {
         var results = HarnessResults()
@@ -797,6 +798,28 @@ private struct DIYCoreHarness {
             "local BCP installer script must exist and be executable"
         )
 
+        let bundledSourcePackURL = projectRoot.appendingPathComponent(
+            "SimuBoardMac/SimuBoardMac/Resources/BundledSoundPacks/"
+                + "15d04652-5265-4ea7-a376-8a7e11ff6813.simuboardpack",
+            isDirectory: true
+        )
+        let bundledSourceManifest = try SoundPackPackageValidator.validatePackage(
+            at: bundledSourcePackURL
+        )
+        try results.check(
+            bundledSourceManifest.id == bcpPackUUID
+                && bundledSourceManifest.assets.count == 28,
+            "source tree must contain the complete authorized BCP package"
+        )
+        try results.check(
+            fileManager.fileExists(
+                atPath: bundledSourcePackURL.appendingPathComponent(
+                    "licenses/BCP-Suit80-PERMISSION.txt"
+                ).path
+            ),
+            "bundled BCP package must carry its permission notice"
+        )
+
         let root = fileManager.temporaryDirectory.appendingPathComponent(
             "SimuBoard-LocalBCPInstaller-\(UUID().uuidString)",
             isDirectory: true
@@ -960,10 +983,14 @@ private struct DIYCoreHarness {
                 "attribution author must preserve the visible uploader"
             )
             try results.check(attribution.sourceURL == nil, "attribution must not invent a source URL")
-            try results.check(attribution.licenseName == nil, "attribution must not invent a license")
             try results.check(
-                attribution.notice == "Permission unverified. Local evaluation only. Do not redistribute.",
-                "attribution notice must preserve the local-only shipping boundary"
+                attribution.licenseName == "Used with permission",
+                "attribution must record the redistribution permission status"
+            )
+            try results.check(
+                attribution.notice
+                    == "Redistribution authorized; the permission record is retained by the Battuta maintainer.",
+                "attribution notice must preserve the authorized shipping status"
             )
         }
 
@@ -978,6 +1005,46 @@ private struct DIYCoreHarness {
         try results.check(
             descriptors.first?.customPackID == manifest.id,
             "installed pack descriptor must point to the installed UUID"
+        )
+
+        let bundledRoot = root.appendingPathComponent("BundledSoundPacks", isDirectory: true)
+        try fileManager.createDirectory(at: bundledRoot, withIntermediateDirectories: true)
+        let bundledPackURL = bundledRoot.appendingPathComponent(
+            installedPackURL.lastPathComponent,
+            isDirectory: true
+        )
+        try fileManager.copyItem(at: installedPackURL, to: bundledPackURL)
+        let bundledLibrary = SoundPackLibrary(
+            rootURL: defaultLibraryRoot,
+            builtInDescriptors: [],
+            bundledPackRootURL: bundledRoot
+        )
+        let bundledDescriptors = try await bundledLibrary.descriptors()
+        try results.check(
+            bundledDescriptors.count == 1,
+            "a bundled pack must replace, not duplicate, the same local pack UUID"
+        )
+        guard let bundledDescriptor = bundledDescriptors.first else { return }
+        try results.check(
+            bundledDescriptor.id == bcpBundledSelectionID,
+            "bundled package must have a stable read-only selection ID"
+        )
+        try results.check(
+            bundledDescriptor.bundledPackID == bcpPackUUID
+                && bundledDescriptor.customPackID == nil
+                && bundledDescriptor.isReadOnly,
+            "bundled package descriptor must remain distinct from editable DIY packs"
+        )
+        let bundledDocument = try await bundledLibrary.loadPack(for: bundledDescriptor)
+        try results.check(
+            bundledDocument.manifest.assets.count == 28,
+            "bundled BCP package must load all 28 authorized assets"
+        )
+        let bundledPressR0 = try bundledDocument.manifest.press.asset(for: .r0)
+            .map { try bundledDocument.assetURL(for: $0) }
+        try results.check(
+            bundledPressR0.map { fileManager.fileExists(atPath: $0.path) } == true,
+            "bundled BCP package must resolve audio inside the app resource tree"
         )
 
         let explicitDomain = "com.simuboard.bcp-installer.explicit.\(UUID().uuidString)"
@@ -1862,7 +1929,7 @@ private struct DIYCoreHarness {
             "AppModel must detect custom-load failure and perform an explicit fallback"
         )
         try results.check(
-            appModelSource.contains("DIY 音色载入失败，已回退到"),
+            appModelSource.contains("音色载入失败，已回退到"),
             "fallback should remain visible to the user instead of silently playing the prior pack"
         )
         try results.check(

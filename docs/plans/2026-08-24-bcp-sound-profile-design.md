@@ -1,5 +1,10 @@
 # BCP (Suit80) Local Custom Sound Pack Design
 
+> Release update (2026-08-25): redistribution permission was subsequently
+> confirmed by the Battuta maintainer. Battuta 1.1.1 therefore ships the
+> audited package as a read-only bundled sound pack; the local-only statements
+> below document the earlier design constraint rather than the current release.
+
 ## Goal
 
 Turn the supplied Bilibili recording into a local-only `BCP (Suit80)` custom

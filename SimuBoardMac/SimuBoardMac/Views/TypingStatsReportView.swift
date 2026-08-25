@@ -864,6 +864,21 @@ struct TypingStatsHistoryView: View {
 
 @MainActor
 private struct TypingWeekdayHourHeatmap: View, Equatable {
+    private struct CellPresentation: Identifiable {
+        let value: TypingWeekdayHourAggregate
+        let frame: CGRect
+        let color: Color
+        let opacity: Double
+        let symbol: String
+        let symbolOpacity: Double
+        let detail: String
+
+        var id: Int { value.id }
+        var hasInput: Bool {
+            value.characterCount > 0 || value.comparisonCharacterCount > 0
+        }
+    }
+
     let values: [TypingWeekdayHourAggregate]
     let mode: TypingRhythmMode
     let currentWeekdayOccurrences: [Int: Int]
@@ -880,64 +895,117 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
         }.max() ?? 0
         let exposesEmptyCellsToAssistiveTech = NSWorkspace.shared.isVoiceOverEnabled
             || NSWorkspace.shared.isSwitchControlEnabled
-
-        Grid(
-            alignment: .center,
-            horizontalSpacing: metrics.spacing,
-            verticalSpacing: metrics.spacing
-        ) {
-            GridRow {
-                Color.clear
-                    .frame(width: TypingHeatmapCellMetrics.axisWidth, height: 14)
-                    .accessibilityHidden(true)
-
-                ForEach(0..<24, id: \.self) { hour in
-                    Text(hour.isMultiple(of: 3) ? "\(hour)" : "")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
-                        .frame(width: metrics.cellSize, height: 14)
-                        .accessibilityHidden(true)
-                }
-            }
-
-            ForEach(weekdays, id: \.self) { weekday in
-                GridRow {
-                    Text(weekdayTitle(weekday))
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
-                        .frame(
-                            width: TypingHeatmapCellMetrics.axisWidth,
-                            height: metrics.cellSize,
-                            alignment: .leading
-                        )
-
-                    ForEach(0..<24, id: \.self) { hour in
-                        let id = (weekday - 1) * 24 + hour
-                        let value = valuesByID[id] ?? TypingWeekdayHourAggregate(
-                            weekday: weekday,
-                            hour: hour,
-                            characterCount: 0,
-                            comparisonCharacterCount: 0
-                        )
-                        rhythmCell(
-                            value,
-                            maximumCurrent: maximumCurrent,
-                            maximumDifference: maximumDifference,
-                            exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
-                        )
-                    }
-                }
+        let canvasWidth = TypingHeatmapCellMetrics.axisWidth
+            + metrics.spacing
+            + CGFloat(24) * metrics.cellSize
+            + CGFloat(23) * metrics.spacing
+        let canvasHeight = CGFloat(14)
+            + metrics.spacing
+            + CGFloat(7) * metrics.cellSize
+            + CGFloat(6) * metrics.spacing
+        let cells = weekdays.enumerated().flatMap { rowIndex, weekday in
+            (0..<24).map { hour in
+                let id = (weekday - 1) * 24 + hour
+                let value = valuesByID[id] ?? TypingWeekdayHourAggregate(
+                    weekday: weekday,
+                    hour: hour,
+                    characterCount: 0,
+                    comparisonCharacterCount: 0
+                )
+                let frame = CGRect(
+                    x: TypingHeatmapCellMetrics.axisWidth
+                        + metrics.spacing
+                        + CGFloat(hour) * (metrics.cellSize + metrics.spacing),
+                    y: 14
+                        + metrics.spacing
+                        + CGFloat(rowIndex) * (metrics.cellSize + metrics.spacing),
+                    width: metrics.cellSize,
+                    height: metrics.cellSize
+                )
+                return cellPresentation(
+                    value,
+                    frame: frame,
+                    maximumCurrent: maximumCurrent,
+                    maximumDifference: maximumDifference,
+                    includesEmptyDetail: exposesEmptyCellsToAssistiveTech
+                )
             }
         }
+        let interactiveCells = cells.filter {
+            $0.hasInput || exposesEmptyCellsToAssistiveTech
+        }
+
+        return ZStack(alignment: .topLeading) {
+            Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) {
+                context,
+                _ in
+                for hour in 0..<24 where hour.isMultiple(of: 3) {
+                    let x = TypingHeatmapCellMetrics.axisWidth
+                        + metrics.spacing
+                        + CGFloat(hour) * (metrics.cellSize + metrics.spacing)
+                        + metrics.cellSize / 2
+                    context.draw(
+                        Text("\(hour)")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundColor(BattutaVisualStyle.instrumentSecondary),
+                        at: CGPoint(x: x, y: 7),
+                        anchor: .center
+                    )
+                }
+
+                for (rowIndex, weekday) in weekdays.enumerated() {
+                    let y = 14
+                        + metrics.spacing
+                        + CGFloat(rowIndex) * (metrics.cellSize + metrics.spacing)
+                        + metrics.cellSize / 2
+                    context.draw(
+                        Text(weekdayTitle(weekday))
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(BattutaVisualStyle.instrumentSecondary),
+                        at: CGPoint(x: 0, y: y),
+                        anchor: .leading
+                    )
+                }
+
+                for cell in cells {
+                    let path = Path(roundedRect: cell.frame, cornerRadius: 2)
+                    context.fill(path, with: .color(cell.color.opacity(cell.opacity)))
+                    context.stroke(
+                        path,
+                        with: .color(Color.white.opacity(0.035)),
+                        lineWidth: 1
+                    )
+                    context.draw(
+                        Text(cell.symbol)
+                            .font(.system(
+                                size: max(6, metrics.cellSize * 0.62),
+                                weight: .semibold
+                            ))
+                            .foregroundColor(Color.white.opacity(cell.symbolOpacity)),
+                        at: CGPoint(x: cell.frame.midX, y: cell.frame.midY),
+                        anchor: .center
+                    )
+                }
+            }
+            .frame(width: canvasWidth, height: canvasHeight)
+            .accessibilityHidden(true)
+
+            ForEach(interactiveCells) { cell in
+                rhythmInteraction(cell)
+                    .offset(x: cell.frame.minX, y: cell.frame.minY)
+            }
+        }
+        .frame(width: canvasWidth, height: canvasHeight, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func rhythmCell(
+    private func cellPresentation(
         _ value: TypingWeekdayHourAggregate,
+        frame: CGRect,
         maximumCurrent: Double,
         maximumDifference: Double,
-        exposesEmptyCellsToAssistiveTech: Bool
-    ) -> some View {
+        includesEmptyDetail: Bool
+    ) -> CellPresentation {
         let delta = significantDifference(for: value)
         let color: Color
         let opacity: Double
@@ -967,37 +1035,29 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
             }
         }
 
-        let content = Text(symbol)
-            .font(.system(size: max(6, metrics.cellSize * 0.62), weight: .semibold))
-            .foregroundStyle(Color.white.opacity(mode == .difference && delta == 0 ? 0.42 : 0.90))
-            .frame(width: metrics.cellSize, height: metrics.cellSize)
-            .background(
-                color.opacity(opacity),
-                in: RoundedRectangle(cornerRadius: 2, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .stroke(Color.white.opacity(0.035), lineWidth: 1)
-        }
+        return CellPresentation(
+            value: value,
+            frame: frame,
+            color: color,
+            opacity: opacity,
+            symbol: symbol,
+            symbolOpacity: mode == .difference && delta == 0 ? 0.42 : 0.90,
+            detail: value.characterCount > 0
+                || value.comparisonCharacterCount > 0
+                || includesEmptyDetail
+                ? detailText(value)
+                : ""
+        )
+    }
 
-        let hasInput = value.characterCount > 0 || value.comparisonCharacterCount > 0
-        let detail = hasInput || exposesEmptyCellsToAssistiveTech ? detailText(value) : ""
-        return Group {
-            if hasInput {
-                content
-                    .help(detail)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(weekdayTitle(value.weekday)) \(value.hour) 点")
-                    .accessibilityValue(detail)
-            } else if exposesEmptyCellsToAssistiveTech {
-                content
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(weekdayTitle(value.weekday)) \(value.hour) 点")
-                    .accessibilityValue(detail)
-            } else {
-                content.accessibilityHidden(true)
-            }
-        }
+    private func rhythmInteraction(_ cell: CellPresentation) -> some View {
+        Color.clear
+            .frame(width: cell.frame.width, height: cell.frame.height)
+            .contentShape(Rectangle())
+            .help(cell.hasInput ? cell.detail : "")
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(weekdayTitle(cell.value.weekday)) \(cell.value.hour) 点")
+            .accessibilityValue(cell.detail)
     }
 
     private func normalized(_ value: Double, maximum: Double) -> Double {

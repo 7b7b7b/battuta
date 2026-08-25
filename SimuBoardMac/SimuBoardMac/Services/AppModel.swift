@@ -190,11 +190,15 @@ final class AppModel: ObservableObject {
                 } else {
                     settings.selectedProfileID
                 }
-                if descriptors.contains(where: { $0.id == requestedID }) {
-                    if settings.selectedProfileID == requestedID {
-                        loadSoundPack(selectionID: requestedID)
+                let resolvedID = Self.resolveBundledReplacement(
+                    for: requestedID,
+                    descriptors: descriptors
+                )
+                if descriptors.contains(where: { $0.id == resolvedID }) {
+                    if settings.selectedProfileID == resolvedID {
+                        loadSoundPack(selectionID: resolvedID)
                     } else {
-                        settings.selectedProfileID = requestedID
+                        settings.selectedProfileID = resolvedID
                     }
                 } else {
                     settings.selectedProfileID = SwitchProfile.holyPanda.rawValue
@@ -203,7 +207,7 @@ final class AppModel: ObservableObject {
                 return
             } catch {
                 guard let self else { return }
-                soundPackError = "无法读取 DIY 音色库：\(error.localizedDescription)"
+                soundPackError = "无法读取音色库：\(error.localizedDescription)"
             }
         }
     }
@@ -419,9 +423,9 @@ final class AppModel: ObservableObject {
             return
         }
 
-        guard let packID = Self.customPackID(from: selectionID) else {
+        guard let descriptor = soundPacks.first(where: { $0.id == selectionID }) else {
             audioEngine.load(profile: .holyPanda)
-            soundPackError = "无法识别所选 DIY 音色。"
+            soundPackError = "无法识别所选音色。"
             syncAudioError()
             return
         }
@@ -429,7 +433,7 @@ final class AppModel: ObservableObject {
         let library = soundPackLibrary
         selectionLoadTask = Task { [weak self] in
             do {
-                let document = try await library.loadCustomPack(id: packID)
+                let document = try await library.loadPack(for: descriptor)
                 try Task.checkCancellation()
                 guard let self, settings.selectedProfileID == selectionID else { return }
                 if audioEngine.load(document: document) {
@@ -439,18 +443,29 @@ final class AppModel: ObservableObject {
                     let fallback = document.manifest.baseProfileID
                         .flatMap(SwitchProfile.init(rawValue:)) ?? .holyPanda
                     audioEngine.load(profile: fallback)
-                    soundPackError = "DIY 音色载入失败，已回退到 \(fallback.displayName)：\(reason)"
+                    soundPackError = "音色载入失败，已回退到 \(fallback.displayName)：\(reason)"
                 }
                 syncAudioError()
             } catch is CancellationError {
                 return
             } catch {
                 guard let self, settings.selectedProfileID == selectionID else { return }
-                soundPackError = "无法载入 DIY 音色：\(error.localizedDescription)"
+                soundPackError = "无法载入音色：\(error.localizedDescription)"
                 audioEngine.load(profile: .holyPanda)
                 syncAudioError()
             }
         }
+    }
+
+    private static func resolveBundledReplacement(
+        for selectionID: String,
+        descriptors: [SoundPackDescriptor]
+    ) -> String {
+        guard let customID = customPackID(from: selectionID),
+              let bundled = descriptors.first(where: { $0.bundledPackID == customID }) else {
+            return selectionID
+        }
+        return bundled.id
     }
 
     private static func customPackID(from selectionID: String) -> UUID? {

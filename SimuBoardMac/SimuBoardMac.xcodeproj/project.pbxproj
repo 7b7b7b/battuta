@@ -19,6 +19,7 @@
 		A1000000000000000000000A /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* Audio */; };
 		A1000000000000000000000B /* THIRD_PARTY_NOTICES.txt in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* Assets.xcassets */; };
+		A81000000000000000000001 /* BundledSoundPacks in Resources */ = {isa = PBXBuildFile; fileRef = B81000000000000000000001 /* BundledSoundPacks */; };
 		A90000000000000000000001 /* SPARKLE_LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B90000000000000000000001 /* SPARKLE_LICENSE.txt */; };
 		A20000000000000000000001 /* KeyboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* KeyboardLayout.swift */; };
 		A20000000000000000000002 /* SoundPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* SoundPack.swift */; };
@@ -72,6 +73,7 @@
 		B1000000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B1000000000000000000000D /* Battuta.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Battuta.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B81000000000000000000001 /* BundledSoundPacks */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BundledSoundPacks; sourceTree = "<group>"; };
 		B20000000000000000000001 /* KeyboardLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardLayout.swift; sourceTree = "<group>"; };
 		B20000000000000000000002 /* SoundPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPack.swift; sourceTree = "<group>"; };
 		B20000000000000000000003 /* SemanticVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticVersion.swift; sourceTree = "<group>"; };
@@ -206,6 +208,7 @@
 			isa = PBXGroup;
 			children = (
 				B1000000000000000000000A /* Audio */,
+				B81000000000000000000001 /* BundledSoundPacks */,
 				B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */,
 				B90000000000000000000001 /* SPARKLE_LICENSE.txt */,
 			);
@@ -276,6 +279,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000000000000000000000A /* Audio in Resources */,
+				A81000000000000000000001 /* BundledSoundPacks in Resources */,
 				A1000000000000000000000B /* THIRD_PARTY_NOTICES.txt in Resources */,
 				A90000000000000000000001 /* SPARKLE_LICENSE.txt in Resources */,
 				A1000000000000000000000C /* Assets.xcassets in Resources */,
@@ -399,14 +403,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 26;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -421,14 +425,14 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 26;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
 				PRODUCT_NAME = Battuta;
 				SWIFT_STRICT_CONCURRENCY = complete;

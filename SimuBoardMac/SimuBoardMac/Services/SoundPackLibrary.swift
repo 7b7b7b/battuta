@@ -4,22 +4,28 @@ actor SoundPackLibrary {
     private let fileManager: FileManager
     private let limits: SoundPackValidationLimits
     private let builtInDescriptors: [SoundPackDescriptor]
+    private let bundledPackRootURL: URL?
+    private var cachedBundledPacks: [UUID: SoundPackDocument]?
     let rootURL: URL
 
     init(
         rootURL: URL? = nil,
         builtInDescriptors: [SoundPackDescriptor] = SoundPackDescriptor.bundledDefaults,
+        bundledPackRootURL: URL? = SoundPackLibrary.defaultBundledPackRootURL(),
         limits: SoundPackValidationLimits = .standard,
         fileManager: FileManager = .default
     ) {
         self.fileManager = fileManager
         self.limits = limits
         self.builtInDescriptors = builtInDescriptors
+        self.bundledPackRootURL = bundledPackRootURL
         self.rootURL = rootURL ?? Self.defaultRootURL(fileManager: fileManager)
     }
 
     func descriptors() throws -> [SoundPackDescriptor] {
         try ensureRootDirectory()
+        let bundledPacks = try loadBundledPacks()
+        let bundledPackIDs = Set(bundledPacks.keys)
         let candidates = try fileManager.contentsOfDirectory(
             at: rootURL,
             includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
@@ -29,6 +35,12 @@ actor SoundPackLibrary {
         var custom: [SoundPackDescriptor] = []
         for candidate in candidates where candidate.pathExtension.lowercased() == "simuboardpack" {
             guard let packID = UUID(uuidString: candidate.deletingPathExtension().lastPathComponent) else {
+                continue
+            }
+            guard !bundledPackIDs.contains(packID) else {
+                // A formerly local pack becomes read-only once the same UUID is
+                // shipped in the app. Keep the user's file untouched, but hide
+                // the duplicate picker entry.
                 continue
             }
             do {
@@ -41,7 +53,12 @@ actor SoundPackLibrary {
         custom.sort { lhs, rhs in
             lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
-        return builtInDescriptors + custom
+        let bundled = bundledPacks.values
+            .map(\.descriptor)
+            .sorted { lhs, rhs in
+                lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }
+        return builtInDescriptors + bundled + custom
     }
 
     func descriptor(for selectionID: String) throws -> SoundPackDescriptor? {
@@ -77,6 +94,20 @@ actor SoundPackLibrary {
             manifest: manifest,
             rootURL: url
         )
+    }
+
+    func loadPack(for descriptor: SoundPackDescriptor) throws -> SoundPackDocument {
+        switch descriptor.origin {
+        case let .bundledPack(packID):
+            guard let document = try loadBundledPacks()[packID] else {
+                throw SoundPackError.packNotFound(packID)
+            }
+            return document
+        case let .custom(packID):
+            return try loadCustomPack(id: packID)
+        case .bundled:
+            throw SoundPackError.invalidManifest("静态内置音色不使用音色包")
+        }
     }
 
     /// Resolves an imported pack's collision policy and installs it in one
@@ -263,6 +294,60 @@ actor SoundPackLibrary {
         }
     }
 
+    private func loadBundledPacks() throws -> [UUID: SoundPackDocument] {
+        if let cachedBundledPacks { return cachedBundledPacks }
+        guard let bundledPackRootURL,
+              fileManager.fileExists(atPath: bundledPackRootURL.path) else {
+            cachedBundledPacks = [:]
+            return [:]
+        }
+
+        let rootValues = try bundledPackRootURL.resourceValues(forKeys: [
+            .isDirectoryKey,
+            .isSymbolicLinkKey,
+            .isAliasFileKey,
+        ])
+        guard rootValues.isDirectory == true,
+              rootValues.isSymbolicLink != true,
+              rootValues.isAliasFile != true else {
+            throw SoundPackError.unsafeFile(bundledPackRootURL.path)
+        }
+
+        let candidates = try fileManager.contentsOfDirectory(
+            at: bundledPackRootURL,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+            options: [.skipsHiddenFiles]
+        )
+        var documents: [UUID: SoundPackDocument] = [:]
+        for candidate in candidates where candidate.pathExtension.lowercased() == "simuboardpack" {
+            guard let directoryID = UUID(
+                uuidString: candidate.deletingPathExtension().lastPathComponent
+            ) else {
+                continue
+            }
+            do {
+                let manifest = try SoundPackPackageValidator.validatePackage(
+                    at: candidate,
+                    limits: limits,
+                    fileManager: fileManager
+                )
+                guard manifest.id == directoryID else { continue }
+                let descriptor = SoundPackDescriptor.bundledPack(manifest: manifest)
+                documents[directoryID] = SoundPackDocument(
+                    descriptor: descriptor,
+                    manifest: manifest,
+                    rootURL: candidate
+                )
+            } catch {
+                // One damaged bundled package must not hide the remaining
+                // built-in sounds. Release validation verifies the shipped pack.
+                continue
+            }
+        }
+        cachedBundledPacks = documents
+        return documents
+    }
+
     private func copySuppliedLicenses(
         _ licenses: [String: URL],
         to staging: URL
@@ -314,5 +399,12 @@ actor SoundPackLibrary {
         return applicationSupport
             .appendingPathComponent("SimuBoard", isDirectory: true)
             .appendingPathComponent("SoundPacks", isDirectory: true)
+    }
+
+    private static func defaultBundledPackRootURL() -> URL? {
+        Bundle.main.resourceURL?.appendingPathComponent(
+            "BundledSoundPacks",
+            isDirectory: true
+        )
     }
 }

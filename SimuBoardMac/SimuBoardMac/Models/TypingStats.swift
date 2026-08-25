@@ -123,6 +123,21 @@ struct TypingRangeReportSnapshot: Equatable, Sendable {
     /// Union of applications found in the selected and comparison ranges.
     let applications: [TypingRangeApplicationSummary]
     let coverage: TypingReportDataCoverage
+
+    /// Refresh timestamps are metadata; they must not force the full history view
+    /// to rebuild when every value visible to the user is unchanged.
+    func hasSameVisibleContent(as other: TypingRangeReportSnapshot) -> Bool {
+        range == other.range
+            && comparisonRange == other.comparisonRange
+            && metrics == other.metrics
+            && comparisonMetrics == other.comparisonMetrics
+            && days == other.days
+            && weekdayDistribution == other.weekdayDistribution
+            && hourlyDistribution == other.hourlyDistribution
+            && weekdayHourDistribution == other.weekdayHourDistribution
+            && applications == other.applications
+            && coverage == other.coverage
+    }
 }
 
 struct TypingBucket: Equatable, Identifiable, Sendable {
@@ -131,6 +146,29 @@ struct TypingBucket: Equatable, Identifiable, Sendable {
     let characterCount: Int64
 
     var id: Int { index }
+}
+
+struct TypingStatsSnapshotSections: OptionSet, Hashable, Sendable {
+    let rawValue: Int
+
+    static let recentBuckets = TypingStatsSnapshotSections(rawValue: 1 << 0)
+    static let applications = TypingStatsSnapshotSections(rawValue: 1 << 1)
+    static let recentAppTimelines = TypingStatsSnapshotSections(rawValue: 1 << 2)
+    static let history = TypingStatsSnapshotSections(rawValue: 1 << 3)
+    static let keyCounts = TypingStatsSnapshotSections(rawValue: 1 << 4)
+
+    static let all: TypingStatsSnapshotSections = [
+        .recentBuckets,
+        .applications,
+        .recentAppTimelines,
+        .history,
+        .keyCounts,
+    ]
+}
+
+struct TypingStatsSnapshotRequest: Equatable, Sendable {
+    let timelineRange: TypingTimelineRange
+    let sections: TypingStatsSnapshotSections
 }
 
 enum TypingTimelineRange: String, CaseIterable, Identifiable, Sendable {
@@ -291,6 +329,20 @@ struct TypingStatsSnapshot: Equatable, Sendable {
 
     var allTimePhysicalPresses: Int64 {
         allTimeKeyCounts.values.reduce(0, +)
+    }
+
+    /// Ignore `generatedAt` when deciding whether an automatic refresh needs to
+    /// invalidate the heavy snapshot views. Read time is published separately.
+    func hasSameVisibleContent(as other: TypingStatsSnapshot) -> Bool {
+        lastInputAt == other.lastInputAt
+            && today == other.today
+            && timelineRange == other.timelineRange
+            && recentBuckets == other.recentBuckets
+            && apps == other.apps
+            && recentAppTimelines == other.recentAppTimelines
+            && history == other.history
+            && todayKeyCounts == other.todayKeyCounts
+            && allTimeKeyCounts == other.allTimeKeyCounts
     }
 }
 

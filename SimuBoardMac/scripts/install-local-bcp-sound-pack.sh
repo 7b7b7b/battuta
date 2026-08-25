@@ -30,7 +30,8 @@ PACK_BASE_PROFILE_ID="holypanda"
 PACK_SELECTION_ID="custom:15d04652-5265-4ea7-a376-8a7e11ff6813"
 ATTRIBUTION_TITLE="【打字声音】Suit80｜BCP轴｜GMK Ursa 大熊 - Original.mp4"
 ATTRIBUTION_AUTHOR="J_Eason001"
-ATTRIBUTION_NOTICE="Permission unverified. Local evaluation only. Do not redistribute."
+ATTRIBUTION_LICENSE_NAME="Used with permission"
+ATTRIBUTION_NOTICE="Redistribution authorized; the permission record is retained by the Battuta maintainer."
 PACK_DIRECTORY_NAME="${PACK_UUID}.simuboardpack"
 DEFAULTS_DOMAIN=${SIMUBOARD_DEFAULTS_DOMAIN:-com.simuboard.mac}
 DEFAULTS_EXECUTABLE=${SIMUBOARD_DEFAULTS_EXECUTABLE:-defaults}
@@ -394,6 +395,7 @@ build_target_fingerprint() {
     --arg baseProfileID "$PACK_BASE_PROFILE_ID" \
     --arg title "$ATTRIBUTION_TITLE" \
     --arg author "$ATTRIBUTION_AUTHOR" \
+    --arg licenseName "$ATTRIBUTION_LICENSE_NAME" \
     --arg notice "$ATTRIBUTION_NOTICE" \
     --slurpfile assets "$ASSETS_OBJECT_FILE" \
     --slurpfile pressRows "$PRESS_ROWS_FILE" \
@@ -430,7 +432,7 @@ build_target_fingerprint() {
           title: $title,
           author: $author,
           sourceURL: null,
-          licenseName: null,
+          licenseName: $licenseName,
           notice: $notice
         }
       ]
@@ -521,6 +523,7 @@ validate_fixed_bcp_pack() {
     --arg baseProfileID "$PACK_BASE_PROFILE_ID" \
     --arg title "$ATTRIBUTION_TITLE" \
     --arg author "$ATTRIBUTION_AUTHOR" \
+    --arg licenseName "$ATTRIBUTION_LICENSE_NAME" \
     --arg notice "$ATTRIBUTION_NOTICE" \
     '
       (.schemaVersion == 1)
@@ -553,7 +556,7 @@ validate_fixed_bcp_pack() {
         title: $title,
         author: $author,
         sourceURL: null,
-        licenseName: null,
+        licenseName: $licenseName,
         notice: $notice
       }])
     ' "$manifest_path" >/dev/null 2>&1 || fail "$context_message"
@@ -706,6 +709,7 @@ write_manifest() {
     --arg modifiedAt "$modified_at" \
     --arg title "$ATTRIBUTION_TITLE" \
     --arg author "$ATTRIBUTION_AUTHOR" \
+    --arg licenseName "$ATTRIBUTION_LICENSE_NAME" \
     --arg notice "$ATTRIBUTION_NOTICE" \
     --slurpfile assets "$ASSETS_OBJECT_FILE" \
     --slurpfile pressRows "$PRESS_ROWS_FILE" \
@@ -744,7 +748,7 @@ write_manifest() {
           title: $title,
           author: $author,
           sourceURL: null,
-          licenseName: null,
+          licenseName: $licenseName,
           notice: $notice
         }
       ]

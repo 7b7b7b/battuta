@@ -96,7 +96,11 @@ struct TypingStatsView: View {
 
                 Button {
                     Task {
-                        await model.refresh()
+                        await model.refresh(
+                            for: refreshTarget(for: selectedSection),
+                            showsActivity: true,
+                            publishesUnchangedSnapshot: true
+                        )
                         if selectedSection == .history {
                             await model.refreshCurrentReport()
                         }
@@ -129,7 +133,11 @@ struct TypingStatsView: View {
                 Spacer()
 
                 if let snapshot = model.snapshot {
-                    dataFreshness(snapshot)
+                    TypingStatsDataFreshnessView(
+                        readStatus: model.readStatus,
+                        dataDate: snapshot.today.lastUpdatedAt ?? snapshot.lastInputAt,
+                        fallbackReadDate: snapshot.generatedAt
+                    )
                 }
             }
         }
@@ -241,23 +249,11 @@ struct TypingStatsView: View {
         return (title, symbol, color)
     }
 
-    private func dataFreshness(_ snapshot: TypingStatsSnapshot) -> some View {
-        HStack(spacing: 12) {
-            if let dataDate = snapshot.today.lastUpdatedAt ?? snapshot.lastInputAt {
-                Label("数据截至 \(statsTimestamp(dataDate))", systemImage: "clock")
-            }
-            Text("读取于 \(snapshot.generatedAt.formatted(date: .omitted, time: .standard))")
-        }
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-        .monospacedDigit()
-    }
-
     private func refreshWhileVisible(
         section: TypingStatsSection,
         range: TypingTimelineRange
     ) async {
-        await model.refresh()
+        await model.refresh(for: refreshTarget(for: section))
         // The history page owns its one-off annual report refresh. Keeping the
         // today-page polling loop alive here needlessly rebuilt the full 365-day
         // chart every few seconds while the user was reading or scrolling it.
@@ -266,7 +262,7 @@ struct TypingStatsView: View {
         while !Task.isCancelled {
             do {
                 try await Task.sleep(
-                    for: .seconds(range.refreshIntervalSeconds)
+                    for: .seconds(refreshInterval(for: section, range: range))
                 )
             } catch is CancellationError {
                 return
@@ -276,8 +272,54 @@ struct TypingStatsView: View {
             guard selectedSection == section, model.timelineRange == range else {
                 return
             }
-            await model.refresh()
+            await model.refresh(for: refreshTarget(for: section))
         }
+    }
+
+    private func refreshInterval(
+        for section: TypingStatsSection,
+        range: TypingTimelineRange
+    ) -> Double {
+        switch section {
+        case .today:
+            return range.refreshIntervalSeconds
+        case .history:
+            return max(60, range.refreshIntervalSeconds)
+        case .keyboard:
+            return max(15, range.refreshIntervalSeconds)
+        }
+    }
+
+    private func refreshTarget(for section: TypingStatsSection) -> TypingStatsRefreshTarget {
+        switch section {
+        case .today:
+            .overview
+        case .history:
+            .history
+        case .keyboard:
+            .keyboard
+        }
+    }
+}
+
+@MainActor
+private struct TypingStatsDataFreshnessView: View {
+    @ObservedObject var readStatus: TypingStatsReadStatus
+    let dataDate: Date?
+    let fallbackReadDate: Date
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let dataDate {
+                Label("数据截至 \(statsTimestamp(dataDate))", systemImage: "clock")
+            }
+            Text(
+                "读取于 \((readStatus.lastReadAt ?? fallbackReadDate).formatted(date: .omitted, time: .standard))"
+            )
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .monospacedDigit()
     }
 }
 
