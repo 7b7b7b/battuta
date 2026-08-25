@@ -56,7 +56,7 @@ jobs:
         shell: pwsh
         run: >-
           dotnet test --project .\BattutaWindows\tests\Battuta.Windows.Tests\Battuta.Windows.Tests.csproj
-          --configuration Release --no-build --no-restore --minimum-expected-tests 1
+          --configuration Release --no-build --no-restore --minimum-expected-tests 223
           --no-progress --output Normal
 
       - name: Build and verify portable package
