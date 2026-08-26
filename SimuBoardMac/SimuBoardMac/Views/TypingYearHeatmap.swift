@@ -79,7 +79,7 @@ struct TypingYearHeatmap: View, Equatable {
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
 
-                Text("\(presentation.rangeDescription) · 每个方格代表一天，颜色越亮表示输入越多")
+                Text("\(presentation.rangeDescription) · 每格一天，颜色按当前可见数据自动连续映射")
                     .font(.caption)
                     .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
             }
@@ -117,7 +117,7 @@ struct TypingYearHeatmap: View, Equatable {
                 }
             }
 
-            legend(metrics: metrics)
+            legend(presentation: presentation, metrics: metrics)
                 .frame(width: totalWidth, alignment: .trailing)
         }
         .fixedSize(horizontal: true, vertical: false)
@@ -176,110 +176,27 @@ struct TypingYearHeatmap: View, Equatable {
         metrics: TypingHeatmapCellMetrics,
         exposesEmptyCellsToAssistiveTech: Bool
     ) -> some View {
-        let gridWidth = gridWidth(presentation: presentation, metrics: metrics)
-        let gridHeight = CGFloat(7) * metrics.cellSize + CGFloat(6) * metrics.spacing
-        let interactiveCells = presentation.weeks
-            .lazy
-            .flatMap(\.cells)
-            .filter(\.isVisible)
-
-        return ZStack(alignment: .topLeading) {
-            Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) {
-                context,
-                _ in
-                for week in presentation.weeks {
-                    for cell in week.cells where cell.isVisible {
-                        let rect = CGRect(
-                            x: CGFloat(week.index) * (metrics.cellSize + metrics.spacing),
-                            y: CGFloat(cell.weekdayIndex) * (metrics.cellSize + metrics.spacing),
-                            width: metrics.cellSize,
-                            height: metrics.cellSize
-                        )
-                        let path = Path(roundedRect: rect, cornerRadius: 2)
-                        context.fill(path, with: .color(color(for: cell.level)))
-                        context.stroke(
-                            path,
-                            with: .color(BattutaVisualStyle.instrumentSeparator),
-                            lineWidth: 0.5
-                        )
-                    }
-                }
-            }
-            .frame(width: gridWidth, height: gridHeight)
-            .accessibilityHidden(true)
-
-            ForEach(Array(interactiveCells)) { cell in
-                dayInteraction(
-                    cell,
-                    metrics: metrics,
-                    exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
-                )
-                .offset(
-                    x: CGFloat(cell.weekIndex) * (metrics.cellSize + metrics.spacing),
-                    y: CGFloat(cell.weekdayIndex) * (metrics.cellSize + metrics.spacing)
-                )
-            }
-        }
-        .frame(
-            width: gridWidth,
-            height: gridHeight,
-            alignment: .leading
+        TypingYearHeatmapInteractiveGrid(
+            presentation: presentation,
+            metrics: metrics,
+            exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
         )
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("每日输入热力图")
     }
 
-    @ViewBuilder
-    private func dayInteraction(
-        _ cell: TypingYearHeatmapPresentation.DayCell,
-        metrics: TypingHeatmapCellMetrics,
-        exposesEmptyCellsToAssistiveTech: Bool
+    private func legend(
+        presentation: TypingYearHeatmapPresentation,
+        metrics: TypingHeatmapCellMetrics
     ) -> some View {
-        let hitTarget = Color.clear
-            .frame(width: metrics.cellSize, height: metrics.cellSize)
-            .contentShape(Rectangle())
-            .help(cell.helpText)
-
-        if cell.hasInput {
-            hitTarget
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(cell.dateText)
-                .accessibilityValue(cell.accessibilityValue)
-        } else if exposesEmptyCellsToAssistiveTech {
-            hitTarget
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(cell.dateText)
-                .accessibilityValue(cell.accessibilityValue)
-        } else {
-            hitTarget.accessibilityHidden(true)
-        }
-    }
-
-    private func legend(metrics: TypingHeatmapCellMetrics) -> some View {
-        HStack(spacing: 6 * scale(metrics)) {
-            Text("少")
-                .font(.system(size: max(7, 9 * scale(metrics))))
-                .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
-
-            HStack(spacing: metrics.spacing) {
-                ForEach(0..<5, id: \.self) { level in
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(color(for: level))
-                        .frame(width: metrics.cellSize, height: metrics.cellSize)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .stroke(BattutaVisualStyle.instrumentSeparator, lineWidth: 0.5)
-                        }
-                }
-            }
-            .accessibilityHidden(true)
-
-            Text("多")
-                .font(.system(size: max(7, 9 * scale(metrics))))
-                .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("颜色图例，从少到多，共五级")
+        BattutaHeatmapLegend(
+            leadingLabel: presentation.heatScale.hasValues
+                ? "少 \(statsCount(Int64(presentation.heatScale.low.rounded())))"
+                : "少 0",
+            trailingLabel: presentation.heatScale.hasValues
+                ? "多 ≥\(statsCount(Int64(presentation.heatScale.high.rounded())))"
+                : "多 0",
+            barWidth: max(76, 112 * scale(metrics)),
+            labelColor: BattutaVisualStyle.instrumentSecondary
+        )
     }
 
     private func gridWidth(
@@ -302,21 +219,161 @@ struct TypingYearHeatmap: View, Equatable {
         TypingHeatmapCellMetrics.spacing
     }
 
-    private func color(for level: Int) -> Color {
-        switch level {
-        case 1:
-            return BattutaVisualStyle.accent.opacity(0.24)
-        case 2:
-            return BattutaVisualStyle.accent.opacity(0.42)
-        case 3:
-            return BattutaVisualStyle.accent.opacity(0.66)
-        case 4:
-            return BattutaVisualStyle.accent.opacity(0.92)
-        default:
-            return BattutaVisualStyle.instrumentSeparator.opacity(0.64)
+}
+
+@MainActor
+private struct TypingYearHeatmapInteractiveGrid: View {
+    let presentation: TypingYearHeatmapPresentation
+    let metrics: TypingHeatmapCellMetrics
+    let exposesEmptyCellsToAssistiveTech: Bool
+
+    @State private var hoveredCellID: Int?
+    @State private var pinnedCellID: Int?
+
+    private var gridWidth: CGFloat {
+        CGFloat(presentation.weekCount) * metrics.cellSize
+            + CGFloat(max(0, presentation.weekCount - 1)) * metrics.spacing
+    }
+
+    private var gridHeight: CGFloat {
+        CGFloat(7) * metrics.cellSize + CGFloat(6) * metrics.spacing
+    }
+
+    private var visibleCells: [TypingYearHeatmapPresentation.DayCell] {
+        presentation.weeks.flatMap(\.cells).filter(\.isVisible)
+    }
+
+    private var activeCell: TypingYearHeatmapPresentation.DayCell? {
+        let activeID = pinnedCellID ?? hoveredCellID
+        return visibleCells.first { $0.id == activeID }
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) {
+                context,
+                _ in
+                for week in presentation.weeks {
+                    for cell in week.cells where cell.isVisible {
+                        let rect = frame(for: cell)
+                        let path = Path(roundedRect: rect, cornerRadius: 2)
+                        context.fill(path, with: .color(color(for: cell)))
+                        context.stroke(
+                            path,
+                            with: .color(BattutaVisualStyle.instrumentSeparator),
+                            lineWidth: 0.5
+                        )
+                    }
+                }
+            }
+            .frame(width: gridWidth, height: gridHeight)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                pinnedCellID = nil
+            }
+            .accessibilityHidden(true)
+
+            ForEach(visibleCells) { cell in
+                dayInteraction(cell)
+                    .offset(
+                        x: frame(for: cell).minX,
+                        y: frame(for: cell).minY
+                    )
+            }
+
+            if let activeCell {
+                if pinnedCellID == activeCell.id {
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .stroke(BattutaVisualStyle.accent, lineWidth: 1.5)
+                        .frame(width: metrics.cellSize + 2, height: metrics.cellSize + 2)
+                        .position(
+                            x: frame(for: activeCell).midX,
+                            y: frame(for: activeCell).midY
+                        )
+                        .allowsHitTesting(false)
+                }
+
+                BattutaHeatmapTooltip(
+                    text: activeCell.detailText,
+                    isPinned: pinnedCellID == activeCell.id,
+                    maxWidth: 230
+                )
+                .frame(width: 230)
+                .position(tooltipPosition(for: activeCell))
+                .transition(.opacity)
+                .zIndex(2)
+            }
+        }
+        .frame(width: gridWidth, height: gridHeight, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("每日输入热力图")
+        .onExitCommand {
+            pinnedCellID = nil
+            hoveredCellID = nil
         }
     }
 
+    @ViewBuilder
+    private func dayInteraction(
+        _ cell: TypingYearHeatmapPresentation.DayCell
+    ) -> some View {
+        let hitTarget = Color.clear
+            .frame(width: metrics.cellSize, height: metrics.cellSize)
+            .contentShape(Rectangle())
+            .onHover { isInside in
+                if isInside {
+                    hoveredCellID = cell.id
+                } else if hoveredCellID == cell.id {
+                    hoveredCellID = nil
+                }
+            }
+            .onTapGesture {
+                pinnedCellID = pinnedCellID == cell.id ? nil : cell.id
+            }
+
+        if cell.hasInput || exposesEmptyCellsToAssistiveTech {
+            hitTarget
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(cell.dateText)
+                .accessibilityValue(cell.accessibilityValue)
+        } else {
+            hitTarget.accessibilityHidden(true)
+        }
+    }
+
+    private func frame(
+        for cell: TypingYearHeatmapPresentation.DayCell
+    ) -> CGRect {
+        CGRect(
+            x: CGFloat(cell.weekIndex) * (metrics.cellSize + metrics.spacing),
+            y: CGFloat(cell.weekdayIndex) * (metrics.cellSize + metrics.spacing),
+            width: metrics.cellSize,
+            height: metrics.cellSize
+        )
+    }
+
+    private func color(
+        for cell: TypingYearHeatmapPresentation.DayCell
+    ) -> Color {
+        guard cell.hasInput else {
+            return BattutaVisualStyle.instrumentSeparator.opacity(0.64)
+        }
+        return BattutaHeatmapPalette.sequentialColor(at: cell.normalizedIntensity)
+    }
+
+    private func tooltipPosition(
+        for cell: TypingYearHeatmapPresentation.DayCell
+    ) -> CGPoint {
+        let cellFrame = frame(for: cell)
+        let halfWidth: CGFloat = 115
+        let x = min(
+            max(halfWidth, cellFrame.midX),
+            max(halfWidth, gridWidth - halfWidth)
+        )
+        let prefersBelow = cellFrame.midY < gridHeight / 2
+        let proposedY = cellFrame.midY + (prefersBelow ? 34 : -34)
+        return CGPoint(x: x, y: min(gridHeight - 23, max(23, proposedY)))
+    }
 }
 
 /// Immutable render data keeps calendar traversal, indexing, and string formatting
@@ -327,9 +384,10 @@ private struct TypingYearHeatmapPresentation: Equatable {
         let date: Date?
         let isVisible: Bool
         let hasInput: Bool
-        let level: Int
+        let characterCount: Int64
+        let normalizedIntensity: Double
         let dateText: String
-        let helpText: String
+        let detailText: String
         let accessibilityValue: String
 
         var weekIndex: Int { id / 7 }
@@ -346,6 +404,7 @@ private struct TypingYearHeatmapPresentation: Equatable {
     let rangeDescription: String
     let weekCount: Int
     let monthMarkers: [MonthMarker]
+    let heatScale: TypingHeatmapScale
     let weeks: [Week]
 
     init(range: TypingDateRange, days: [TypingDaySummary], calendar: Calendar) {
@@ -367,10 +426,11 @@ private struct TypingYearHeatmapPresentation: Equatable {
         let countsByDate = days.reduce(into: [Date: Int64]()) { result, summary in
             result[calendar.startOfDay(for: summary.date)] = summary.characterCount
         }
-        let maximumCount = countsByDate.reduce(into: Int64(0)) { maximum, entry in
-            guard entry.key >= startDate, entry.key <= endDate else { return }
-            maximum = max(maximum, entry.value)
+        let visibleCounts = countsByDate.compactMap { entry -> Double? in
+            guard entry.key >= startDate, entry.key <= endDate else { return nil }
+            return Double(entry.value)
         }
+        let resolvedHeatScale = TypingHeatmapScale(values: visibleCounts)
 
         rangeDescription = "\(startDate.formatted(.dateTime.year().month().day())) – \(endDate.formatted(.dateTime.year().month().day()))"
         weekCount = resolvedWeekCount
@@ -380,6 +440,7 @@ private struct TypingYearHeatmapPresentation: Equatable {
             gridStartDate: gridStartDate,
             calendar: calendar
         )
+        heatScale = resolvedHeatScale
         weeks = (0..<resolvedWeekCount).map { weekIndex in
             let cells = (0..<7).map { weekdayIndex in
                 let id = weekIndex * 7 + weekdayIndex
@@ -394,15 +455,15 @@ private struct TypingYearHeatmapPresentation: Equatable {
                         date: nil,
                         isVisible: false,
                         hasInput: false,
-                        level: 0,
+                        characterCount: 0,
+                        normalizedIntensity: 0,
                         dateText: "",
-                        helpText: "",
+                        detailText: "",
                         accessibilityValue: ""
                     )
                 }
 
                 let count = countsByDate[date] ?? 0
-                let level = Self.heatLevel(for: count, maximumCount: maximumCount)
                 let dateText = date.formatted(.dateTime.year().month().day().weekday(.wide))
                 let formattedCount = count.formatted(.number.grouping(.automatic))
                 return DayCell(
@@ -410,12 +471,11 @@ private struct TypingYearHeatmapPresentation: Equatable {
                     date: date,
                     isVisible: true,
                     hasInput: count > 0,
-                    level: level,
+                    characterCount: count,
+                    normalizedIntensity: resolvedHeatScale.normalized(Double(count)),
                     dateText: dateText,
-                    helpText: "\(dateText) · \(formattedCount) 个字符",
-                    accessibilityValue: count > 0
-                        ? "\(formattedCount) 个字符，活跃度第 \(level + 1) 级，共 5 级"
-                        : "0 个字符"
+                    detailText: "\(dateText) · \(formattedCount) 个字符",
+                    accessibilityValue: "\(formattedCount) 个字符"
                 )
             }
             return Week(index: weekIndex, cells: cells)
@@ -424,12 +484,6 @@ private struct TypingYearHeatmapPresentation: Equatable {
 
     private static func mondayBasedWeekdayIndex(for date: Date, calendar: Calendar) -> Int {
         (calendar.component(.weekday, from: date) + 5) % 7
-    }
-
-    private static func heatLevel(for count: Int64, maximumCount: Int64) -> Int {
-        guard count > 0, maximumCount > 0 else { return 0 }
-        let normalized = log1p(Double(count)) / log1p(Double(maximumCount))
-        return min(4, max(1, Int(ceil(normalized * 4))))
     }
 
     private static func monthMarkers(

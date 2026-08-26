@@ -65,7 +65,7 @@ public partial class TypingStatsHistoryView : UserControl
             : Visibility.Visible;
 
         YearRangeText.Text =
-            $"{report.Range.StartDate:yyyy年M月d日} – {report.Range.EndDate:yyyy年M月d日} · 每个方格代表一天，颜色越亮表示输入越多";
+            $"{report.Range.StartDate:yyyy年M月d日} – {report.Range.EndDate:yyyy年M月d日} · 每格一天，色阶按当前区间的非零数据自动调整";
         YearHeatmap.Range = report.Range;
         YearHeatmap.Days = report.Days;
 

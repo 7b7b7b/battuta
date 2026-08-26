@@ -3,9 +3,12 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using Battuta.Core.Input;
+using Battuta.Windows.Stats.Visualization;
 
 namespace Battuta.Windows.Controls.Keyboard;
 
@@ -49,6 +52,7 @@ public sealed class KeyboardCanvas : FrameworkElement
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     private readonly List<(Rect Bounds, PhysicalKeyId Key)> _hitTargets = [];
+    private readonly ToolTip _keyToolTip;
     private PhysicalKeyId? _pressedKey;
 
     public KeyboardCanvas()
@@ -56,7 +60,21 @@ public sealed class KeyboardCanvas : FrameworkElement
         SnapsToDevicePixels = true;
         Focusable = true;
         AutomationProperties.SetName(this, "Windows ANSI 键盘");
-        ToolTip = "";
+        _keyToolTip = new ToolTip
+        {
+            Content = "Windows ANSI 键盘",
+            Placement = PlacementMode.MousePoint,
+            PlacementTarget = this,
+            HorizontalOffset = 12,
+            VerticalOffset = 16,
+            StaysOpen = true,
+        };
+        ToolTip = _keyToolTip;
+        ToolTipService.SetInitialShowDelay(this, 0);
+        ToolTipService.SetBetweenShowDelay(this, 0);
+        ToolTipService.SetShowDuration(this, int.MaxValue);
+        ToolTipService.SetIsEnabled(this, false);
+        Unloaded += (_, _) => _keyToolTip.IsOpen = false;
     }
 
     public event EventHandler<KeyboardCanvasKeyEventArgs>? KeyPressed;
@@ -118,6 +136,12 @@ public sealed class KeyboardCanvas : FrameworkElement
         var scale = Math.Max(.1, Math.Min(ActualWidth / baseWidth, ActualHeight / baseHeight));
         var offsetX = Math.Max(0, (ActualWidth - baseWidth * scale) / 2);
         var offsetY = Math.Max(0, (ActualHeight - baseHeight * scale) / 2);
+        var heatScale = AdaptiveHeatScale.FromNonZero(
+            layout.Placements
+                .Where(placement => placement.KeyId.HasValue)
+                .Select(placement => placement.KeyId!.Value)
+                .Distinct()
+                .Select(CountFor));
 
         drawingContext.PushTransform(new TranslateTransform(offsetX, offsetY));
         drawingContext.PushTransform(new ScaleTransform(scale, scale));
@@ -154,7 +178,8 @@ public sealed class KeyboardCanvas : FrameworkElement
                 statistics,
                 scale,
                 offsetX,
-                offsetY);
+                offsetY,
+                heatScale);
         }
 
         drawingContext.Pop();
@@ -208,14 +233,22 @@ public sealed class KeyboardCanvas : FrameworkElement
         var target = _hitTargets.LastOrDefault(item => item.Bounds.Contains(point));
         if (!target.Key.IsValid)
         {
-            ToolTip = "Windows ANSI 键盘";
+            _keyToolTip.IsOpen = false;
+            _keyToolTip.Content = "Windows ANSI 键盘";
             return;
         }
 
         var label = WindowsKeyDisplayCatalog.LabelFor(target.Key);
-        ToolTip = Mode == KeyboardCanvasMode.Statistics
+        _keyToolTip.Content = Mode == KeyboardCanvasMode.Statistics
             ? $"{label}：{CountFor(target.Key).ToString("N0", CultureInfo.CurrentCulture)} 次"
             : label;
+        _keyToolTip.IsOpen = true;
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _keyToolTip.IsOpen = false;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -277,7 +310,8 @@ public sealed class KeyboardCanvas : FrameworkElement
         bool statistics,
         double scale,
         double offsetX,
-        double offsetY)
+        double offsetY,
+        AdaptiveHeatScale heatScale)
     {
         _hitTargets.Add((
             new Rect(
@@ -293,19 +327,19 @@ public sealed class KeyboardCanvas : FrameworkElement
         Brush fill;
         Pen border;
         var count = CountFor(keyId);
+        var heatIntensity = 0d;
         if (statistics)
         {
-            var maximum = Math.Max(1, KeyCounts?.Values.DefaultIfEmpty().Max() ?? 0);
-            var intensity = count > 0
-                ? Math.Log(count + 1d) / Math.Log(maximum + 1d)
-                : 0;
-            var alpha = count == 0 ? (byte)0 : (byte)(255 * (.10 + intensity * .46));
-            fill = new SolidColorBrush(
-                count == 0
-                    ? Color.FromArgb(230, 37, 41, 37)
-                    : Color.FromArgb(alpha, 184, 232, 77));
-            var strokeAlpha = count == 0 ? (byte)48 : (byte)(255 * (.26 + intensity * .34));
-            border = new Pen(new SolidColorBrush(Color.FromArgb(strokeAlpha, 184, 232, 77)), 1);
+            heatIntensity = heatScale.Normalize(count);
+            var heatColor = BattutaHeatmapPalette.SequentialColor(heatIntensity);
+            fill = new SolidColorBrush(count == 0
+                ? Color.FromArgb(230, 37, 41, 37)
+                : heatColor);
+            border = new Pen(
+                new SolidColorBrush(count == 0
+                    ? Color.FromArgb(48, 255, 255, 255)
+                    : heatColor),
+                1);
         }
         else
         {
@@ -335,13 +369,19 @@ public sealed class KeyboardCanvas : FrameworkElement
             FontStyles.Normal,
             selected ? FontWeights.SemiBold : FontWeights.Normal,
             FontStretches.Normal);
+        var activeTextColor = heatIntensity >= .70
+            ? Color.FromArgb(214, 0, 0, 0)
+            : Color.FromArgb(240, 255, 255, 255);
+        var labelColor = statistics && count > 0
+            ? activeTextColor
+            : Color.FromArgb(235, 255, 255, 255);
         var text = new FormattedText(
             label,
             CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
             typeface,
             labelFont,
-            new SolidColorBrush(Color.FromArgb(235, 255, 255, 255)),
+            new SolidColorBrush(labelColor),
             VisualTreeHelper.GetDpi(this).PixelsPerDip)
         {
             MaxTextWidth = Math.Max(2, bounds.Width - 6),
@@ -363,7 +403,9 @@ public sealed class KeyboardCanvas : FrameworkElement
                     count > 0 ? FontWeights.SemiBold : FontWeights.Normal,
                     FontStretches.Normal),
                 8.5,
-                new SolidColorBrush(Color.FromArgb(count > 0 ? (byte)210 : (byte)110, 255, 255, 255)),
+                new SolidColorBrush(count > 0
+                    ? activeTextColor
+                    : Color.FromArgb(110, 255, 255, 255)),
                 VisualTreeHelper.GetDpi(this).PixelsPerDip)
             {
                 MaxTextWidth = Math.Max(2, bounds.Width - 6),

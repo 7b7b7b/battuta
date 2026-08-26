@@ -20,10 +20,22 @@
                         </Border>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                             <TextBlock Text="低" Style="{DynamicResource Battuta.Caption2Text}" />
-                            <Rectangle Width="18" Height="8" RadiusX="3" RadiusY="3" Fill="#1AB8E84D" Margin="6,0,0,0" />
-                            <Rectangle Width="18" Height="8" RadiusX="3" RadiusY="3" Fill="#40B8E84D" Margin="3,0,0,0" />
-                            <Rectangle Width="18" Height="8" RadiusX="3" RadiusY="3" Fill="#66B8E84D" Margin="3,0,0,0" />
-                            <Rectangle Width="18" Height="8" RadiusX="3" RadiusY="3" Fill="#8FB8E84D" Margin="3,0,6,0" />
+                            <Border Width="81" Height="8" Margin="6,0" CornerRadius="3" BorderBrush="#18FFFFFF" BorderThickness="1"
+                                    ToolTip="色阶按当前显示按键的非零计数自动调整">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                        <GradientStop Color="#440154" Offset="0" />
+                                        <GradientStop Color="#482475" Offset="0.13" />
+                                        <GradientStop Color="#414487" Offset="0.25" />
+                                        <GradientStop Color="#355F8D" Offset="0.38" />
+                                        <GradientStop Color="#21918D" Offset="0.5" />
+                                        <GradientStop Color="#22A884" Offset="0.63" />
+                                        <GradientStop Color="#44BF70" Offset="0.75" />
+                                        <GradientStop Color="#7AD151" Offset="0.88" />
+                                        <GradientStop Color="#BDDF26" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
                             <TextBlock Text="高" Style="{DynamicResource Battuta.Caption2Text}" />
                         </StackPanel>
                     </StackPanel>

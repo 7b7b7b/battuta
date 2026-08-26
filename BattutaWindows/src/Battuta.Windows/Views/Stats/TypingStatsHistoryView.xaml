@@ -61,16 +61,38 @@
                             </Grid>
                             <stats:StatsRhythmHeatmap x:Name="RhythmHeatmap" Grid.Row="1" Margin="0,12,0,6" />
                             <StackPanel x:Name="DifferenceLegend" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
-                                <Rectangle Width="13" Height="13" RadiusX="2" RadiusY="2" Fill="{DynamicResource Battuta.AccentBrush}" />
-                                <TextBlock Text="增加（较上期）" Margin="7,0,22,0" Style="{DynamicResource Battuta.Caption2Text}" />
-                                <Ellipse Width="4" Height="4" Fill="{DynamicResource Battuta.SecondaryTextBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="基本持平" Margin="7,0,22,0" Style="{DynamicResource Battuta.Caption2Text}" />
-                                <Rectangle Width="13" Height="13" RadiusX="2" RadiusY="2" Fill="{DynamicResource Battuta.CyanBrush}" />
-                                <TextBlock Text="减少（较上期）" Margin="7,0,0,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                                <TextBlock Text="减少" Margin="0,0,7,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                                <Border Width="104" Height="13" CornerRadius="3" BorderBrush="#18FFFFFF" BorderThickness="1">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                            <GradientStop Color="#1B8EB3" Offset="0" />
+                                            <GradientStop Color="#2E6374" Offset="0.25" />
+                                            <GradientStop Color="#3E423E" Offset="0.5" />
+                                            <GradientStop Color="#749C38" Offset="0.75" />
+                                            <GradientStop Color="#BDDF26" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <TextBlock Text="增加" Margin="7,0,0,0" Style="{DynamicResource Battuta.Caption2Text}" />
                             </StackPanel>
                             <StackPanel x:Name="CurrentLegend" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Visibility="Collapsed">
-                                <Rectangle Width="13" Height="13" RadiusX="2" RadiusY="2" Fill="{DynamicResource Battuta.AccentBrush}" />
-                                <TextBlock Text="输入越多颜色越亮" Margin="7,0,0,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                                <TextBlock Text="少" Margin="0,0,7,0" Style="{DynamicResource Battuta.Caption2Text}" />
+                                <Border Width="104" Height="13" CornerRadius="3" BorderBrush="#18FFFFFF" BorderThickness="1">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                            <GradientStop Color="#440154" Offset="0" />
+                                            <GradientStop Color="#482475" Offset="0.13" />
+                                            <GradientStop Color="#414487" Offset="0.25" />
+                                            <GradientStop Color="#355F8D" Offset="0.38" />
+                                            <GradientStop Color="#21918D" Offset="0.5" />
+                                            <GradientStop Color="#22A884" Offset="0.63" />
+                                            <GradientStop Color="#44BF70" Offset="0.75" />
+                                            <GradientStop Color="#7AD151" Offset="0.88" />
+                                            <GradientStop Color="#BDDF26" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <TextBlock Text="多" Margin="7,0,0,0" Style="{DynamicResource Battuta.Caption2Text}" />
                             </StackPanel>
                         </Grid>
                     </Border>

@@ -4,6 +4,7 @@ using System.Windows.Automation;
 using System.Windows.Input;
 using System.Windows.Media;
 using Battuta.Windows.Stats.Models;
+using Battuta.Windows.Stats.Visualization;
 
 namespace Battuta.Windows.Views.Stats;
 
@@ -60,17 +61,6 @@ public static class StatsVisualizationMath
         var difference = current - comparison;
         var tolerance = Math.Max(2, Math.Max(current, comparison) * .05);
         return Math.Abs(difference) <= tolerance ? 0 : difference;
-    }
-
-    public static int YearHeatLevel(long count, long maximum)
-    {
-        if (count <= 0 || maximum <= 0)
-        {
-            return 0;
-        }
-
-        var normalized = Math.Log(1d + count) / Math.Log(1d + maximum);
-        return Math.Clamp((int)Math.Ceiling(normalized * 4), 1, 4);
     }
 
     public static IReadOnlyDictionary<int, int> WeekdayOccurrences(TypingDateRange range)
@@ -315,7 +305,8 @@ public sealed class StatsAppTimeline : FrameworkElement
         var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         var rows = timelines.Take(20).ToArray();
         var bucketCount = Math.Max(1, rows.Max(row => row.Buckets.Count));
-        var globalPeak = Math.Max(1, rows.SelectMany(row => row.Buckets).DefaultIfEmpty().Max(bucket => bucket?.CharacterCount ?? 0));
+        var heatScale = AdaptiveHeatScale.FromNonZero(
+            rows.SelectMany(row => row.Buckets).Select(bucket => bucket.CharacterCount));
 
         for (var rowIndex = 0; rowIndex < rows.Length; rowIndex++)
         {
@@ -334,12 +325,10 @@ public sealed class StatsAppTimeline : FrameworkElement
                 var value = bucketIndex < row.Buckets.Count
                     ? row.Buckets[bucketIndex].CharacterCount
                     : 0;
-                var ratio = (double)value / globalPeak;
-                var color = ratio <= 0 ? Color.FromArgb(14, 255, 255, 255)
-                    : ratio < .25 ? Color.FromArgb(72, 64, 184, 209)
-                    : ratio < .55 ? Color.FromArgb(140, 64, 184, 209)
-                    : ratio < .82 ? Color.FromArgb(184, 184, 232, 77)
-                    : Color.FromRgb(145, 201, 43);
+                var intensity = heatScale.Normalize(value);
+                var color = value <= 0
+                    ? Color.FromArgb(14, 255, 255, 255)
+                    : BattutaHeatmapPalette.SequentialColor(intensity);
                 var width = Math.Max(1, timelineWidth / bucketCount - 1);
                 drawingContext.DrawRoundedRectangle(
                     FrozenBrush(color),
@@ -449,6 +438,7 @@ public sealed class StatsRhythmHeatmap : FrameworkElement
     private const double GridTop = 17;
 
     private readonly List<(Rect Bounds, string Help)> _hitCells = [];
+    private readonly ImmediateHeatmapCellDetails _cellDetails;
 
     public static readonly DependencyProperty ValuesProperty = DependencyProperty.Register(
         nameof(Values),
@@ -477,7 +467,8 @@ public sealed class StatsRhythmHeatmap : FrameworkElement
     public StatsRhythmHeatmap()
     {
         AutomationProperties.SetName(this, "星期与小时输入节律热力图");
-        ToolTip = "";
+        Focusable = true;
+        _cellDetails = new ImmediateHeatmapCellDetails(this, "星期与小时输入节律热力图");
     }
 
     public IReadOnlyList<TypingWeekdayHourAggregate>? Values
@@ -561,7 +552,8 @@ public sealed class StatsRhythmHeatmap : FrameworkElement
             value,
             currentOccurrences,
             comparisonOccurrences)).ToArray();
-        var maximum = Math.Max(1, evaluated.Select(value => Math.Abs(value.DisplayValue)).DefaultIfEmpty().Max());
+        var heatScale = AdaptiveHeatScale.FromNonZero(
+            evaluated.Select(value => Math.Abs(value.DisplayValue)));
         var weekdays = new[] { 2, 3, 4, 5, 6, 7, 1 };
         var titles = new[] { "周一", "周二", "周三", "周四", "周五", "周六", "周日" };
         for (var dayIndex = 0; dayIndex < weekdays.Length; dayIndex++)
@@ -575,44 +567,41 @@ public sealed class StatsRhythmHeatmap : FrameworkElement
                 var value = values.GetValueOrDefault(id)
                     ?? new TypingWeekdayHourAggregate(weekday, hour, 0, 0);
                 var presentation = Evaluate(value, currentOccurrences, comparisonOccurrences);
-                var intensity = presentation.DisplayValue == 0
-                    ? 0
-                    : Math.Min(1, Math.Sqrt(Math.Abs(presentation.DisplayValue) / maximum));
+                var intensity = Mode == StatsRhythmMode.Current
+                    ? heatScale.Normalize(presentation.DisplayValue)
+                    : heatScale.NormalizeMagnitude(presentation.DisplayValue);
                 Color color;
-                byte alpha;
                 string symbol;
                 if (Mode == StatsRhythmMode.Current)
                 {
                     color = value.CharacterCount > 0
-                        ? Color.FromRgb(184, 232, 77)
-                        : Colors.White;
-                    alpha = value.CharacterCount > 0
-                        ? (byte)(255 * (.16 + intensity * .60))
-                        : (byte)20;
+                        ? BattutaHeatmapPalette.SequentialColor(intensity)
+                        : Color.FromArgb(20, 255, 255, 255);
                     symbol = "";
                 }
                 else if (presentation.DisplayValue > 0)
                 {
-                    color = Color.FromRgb(184, 232, 77);
-                    alpha = (byte)(255 * (.14 + intensity * .62));
+                    color = BattutaHeatmapPalette.DivergingColor(intensity);
                     symbol = intensity >= .34 ? "↑" : "";
                 }
                 else if (presentation.DisplayValue < 0)
                 {
-                    color = Color.FromRgb(64, 184, 209);
-                    alpha = (byte)(255 * (.14 + intensity * .58));
+                    color = BattutaHeatmapPalette.DivergingColor(-intensity);
                     symbol = intensity >= .34 ? "↓" : "";
                 }
                 else
                 {
-                    color = Colors.White;
-                    alpha = 20;
-                    symbol = "";
+                    var hasComparisonData = value.CharacterCount > 0
+                        || value.ComparisonCharacterCount > 0;
+                    color = hasComparisonData
+                        ? BattutaHeatmapPalette.DivergingColor(0)
+                        : Color.FromArgb(20, 255, 255, 255);
+                    symbol = hasComparisonData ? "•" : "";
                 }
 
                 var bounds = new Rect(axis + hour * (cell + gap), y, cell, cell);
                 drawingContext.DrawRoundedRectangle(
-                    FrozenBrush(Color.FromArgb(alpha, color.R, color.G, color.B)),
+                    FrozenBrush(color),
                     FrozenPen(Color.FromArgb(9, 255, 255, 255), 1),
                     bounds,
                     2,
@@ -629,14 +618,48 @@ public sealed class StatsRhythmHeatmap : FrameworkElement
                 _hitCells.Add((bounds, help));
             }
         }
+
+        _cellDetails.Synchronize(_hitCells);
+        if (_cellDetails.PinnedBounds is { } pinnedBounds)
+        {
+            drawingContext.DrawRoundedRectangle(
+                null,
+                FrozenPen(Color.FromArgb(235, 255, 255, 255), 1.5),
+                pinnedBounds,
+                2,
+                2);
+        }
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        var point = e.GetPosition(this);
-        var cell = _hitCells.FirstOrDefault(item => item.Bounds.Contains(point));
-        ToolTip = cell.Help ?? "星期与小时输入节律热力图";
+        _cellDetails.Hover(e.GetPosition(this), _hitCells);
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _cellDetails.HideWhenUnpinned();
+    }
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        Focus();
+        _cellDetails.Pin(e.GetPosition(this), _hitCells);
+        InvalidateVisual();
+        e.Handled = true;
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Key.Escape && _cellDetails.ClearPin())
+        {
+            InvalidateVisual();
+            e.Handled = true;
+        }
     }
 
     private RhythmValue Evaluate(
@@ -719,6 +742,7 @@ public sealed class StatsYearHeatmap : FrameworkElement
     private const double BottomPadding = 6;
 
     private readonly List<(Rect Bounds, string Help)> _hitCells = [];
+    private readonly ImmediateHeatmapCellDetails _cellDetails;
 
     public static readonly DependencyProperty DaysProperty = DependencyProperty.Register(
         nameof(Days),
@@ -737,7 +761,8 @@ public sealed class StatsYearHeatmap : FrameworkElement
     public StatsYearHeatmap()
     {
         AutomationProperties.SetName(this, "全年输入热力图");
-        ToolTip = "";
+        Focusable = true;
+        _cellDetails = new ImmediateHeatmapCellDetails(this, "全年输入热力图");
     }
 
     public IReadOnlyList<TypingDaySummary>? Days
@@ -819,11 +844,11 @@ public sealed class StatsYearHeatmap : FrameworkElement
         var gap = geometry.Gap;
         var cell = geometry.CellSize;
         var counts = Days?.ToDictionary(day => day.Date, day => day.CharacterCount) ?? [];
-        var maximum = counts
+        var visibleCounts = counts
             .Where(pair => pair.Key >= start && pair.Key <= end)
             .Select(pair => pair.Value)
-            .DefaultIfEmpty()
-            .Max();
+            .ToArray();
+        var heatScale = AdaptiveHeatScale.FromNonZero(visibleCounts);
         var monthCursor = start;
         var seenMonth = -1;
         while (monthCursor <= end)
@@ -861,10 +886,10 @@ public sealed class StatsYearHeatmap : FrameworkElement
                 }
 
                 var count = counts.GetValueOrDefault(date);
-                var level = StatsVisualizationMath.YearHeatLevel(count, maximum);
+                var intensity = heatScale.Normalize(count);
                 var bounds = new Rect(axis + week * (cell + gap), y, cell, cell);
                 drawingContext.DrawRoundedRectangle(
-                    HeatBrush(level),
+                    HeatBrush(count, intensity),
                     FrozenPen(Color.FromArgb(15, 255, 255, 255), .5),
                     bounds,
                     2,
@@ -875,24 +900,34 @@ public sealed class StatsYearHeatmap : FrameworkElement
 
         var legend = geometry.LegendBounds;
         DrawText(drawingContext, "少", new Point(legend.Left, legend.Top), 8.5, dpi);
-        var swatchX = legend.Left + LegendLabelSlot + LegendItemGap;
-        for (var level = 0; level < 5; level++)
-        {
-            drawingContext.DrawRoundedRectangle(
-                HeatBrush(level),
-                null,
-                new Rect(swatchX + level * (cell + gap), legend.Top, cell, cell),
-                2,
-                2);
-        }
+        var gradientX = legend.Left + LegendLabelSlot + LegendItemGap;
+        var gradientWidth = 5 * cell + 4 * gap;
+        var gradientBrush = BattutaHeatmapPalette.CreateSequentialGradientBrush();
+        drawingContext.DrawRoundedRectangle(
+            gradientBrush,
+            FrozenPen(Color.FromArgb(15, 255, 255, 255), .5),
+            new Rect(gradientX, legend.Top, gradientWidth, cell),
+            2,
+            2);
 
-        var highLabelX = swatchX + 5 * cell + 4 * gap + LegendItemGap;
+        var highLabelX = gradientX + gradientWidth + LegendItemGap;
         DrawText(
             drawingContext,
             "多",
             new Point(highLabelX, legend.Top),
             8.5,
             dpi);
+
+        _cellDetails.Synchronize(_hitCells);
+        if (_cellDetails.PinnedBounds is { } pinnedBounds)
+        {
+            drawingContext.DrawRoundedRectangle(
+                null,
+                FrozenPen(Color.FromArgb(235, 255, 255, 255), 1.5),
+                pinnedBounds,
+                2,
+                2);
+        }
     }
 
     private static int WeekCount(TypingDateRange range)
@@ -907,23 +942,39 @@ public sealed class StatsYearHeatmap : FrameworkElement
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        var point = e.GetPosition(this);
-        var cell = _hitCells.FirstOrDefault(item => item.Bounds.Contains(point));
-        ToolTip = cell.Help ?? "全年输入热力图";
+        _cellDetails.Hover(e.GetPosition(this), _hitCells);
     }
 
-    private static SolidColorBrush HeatBrush(int level)
+    protected override void OnMouseLeave(MouseEventArgs e)
     {
-        var color = level switch
-        {
-            1 => Color.FromArgb(61, 184, 232, 77),
-            2 => Color.FromArgb(107, 184, 232, 77),
-            3 => Color.FromArgb(168, 184, 232, 77),
-            4 => Color.FromArgb(235, 184, 232, 77),
-            _ => Color.FromArgb(20, 255, 255, 255),
-        };
-        return FrozenBrush(color);
+        base.OnMouseLeave(e);
+        _cellDetails.HideWhenUnpinned();
     }
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        Focus();
+        _cellDetails.Pin(e.GetPosition(this), _hitCells);
+        InvalidateVisual();
+        e.Handled = true;
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Key.Escape && _cellDetails.ClearPin())
+        {
+            InvalidateVisual();
+            e.Handled = true;
+        }
+    }
+
+    private static SolidColorBrush HeatBrush(long count, double intensity) =>
+        FrozenBrush(
+            count > 0
+                ? BattutaHeatmapPalette.SequentialColor(intensity)
+                : Color.FromArgb(20, 255, 255, 255));
 
     private static void DrawText(
         DrawingContext drawingContext,

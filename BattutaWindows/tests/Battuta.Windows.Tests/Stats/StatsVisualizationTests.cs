@@ -2,9 +2,13 @@ using Battuta.Core.Input;
 using Battuta.TestSupport;
 using Battuta.TestSupport.Threading;
 using Battuta.Windows.Stats.Models;
+using Battuta.Windows.Stats.Visualization;
 using Battuta.Windows.Controls.Keyboard;
 using Battuta.Windows.Views.Stats;
+using System.Windows;
 using System.Windows.Automation.Peers;
+using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace Battuta.Windows.Tests.Stats;
 
@@ -32,11 +36,114 @@ public sealed class StatsVisualizationTests
     }
 
     [Fact]
-    public void YearHeatLevelIsLogarithmicAndZeroSafe()
+    public void AdaptiveHeatScaleUsesVisibleNonZeroMinimumAndSmallSampleMaximum()
     {
-        Assert.Equal(0, StatsVisualizationMath.YearHeatLevel(0, 10_000));
-        Assert.InRange(StatsVisualizationMath.YearHeatLevel(1, 10_000), 1, 4);
-        Assert.Equal(4, StatsVisualizationMath.YearHeatLevel(10_000, 10_000));
+        var scale = AdaptiveHeatScale.FromNonZero(new long[] { 0, 5, 10, 15 });
+
+        Assert.Equal(5, scale.Low);
+        Assert.Equal(15, scale.High);
+        Assert.Equal(0, scale.Normalize(0));
+        Assert.Equal(0, scale.Normalize(5));
+        Assert.Equal(.5, scale.Normalize(10), 10);
+        Assert.Equal(1, scale.Normalize(15));
+    }
+
+    [Fact]
+    public void AdaptiveHeatScaleUsesP95AndClampsOutliersForLargeSamples()
+    {
+        var values = Enumerable.Range(1, 100)
+            .Select(value => (double)value)
+            .Append(10_000);
+
+        var scale = AdaptiveHeatScale.FromNonZero(values);
+
+        Assert.Equal(1, scale.Low);
+        Assert.Equal(96, scale.High);
+        Assert.Equal(.5, scale.Normalize(48.5), 10);
+        Assert.Equal(1, scale.Normalize(10_000));
+        Assert.Equal(.5, scale.NormalizeMagnitude(-48), 10);
+    }
+
+    [Fact]
+    public void SequentialHeatmapPaletteMatchesSharedViridisStops()
+    {
+        (double Location, Color Color)[] expected =
+        [
+            (0.00, Color.FromRgb(0x44, 0x01, 0x54)),
+            (0.13, Color.FromRgb(0x48, 0x24, 0x75)),
+            (0.25, Color.FromRgb(0x41, 0x44, 0x87)),
+            (0.38, Color.FromRgb(0x35, 0x5F, 0x8D)),
+            (0.50, Color.FromRgb(0x21, 0x91, 0x8D)),
+            (0.63, Color.FromRgb(0x22, 0xA8, 0x84)),
+            (0.75, Color.FromRgb(0x44, 0xBF, 0x70)),
+            (0.88, Color.FromRgb(0x7A, 0xD1, 0x51)),
+            (1.00, Color.FromRgb(0xBD, 0xDF, 0x26)),
+        ];
+
+        foreach (var stop in expected)
+        {
+            Assert.Equal(stop.Color, BattutaHeatmapPalette.SequentialColor(stop.Location));
+        }
+
+        var gradient = BattutaHeatmapPalette.CreateSequentialGradientBrush();
+        Assert.True(gradient.IsFrozen);
+        Assert.Equal(expected.Length, gradient.GradientStops.Count);
+        Assert.Equal(expected.Select(stop => stop.Location), gradient.GradientStops.Select(stop => stop.Offset));
+    }
+
+    [Fact]
+    public void DivergingHeatmapPaletteKeepsZeroAtSharedNeutralColor()
+    {
+        Assert.Equal(Color.FromRgb(0x1B, 0x8E, 0xB3), BattutaHeatmapPalette.DivergingColor(-1));
+        Assert.Equal(Color.FromRgb(0x2E, 0x63, 0x74), BattutaHeatmapPalette.DivergingColor(-.5));
+        Assert.Equal(Color.FromRgb(0x3E, 0x42, 0x3E), BattutaHeatmapPalette.DivergingColor(0));
+        Assert.Equal(Color.FromRgb(0x74, 0x9C, 0x38), BattutaHeatmapPalette.DivergingColor(.5));
+        Assert.Equal(Color.FromRgb(0xBD, 0xDF, 0x26), BattutaHeatmapPalette.DivergingColor(1));
+    }
+
+    [Fact]
+    [Trait(TestCategories.TraitName, TestCategories.Ui)]
+    public void HeatmapCellDetailsUseZeroDelayTooltips()
+    {
+        StaTestHost.Run(() =>
+        {
+            FrameworkElement[] heatmaps =
+            [
+                new StatsRhythmHeatmap(),
+                new StatsYearHeatmap(),
+                new KeyboardCanvas(),
+            ];
+
+            foreach (var heatmap in heatmaps)
+            {
+                Assert.Equal(0, ToolTipService.GetInitialShowDelay(heatmap));
+                Assert.Equal(0, ToolTipService.GetBetweenShowDelay(heatmap));
+                Assert.Equal(int.MaxValue, ToolTipService.GetShowDuration(heatmap));
+                Assert.False(ToolTipService.GetIsEnabled(heatmap));
+            }
+        });
+    }
+
+    [Fact]
+    [Trait(TestCategories.TraitName, TestCategories.Ui)]
+    public void ClickingPinnedHeatmapCellAgainClearsThePin()
+    {
+        StaTestHost.Run(() =>
+        {
+            var owner = new Border();
+            var details = new ImmediateHeatmapCellDetails(owner, "Heatmap");
+            IReadOnlyList<(Rect Bounds, string Help)> cells =
+            [
+                (new Rect(0, 0, 20, 20), "2026-08-26: 42 characters"),
+            ];
+
+            details.Pin(new Point(10, 10), cells);
+            Assert.True(details.IsPinned);
+
+            details.Pin(new Point(10, 10), cells);
+            Assert.False(details.IsPinned);
+            Assert.Null(details.PinnedBounds);
+        });
     }
 
     [Fact]

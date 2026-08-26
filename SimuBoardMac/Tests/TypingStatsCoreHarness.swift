@@ -382,6 +382,7 @@ struct TypingStatsCoreHarness {
             application: appOne
         )
         try await testFutureSchema(in: directory, now: now)
+        try testHeatmapScale()
         try testHeatmapHoverSourceContract()
 
         try expect(
@@ -1010,6 +1011,40 @@ struct TypingStatsCoreHarness {
         try expect(schemaVersion == 99, "does not rewrite an unsupported future schema")
     }
 
+    private static func testHeatmapScale() throws {
+        let empty = TypingHeatmapScale(
+            values: [0, -Double.infinity, Double.infinity, Double.nan]
+        )
+        try expect(!empty.hasValues, "ignores zero and non-finite heatmap values")
+        try expect(empty.normalized(8) == 0, "keeps an empty heatmap scale at zero")
+
+        let sparse = TypingHeatmapScale(values: [0, 2, 6, 10])
+        try expect(sparse.low == 2 && sparse.high == 10, "uses min and max for a sparse heatmap")
+        try expect(sparse.normalized(2) == 0, "maps the visible minimum to the start of the ramp")
+        try expect(sparse.normalized(6) == 0.5, "interpolates sparse heatmap values linearly")
+        try expect(sparse.normalized(20) == 1, "clamps values beyond the automatic upper bound")
+        try expect(sparse.normalized(0) == 0, "keeps zero cells outside the colored range")
+
+        let uniform = TypingHeatmapScale(values: [5, 5, 5])
+        try expect(uniform.normalized(5) == 1, "lights a uniform non-zero heatmap")
+
+        let dense = TypingHeatmapScale(
+            values: (1...20).map(Double.init) + [100]
+        )
+        try expect(dense.low == 1 && dense.high == 20, "uses interpolated P95 for a dense heatmap")
+        try expect(dense.normalized(10.5) == 0.5, "linearly maps values inside the P95 range")
+        try expect(dense.normalized(100) == 1, "clips a dense outlier at P95")
+
+        let diverging = TypingDivergingHeatmapScale(
+            values: (-20 ... -1).map(Double.init) + [100]
+        )
+        try expect(diverging.limit == 20, "uses absolute P95 for a symmetric difference range")
+        try expect(diverging.normalized(-10) == -0.5, "maps negative differences symmetrically")
+        try expect(diverging.normalized(10) == 0.5, "maps positive differences symmetrically")
+        try expect(diverging.normalized(100) == 1, "clamps difference outliers symmetrically")
+        try expect(diverging.normalized(0) == 0, "keeps zero at the diverging neutral centre")
+    }
+
     private static func testHeatmapHoverSourceContract() throws {
         let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let annualSource = try String(
@@ -1024,39 +1059,74 @@ struct TypingStatsCoreHarness {
             ),
             encoding: .utf8
         )
+        let overviewSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/Views/TypingStatsOverviewView.swift"
+            ),
+            encoding: .utf8
+        )
+        let keyboardSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/Views/TypingStatsKeyboardView.swift"
+            ),
+            encoding: .utf8
+        )
+        let styleSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/Views/BattutaVisualStyle.swift"
+            ),
+            encoding: .utf8
+        )
 
         let annualGrid = try sourceSlice(
             annualSource,
-            from: "    private func contributionGrid(",
-            to: "    private func legend("
-        )
-        let annualHelp = try sourceOffset(of: ".help(cell.helpText)", in: annualGrid)
-        let annualInputBranch = try sourceOffset(of: "if cell.hasInput", in: annualGrid)
-        try expect(
-            annualGrid.contains(".filter(\\.isVisible)") && annualHelp < annualInputBranch,
-            "attaches annual hover details before separating zero-input cells"
+            from: "private struct TypingYearHeatmapInteractiveGrid: View",
+            to: "/// Immutable render data"
         )
         try expect(
-            annualSource.contains("helpText: \"\\(dateText) · \\(formattedCount) 个字符\"")
-                && annualSource.contains(": \"0 个字符\""),
-            "precomputes a date and character count for zero-input annual cells"
+            annualGrid.contains(".onHover")
+                && annualGrid.contains(".onTapGesture")
+                && annualGrid.contains("BattutaHeatmapTooltip"),
+            "shows annual cell details immediately and supports click pinning"
+        )
+        try expect(
+            !annualGrid.contains(".help(")
+                && annualSource.contains("detailText: \"\\(dateText) · \\(formattedCount) 个字符\""),
+            "does not rely on AppKit's delayed annual help tooltip"
         )
 
         let rhythmCell = try sourceSlice(
             rhythmSource,
-            from: "    private func rhythmInteraction(",
-            to: "    private func normalized("
+            from: "private struct TypingWeekdayHourInteractiveGrid: View",
+            to: "@MainActor\nprivate enum TypingReportApplicationIconCache"
         )
-        let rhythmHelp = try sourceOffset(of: ".help(cell.detail)", in: rhythmCell)
-        let rhythmInputBranch = try sourceOffset(of: "if cell.hasInput", in: rhythmCell)
         try expect(
-            rhythmSource.contains("ForEach(cells)") && rhythmHelp < rhythmInputBranch,
-            "attaches rhythm hover details before separating zero-input cells"
+            rhythmCell.contains(".onHover")
+                && rhythmCell.contains(".onTapGesture")
+                && rhythmCell.contains("BattutaHeatmapTooltip")
+                && !rhythmCell.contains(".help(cell.detail)"),
+            "shows rhythm cell details immediately and supports click pinning"
         )
         try expect(
             rhythmSource.contains("statsCount(value.characterCount)")
                 && rhythmSource.contains("statsCount(value.comparisonCharacterCount)"),
             "includes current and comparison character totals in rhythm hover details"
+        )
+        try expect(
+            annualSource.contains("TypingHeatmapScale(values: visibleCounts)")
+                && rhythmSource.contains("TypingDivergingHeatmapScale")
+                && overviewSource.contains("TypingHeatmapScale")
+                && keyboardSource.contains("TypingHeatmapScale"),
+            "recomputes automatic ranges for every displayed heatmap family"
+        )
+        try expect(
+            annualSource.contains("BattutaHeatmapLegend")
+                && rhythmSource.contains("BattutaHeatmapLegend")
+                && overviewSource.contains("BattutaHeatmapLegend")
+                && keyboardSource.contains("BattutaHeatmapLegend")
+                && styleSource.contains("LinearGradient")
+                && styleSource.contains("BattutaHeatmapPalette.sequentialGradient"),
+            "uses continuous legends backed by the same shared heatmap palette"
         )
     }
 
