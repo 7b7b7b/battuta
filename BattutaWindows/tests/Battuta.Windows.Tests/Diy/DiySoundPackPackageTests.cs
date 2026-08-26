@@ -216,8 +216,7 @@ public sealed class DiySoundPackPackageTests
 
     private static string BundledPackRoot() => Path.Combine(
         AudioTestFiles.FindRepositoryRoot(),
-        "SimuBoardMac",
-        "SimuBoardMac",
-        "Resources",
-        "BundledSoundPacks");
+        "shared",
+        "soundpacks",
+        "bundled");
 }

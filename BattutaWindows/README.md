@@ -1,6 +1,6 @@
 # Battuta for Windows
 
-原生 Windows 10/11 键盘与鼠标音效应用。Windows 版本以现有 macOS SwiftUI 界面、行为和 `237` 个基础内置音频资源加 `1` 个只读 bundled `.simuboardpack`（BCP (Suit80)，含 `28` 个 WAV）为事实来源，在 `BattutaWindows/` 中独立实现，不修改 `SimuBoardMac/`。
+原生 Windows 10/11 键盘与鼠标音效应用。Windows 版本以现有 macOS SwiftUI 界面、行为和 `shared/` 中的 `237` 个基础内置音频资源加 `1` 个只读 bundled `.simuboardpack`（BCP (Suit80)，含 `28` 个 WAV）为事实来源，在 `BattutaWindows/` 中独立实现，不读取或修改 `SimuBoardMac/`。
 
 ## 开发环境
 

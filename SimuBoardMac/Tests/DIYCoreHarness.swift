@@ -678,7 +678,7 @@ private struct DIYCoreHarness {
 
         let projectRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let pointerRoot = projectRoot.appendingPathComponent(
-            "SimuBoardMac/SimuBoardMac/Resources/Audio/pointer",
+            "shared/audio/builtin/pointer",
             isDirectory: true
         )
         let spectralLimits: [PointerSoundProfile: (centroidHz: Double, energyAbove8KHz: Double)] = [
@@ -799,7 +799,7 @@ private struct DIYCoreHarness {
         )
 
         let bundledSourcePackURL = projectRoot.appendingPathComponent(
-            "SimuBoardMac/SimuBoardMac/Resources/BundledSoundPacks/"
+            "shared/soundpacks/bundled/"
                 + "15d04652-5265-4ea7-a376-8a7e11ff6813.simuboardpack",
             isDirectory: true
         )

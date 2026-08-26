@@ -12,7 +12,16 @@ Battuta（原 SimuBoard）目前包含三个版本：
 Windows 版使用 .NET 10 + WPF，视觉结构以 macOS SwiftUI 版本为基线；
 `WH_KEYBOARD_LL` / `WH_MOUSE_LL` 只生成物理键与按钮事件，不读取字符或
 鼠标坐标。音频通过单一持续 WASAPI 输出流播放预载的 48 kHz PCM，完整
-复用 20 种键盘音色、5 种点击音色和 237 个现有资源。
+复用 21 种键盘音色、5 种点击音色和 265 段录音（237 段基础资源，加上
+BCP (Suit80) 内置音色包的 28 段录音）。
+
+两端共用的内置音频、只读内置音色包、品牌母版、许可来源和音色包格式分别位于
+[`shared/audio`](shared/audio)、[`shared/soundpacks`](shared/soundpacks)、
+[`shared/brand`](shared/brand)、[`shared/licenses`](shared/licenses) 与
+[`shared/contracts`](shared/contracts)。
+macOS 和 Windows 工程只消费这些共享资源，不再让任一平台工程充当另一端
+的资源仓库。实施边界、验收标准与后续目录/CI 阶段见
+[`docs/MONOREPO_PLAN.md`](docs/MONOREPO_PLAN.md)。
 
 开发构建与测试：
 
@@ -61,6 +70,6 @@ npm test
 
 ## 音频来源与许可
 
-浏览器版音频样本来自 Thomas Lai 的 [kbsim](https://github.com/tplai/kbsim)，依照 MIT License 再分发。macOS 版另外收录了可追溯至 MIT、CC0 和 CC BY 4.0 来源的开放录音。完整许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，逐项来源、处理方式和未采用候选见 [SimuBoardMac/AUDIO_SOURCES.md](SimuBoardMac/AUDIO_SOURCES.md)。
+浏览器版音频样本来自 Thomas Lai 的 [kbsim](https://github.com/tplai/kbsim)，依照 MIT License 再分发。桌面版另外收录了可追溯至 MIT、CC0 和 CC BY 4.0 来源的开放录音。完整许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，逐项来源、处理方式和未采用候选见 [shared/licenses/AUDIO_SOURCES.md](shared/licenses/AUDIO_SOURCES.md)。
 
 请勿直接复制 YouTube、Keyboard Simulators 或许可不明确站点的声音用于公开发布版本。

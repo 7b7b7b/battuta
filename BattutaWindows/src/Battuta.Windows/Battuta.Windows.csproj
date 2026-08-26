@@ -26,17 +26,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\..\SimuBoardMac\SimuBoardMac\Resources\Audio\**\*.*">
+    <Content Include="..\..\..\shared\audio\builtin\**\*.*">
       <Link>Assets\Sounds\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="..\..\..\SimuBoardMac\SimuBoardMac\Resources\BundledSoundPacks\**\*.*">
+    <Content Include="..\..\..\shared\soundpacks\bundled\**\*.*">
       <Link>BundledSoundPacks\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Resource Include="..\..\..\SimuBoardMac\Design\AppIconSquare.png">
+    <Resource Include="..\..\..\shared\brand\source\AppIconSquare.png">
       <Link>Assets\AppIconSquare.png</Link>
     </Resource>
     <Content Include="Assets\Battuta.ico">

@@ -12,8 +12,12 @@ internal static class AudioTestFiles
             var current = new DirectoryInfo(start);
             while (current is not null)
             {
-                if (Directory.Exists(Path.Combine(current.FullName, "SimuBoardMac"))
-                    && Directory.Exists(Path.Combine(current.FullName, "BattutaWindows")))
+                if (Directory.Exists(Path.Combine(current.FullName, "BattutaWindows"))
+                    && Directory.Exists(Path.Combine(
+                        current.FullName,
+                        "shared",
+                        "audio",
+                        "builtin")))
                 {
                     return current.FullName;
                 }
@@ -23,6 +27,11 @@ internal static class AudioTestFiles
         }
 
         throw new DirectoryNotFoundException("Could not locate the Battuta repository root.");
+    }
+
+    public static string FindBuiltInAudioRoot()
+    {
+        return Path.Combine(FindRepositoryRoot(), "shared", "audio", "builtin");
     }
 
     public static void WriteMonoPcm16Wave(string path, ReadOnlySpan<float> samples, int sampleRate = 48_000)

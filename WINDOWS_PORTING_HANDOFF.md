@@ -81,8 +81,8 @@ Windows 开发者或 Codex 在写代码前，应完整阅读以下文件：
 |---|---|
 | `README.md` | 产品总览、隐私边界、两种现有版本的关系 |
 | `SimuBoardMac/README.md` | macOS 版完整功能、音频策略、更新与发布行为 |
-| `SimuBoardMac/SOUND_PACK_FORMAT.md` | DIY 音色包结构、映射优先级和安全限制 |
-| `SimuBoardMac/AUDIO_SOURCES.md` | 音频来源、处理方式和许可 |
+| `shared/contracts/SOUND_PACK_FORMAT.md` | DIY 音色包结构、映射优先级和安全限制 |
+| `shared/licenses/AUDIO_SOURCES.md` | 音频来源、处理方式和许可 |
 | `LICENSE` | 本项目许可证 |
 | `THIRD_PARTY_NOTICES.md` | 第三方素材与许可证 |
 | `design-qa.md` | 统计窗口的尺寸、窄屏规则和视觉验证记录 |
@@ -110,9 +110,9 @@ Windows 开发者或 Codex 在写代码前，应完整阅读以下文件：
 
 Git 已跟踪、普通 clone 可获得：
 
-- `SimuBoardMac/Design/AppIconSource.png`
-- `SimuBoardMac/Design/AppIconSquare.png`
-- `SimuBoardMac/Design/AppIconPrompt.md`
+- `shared/brand/source/AppIconSource.png`
+- `shared/brand/source/AppIconSquare.png`
+- `shared/brand/source/AppIconPrompt.md`
 - 所有 SwiftUI 界面源码与 `design-qa.md`
 
 本机当前存在、但在本文编写时尚未进入 Git 的补充参考：
@@ -157,26 +157,30 @@ Windows 端只有在这些本地目录已经提交/push 或被单独传输后，
 
 如果未来决定把 macOS 也重写为共享 C# UI，可以重新评估 Avalonia；当前阶段不要同时重写两个平台。
 
-## 7. 建议目录结构
+## 7. 目录结构与共享资源
 
-不要移动现有 `SimuBoardMac` 资源，以免破坏 Xcode 工程。建议新增：
+macOS 与 Windows 应用仍保留在同一仓库中，但跨平台资源统一归属到
+`shared/`。两端只能依赖共享目录，不能再形成 Windows 读取 macOS 工程或
+macOS 读取 Windows 工程的反向依赖：
 
 ```text
-BattutaWindows/
-├── BattutaWindows.sln
-├── src/
-│   ├── Battuta.Core/             # 不依赖 WPF/Win32 的纯业务逻辑
-│   ├── Battuta.Windows/          # WPF UI 与 Windows 服务实现
-│   └── Battuta.Packaging/        # 打包、版本与更新配置
-├── tests/
-│   ├── Battuta.Core.Tests/
-│   └── Battuta.Windows.SmokeTests/
-├── assets/
-│   ├── sounds/                   # 从现有资源复制或在构建时同步
-│   ├── icons/                    # Windows 合法可分发的 SVG/ICO
-│   └── licenses/
-└── docs/
+shared/
+├── audio/builtin/                # 237 个公开内置音频，桌面版唯一事实来源
+├── soundpacks/bundled/           # 已获授权的只读内置音色包（BCP 28 段）
+├── brand/source/                 # 可生成各平台图标的品牌母版
+├── licenses/                     # 音频来源与许可资料
+└── contracts/                    # 跨平台数据/音色包格式
+
+SimuBoardMac/                     # macOS 应用、脚本与测试
+BattutaWindows/                   # Windows 应用、打包、脚本与测试
 ```
+
+macOS 工程中的 `Resources/Audio` 是指向 `shared/audio/builtin` 的相对符号
+链接，用来保持应用包内既有的 `Contents/Resources/Audio` 路径；Windows
+工程直接从 `shared/audio/builtin` 复制到自己的 `Assets/Sounds`。同理，
+macOS 的 `Resources/BundledSoundPacks` 指向 `shared/soundpacks/bundled`，
+Windows 也只从该共享目录复制内置音色包。任何新增或替换的公开内置音效都只
+应写入共享目录。
 
 建议让 `Battuta.Core` 包含：
 
@@ -235,10 +239,10 @@ Windows 键盘 UI 可以保留当前的视觉结构，但标签应使用 `Win`�
 完整版音频的唯一事实来源是：
 
 ```text
-SimuBoardMac/SimuBoardMac/Resources/Audio/
+shared/audio/builtin/
 ```
 
-该目录包含 237 个资源、20 个键盘 profile 和 `pointer/` 下的 5 个点击 profile。根目录 `audio/` 只有旧浏览器原型的 151 个文件和 13 种音色，不能拿它作为 Windows 完整版资源源。
+该目录包含 237 个基础资源、20 个键盘 profile 和 `pointer/` 下的 5 个点击 profile；`shared/soundpacks/bundled/` 另含已获授权的 BCP (Suit80) 只读音色包及 28 段录音，因此桌面版合计 21 种键盘音色和 265 段录音。根目录 `audio/` 只有旧浏览器原型的 151 个文件和 13 种音色，不能拿它作为 Windows 完整版资源源。
 
 必须保留当前 macOS 版的核心性能策略：
 

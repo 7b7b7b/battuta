@@ -8,8 +8,7 @@ public sealed class BuiltInAudioResourceCatalogTests
     [Fact]
     public void FullResourceTreeContainsTwentyKeyboardAndFivePointerProfiles()
     {
-        var repository = AudioTestFiles.FindRepositoryRoot();
-        var root = Path.Combine(repository, "SimuBoardMac", "SimuBoardMac", "Resources", "Audio");
+        var root = AudioTestFiles.FindBuiltInAudioRoot();
         var files = Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
             .Where(path => Path.GetExtension(path) is ".wav" or ".mp3")
             .ToArray();
@@ -24,8 +23,7 @@ public sealed class BuiltInAudioResourceCatalogTests
     [Fact]
     public async Task EveryRequiredBuiltInResourceDecodesAndLoads()
     {
-        var repository = AudioTestFiles.FindRepositoryRoot();
-        var root = Path.Combine(repository, "SimuBoardMac", "SimuBoardMac", "Resources", "Audio");
+        var root = AudioTestFiles.FindBuiltInAudioRoot();
         var catalog = new BuiltInAudioResourceCatalog(root);
 
         foreach (var profile in SwitchProfileCatalog.All)
@@ -46,8 +44,7 @@ public sealed class BuiltInAudioResourceCatalogTests
     [Fact]
     public void EveryPackagedAudioFileDecodesToFiniteCanonicalPcm()
     {
-        var repository = AudioTestFiles.FindRepositoryRoot();
-        var root = Path.Combine(repository, "SimuBoardMac", "SimuBoardMac", "Resources", "Audio");
+        var root = AudioTestFiles.FindBuiltInAudioRoot();
         var decoder = new PcmSampleDecoder();
         var files = Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
             .Where(path => Path.GetExtension(path) is ".wav" or ".mp3")
@@ -64,8 +61,7 @@ public sealed class BuiltInAudioResourceCatalogTests
     [Fact]
     public async Task BlueAlpsLegacyLongReleaseIsPackagedButNotLoaded()
     {
-        var repository = AudioTestFiles.FindRepositoryRoot();
-        var root = Path.Combine(repository, "SimuBoardMac", "SimuBoardMac", "Resources", "Audio");
+        var root = AudioTestFiles.FindBuiltInAudioRoot();
         Assert.True(File.Exists(Path.Combine(root, "bluealps", "release", "GENERIC_long.mp3")));
         var catalog = new BuiltInAudioResourceCatalog(root);
 

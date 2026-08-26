@@ -4,7 +4,7 @@
 
 开启“自然音色变化”后，每一段键盘样本会在包含原音的 4 个轻微 gain/rate 配方间均衡轮换，连续两次不会选中相同配方。轮换只在播放时移动一个内存游标，4 个配方共享同一份 PCM，所以不会给 DIY 包制造 4 倍内存，也不会在按键路径上做音频处理。加载音色时还会保守清理超过约 0.5 ms 的前导静音，同时保留短预沿，减少部分来源素材自身造成的感知延迟。
 
-新增音色包括 BCP (Suit80)、Cherry MX Clear、Logitech G915 TKL Brown、Kailh BOX White、Kailh Low-profile Blue、Keychron Red Linear，以及 Studio Tactile / Studio Clicky。BCP 以只读内置 `.simuboardpack` 提供完整的逐行、大小键和交替小键映射；若旧版本曾安装相同 UUID 的本地评估包，1.1.1 会自动显示内置版本并保留原文件不动。完整击键录音已经按波形里的机械事件分成独立 press/release 样本，按下与抬起会跟随真实键盘事件分别播放。逐项来源、许可和导入方式见 [`AUDIO_SOURCES.md`](AUDIO_SOURCES.md)。
+新增音色包括 BCP (Suit80)、Cherry MX Clear、Logitech G915 TKL Brown、Kailh BOX White、Kailh Low-profile Blue、Keychron Red Linear，以及 Studio Tactile / Studio Clicky。BCP 以只读内置 `.simuboardpack` 提供完整的逐行、大小键和交替小键映射；若旧版本曾安装相同 UUID 的本地评估包，1.1.1 会自动显示内置版本并保留原文件不动。完整击键录音已经按波形里的机械事件分成独立 press/release 样本，按下与抬起会跟随真实键盘事件分别播放。逐项来源、许可和导入方式见 [`AUDIO_SOURCES.md`](../shared/licenses/AUDIO_SOURCES.md)。
 
 ## 鼠标与触控板点击音
 
@@ -25,7 +25,7 @@ macOS 的公开全局点击事件不会提供普通鼠标/触控板的具体型�
 - 上传包含完整按下与抬起的一段录音，依据瞬态和能量低谷自动建议切点；可查看波形、分别试听并手动微调。
 - 保存后立即启用，也可导入或导出 `.simuboardpack` 与他人分享。
 
-自定义音频在导入时统一转换成 48 kHz、单声道、16-bit PCM WAV，并在选择音色时预载到内存。实际打字只执行内存查表与播放，不在按键路径上读磁盘。映射优先级、安全限制与包结构见 [`SOUND_PACK_FORMAT.md`](SOUND_PACK_FORMAT.md)。当前编辑界面按 Apple 紧凑型 Magic Keyboard 的 Mac US ANSI 物理规格绘制；ISO/JIS、数字小键盘和不能稳定产生标准键盘事件的硬件键尚未单独建模。
+自定义音频在导入时统一转换成 48 kHz、单声道、16-bit PCM WAV，并在选择音色时预载到内存。实际打字只执行内存查表与播放，不在按键路径上读磁盘。映射优先级、安全限制与包结构见 [`SOUND_PACK_FORMAT.md`](../shared/contracts/SOUND_PACK_FORMAT.md)。当前编辑界面按 Apple 紧凑型 Magic Keyboard 的 Mac US ANSI 物理规格绘制；ISO/JIS、数字小键盘和不能稳定产生标准键盘事件的硬件键尚未单独建模。
 
 ## 应用内更新
 
