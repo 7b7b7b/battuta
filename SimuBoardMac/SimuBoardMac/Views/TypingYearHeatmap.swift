@@ -194,6 +194,7 @@ struct TypingYearHeatmap: View, Equatable {
             trailingLabel: presentation.heatScale.hasValues
                 ? "多 ≥\(statsCount(Int64(presentation.heatScale.high.rounded())))"
                 : "多 0",
+            palette: .year,
             barWidth: max(76, 112 * scale(metrics)),
             labelColor: BattutaVisualStyle.instrumentSecondary
         )
@@ -358,7 +359,7 @@ private struct TypingYearHeatmapInteractiveGrid: View {
         guard cell.hasInput else {
             return BattutaVisualStyle.instrumentSeparator.opacity(0.64)
         }
-        return BattutaHeatmapPalette.sequentialColor(at: cell.normalizedIntensity)
+        return BattutaHeatmapPalette.yearColor(at: cell.normalizedIntensity)
     }
 
     private func tooltipPosition(

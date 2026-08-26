@@ -65,11 +65,11 @@
                                 <Border Width="104" Height="13" CornerRadius="3" BorderBrush="#18FFFFFF" BorderThickness="1">
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                            <GradientStop Color="#1B8EB3" Offset="0" />
-                                            <GradientStop Color="#2E6374" Offset="0.25" />
-                                            <GradientStop Color="#3E423E" Offset="0.5" />
-                                            <GradientStop Color="#749C38" Offset="0.75" />
-                                            <GradientStop Color="#BDDF26" Offset="1" />
+                                            <GradientStop Color="#B740B8D1" Offset="0" />
+                                            <GradientStop Color="#2340B8D1" Offset="0.45" />
+                                            <GradientStop Color="#14FFFFFF" Offset="0.5" />
+                                            <GradientStop Color="#23B8E84D" Offset="0.55" />
+                                            <GradientStop Color="#C1B8E84D" Offset="1" />
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
@@ -80,15 +80,8 @@
                                 <Border Width="104" Height="13" CornerRadius="3" BorderBrush="#18FFFFFF" BorderThickness="1">
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                            <GradientStop Color="#440154" Offset="0" />
-                                            <GradientStop Color="#482475" Offset="0.13" />
-                                            <GradientStop Color="#414487" Offset="0.25" />
-                                            <GradientStop Color="#355F8D" Offset="0.38" />
-                                            <GradientStop Color="#21918D" Offset="0.5" />
-                                            <GradientStop Color="#22A884" Offset="0.63" />
-                                            <GradientStop Color="#44BF70" Offset="0.75" />
-                                            <GradientStop Color="#7AD151" Offset="0.88" />
-                                            <GradientStop Color="#BDDF26" Offset="1" />
+                                            <GradientStop Color="#28B8E84D" Offset="0" />
+                                            <GradientStop Color="#C1B8E84D" Offset="1" />
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>

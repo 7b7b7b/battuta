@@ -268,6 +268,8 @@ private struct TypingStatsKeyboardExtendedSection: View, Equatable {
 
 @MainActor
 private struct FittedTypingStatsKeyboard: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let counts: [UInt16: Int64]
     let heatScale: TypingHeatmapScale
     let exposesEmptyKeyMetadata: Bool
@@ -491,23 +493,23 @@ private struct FittedTypingStatsKeyboard: View {
 
     private func keycapTint(for count: Int64) -> Color {
         guard count > 0 else { return .clear }
-        return BattutaHeatmapPalette.sequentialColor(
+        return BattutaHeatmapPalette.keyboardFillColor(
             at: keycapIntensity(for: count)
         )
     }
 
     private func strokeColor(for count: Int64) -> Color {
         guard count > 0 else { return BattutaVisualStyle.separator.opacity(0.55) }
-        return BattutaHeatmapPalette.sequentialColor(
+        return BattutaHeatmapPalette.keyboardStrokeColor(
             at: keycapIntensity(for: count)
         )
     }
 
     private func keycapForeground(for count: Int64) -> Color {
         guard count > 0 else { return .primary }
-        return keycapIntensity(for: count) >= 0.70
-            ? .black.opacity(0.84)
-            : .white.opacity(0.94)
+        return colorScheme == .dark
+            ? .white.opacity(0.92)
+            : .black.opacity(0.84)
     }
 
     private func keycapIntensity(for count: Int64) -> Double {
@@ -517,6 +519,8 @@ private struct FittedTypingStatsKeyboard: View {
 
 @MainActor
 private struct TypingStatsKeycap: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let key: KeyboardKeyDescriptor
     let count: Int64
     let heatScale: TypingHeatmapScale
@@ -581,7 +585,7 @@ private struct TypingStatsKeycap: View {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .stroke(
                     count > 0
-                        ? BattutaHeatmapPalette.sequentialColor(at: intensity)
+                        ? BattutaHeatmapPalette.keyboardStrokeColor(at: intensity)
                         : BattutaVisualStyle.separator.opacity(0.55)
                 )
         )
@@ -628,14 +632,14 @@ private struct TypingStatsKeycap: View {
 
     private var keycapTint: Color {
         guard count > 0 else { return .clear }
-        return BattutaHeatmapPalette.sequentialColor(at: intensity)
+        return BattutaHeatmapPalette.keyboardFillColor(at: intensity)
     }
 
     private var keycapForeground: Color {
         guard count > 0 else { return .primary }
-        return intensity >= 0.70
-            ? .black.opacity(0.84)
-            : .white.opacity(0.94)
+        return colorScheme == .dark
+            ? .white.opacity(0.92)
+            : .black.opacity(0.84)
     }
 }
 

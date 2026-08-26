@@ -493,6 +493,7 @@ private struct TypingAppTimelinePanel: View {
             trailingLabel: heatScale.hasValues
                 ? "高 ≥\(statsCount(Int64(heatScale.high.rounded())))"
                 : "高 0",
+            palette: .timeline,
             barWidth: 92
         )
     }
@@ -614,7 +615,7 @@ private struct TypingAppTimelineRow: View {
 
     private func color(for count: Int64) -> Color {
         guard count > 0 else { return Color.secondary.opacity(0.08) }
-        return BattutaHeatmapPalette.sequentialColor(
+        return BattutaHeatmapPalette.timelineColor(
             at: heatScale.normalized(Double(count))
         )
     }
