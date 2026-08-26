@@ -71,7 +71,7 @@ SPARKLE_PUBLIC_KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$STAGED_
 SPARKLE_VERIFY_BEFORE_EXTRACTION=$(
   /usr/libexec/PlistBuddy -c "Print :SUVerifyUpdateBeforeExtraction" "$STAGED_INFO_PLIST"
 )
-if [[ "$SPARKLE_FEED_URL" != "https://github.com/7b7b7b/battuta/releases/latest/download/appcast.xml" \
+if [[ "$SPARKLE_FEED_URL" != "https://github.com/wormforce/battuta/releases/latest/download/appcast.xml" \
   || -z "$SPARKLE_PUBLIC_KEY" \
   || "$SPARKLE_VERIFY_BEFORE_EXTRACTION" != true ]]; then
   print -u2 "Sparkle release configuration is incomplete."

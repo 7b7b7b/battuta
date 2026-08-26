@@ -27,7 +27,7 @@ struct GitHubReleaseClient: Sendable {
         now: @escaping @Sendable () -> Date = { Date() }
     ) -> GitHubReleaseClient {
         let session = suppliedSession ?? makeSession()
-        let endpoint = URL(string: "https://api.github.com/repos/7b7b7b/battuta/releases/latest")!
+        let endpoint = URL(string: "https://api.github.com/repos/wormforce/battuta/releases/latest")!
 
         return GitHubReleaseClient { etag in
             var request = URLRequest(url: endpoint)

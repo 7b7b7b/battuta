@@ -10,7 +10,7 @@ public sealed class UpdateCheckServiceTests
         var time = new MutableTimeProvider(new DateTimeOffset(2026, 8, 24, 0, 0, 0, TimeSpan.Zero));
         var release = GitHubReleaseSummary.Create(
             "v1.1.0",
-            new Uri("https://github.com/7b7b7b/battuta/releases/tag/v1.1.0"),
+            new Uri("https://github.com/wormforce/battuta/releases/tag/v1.1.0"),
             time.GetUtcNow());
         var client = new QueueReleaseClient(
             new ReleaseFetchResult.Modified(

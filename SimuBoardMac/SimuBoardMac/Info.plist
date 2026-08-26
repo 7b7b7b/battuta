@@ -31,7 +31,7 @@
   <key>SUEnableAutomaticChecks</key>
   <false/>
   <key>SUFeedURL</key>
-  <string>https://github.com/7b7b7b/battuta/releases/latest/download/appcast.xml</string>
+  <string>https://github.com/wormforce/battuta/releases/latest/download/appcast.xml</string>
   <key>SUPublicEDKey</key>
   <string>g/H7zg/iYaS/eZ9EpTQ5bJopimhagvvbRZ0uSyBs9a8=</string>
   <key>SUSendProfileInfo</key>

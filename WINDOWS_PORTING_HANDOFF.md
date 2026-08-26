@@ -6,7 +6,7 @@
 
 ### 正确的源码基线
 
-- 当前 Git 远端为：`https://github.com/7b7b7b/battuta.git`
+- 当前 Git 远端为：`https://github.com/wormforce/battuta.git`
 - 必须从远端最新 `main` 开始，不要从旧的 `v0.3.2` Release 标签开始移植。
 - 本文编写时，核心源码基线是 commit `cce3b87`；Windows clone 后应确认位于该 commit 或其更新版本。
 - 当前源码工程的产品版本为 Battuta `1.1.1`，build `26`。
@@ -17,7 +17,7 @@
 建议在 Windows PowerShell 中执行：
 
 ```powershell
-git clone https://github.com/7b7b7b/battuta.git
+git clone https://github.com/wormforce/battuta.git
 cd battuta
 git switch -c codex/windows-port origin/main
 git log -1 --oneline

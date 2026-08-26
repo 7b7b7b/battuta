@@ -255,7 +255,7 @@ private extension View {
 #if DEBUG
 private let previewRelease = try! ReleaseSummary(
     tagName: "v0.4.0",
-    releaseURL: URL(string: "https://github.com/7b7b7b/battuta/releases/tag/v0.4.0")!,
+    releaseURL: URL(string: "https://github.com/wormforce/battuta/releases/tag/v0.4.0")!,
     publishedAt: Date()
 )
 

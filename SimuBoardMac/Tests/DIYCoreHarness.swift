@@ -2027,12 +2027,12 @@ private struct DIYCoreHarness {
             encoding: .utf8
         )
         try results.check(
-            releaseClientSource.contains("https://api.github.com/repos/7b7b7b/battuta/releases/latest"),
+            releaseClientSource.contains("https://api.github.com/repos/wormforce/battuta/releases/latest"),
             "update checks must use the renamed Battuta repository"
         )
         try results.check(
             ReleaseSummary.isAllowedReleaseURL(
-                URL(string: "https://github.com/7b7b7b/battuta/releases/tag/v0.6.2")!
+                URL(string: "https://github.com/wormforce/battuta/releases/tag/v0.6.2")!
             ),
             "release validation must accept the Battuta repository"
         )
@@ -2055,7 +2055,7 @@ private struct DIYCoreHarness {
 
         let release = try ReleaseSummary(
             tagName: "v0.4.1",
-            releaseURL: URL(string: "https://github.com/7b7b7b/battuta/releases/tag/v0.4.1")!,
+            releaseURL: URL(string: "https://github.com/wormforce/battuta/releases/tag/v0.4.1")!,
             publishedAt: nil
         )
         let rateLimit = GitHubRateLimit(remaining: 59, resetAt: nil)

@@ -18,7 +18,7 @@ public sealed class GitHubReleaseClientTests
             [
               {
                 "tag_name": "v1.1.0",
-                "html_url": "https://github.com/7b7b7b/battuta/releases/tag/v1.1.0",
+                "html_url": "https://github.com/wormforce/battuta/releases/tag/v1.1.0",
                 "draft": false,
                 "prerelease": false,
                 "published_at": "2026-08-25T07:32:31Z",
@@ -29,7 +29,7 @@ public sealed class GitHubReleaseClientTests
               },
               {
                 "tag_name": "v0.1.1",
-                "html_url": "https://github.com/7b7b7b/battuta/releases/tag/v0.1.1",
+                "html_url": "https://github.com/wormforce/battuta/releases/tag/v0.1.1",
                 "draft": false,
                 "prerelease": false,
                 "published_at": "2026-08-25T08:00:00Z",
@@ -58,14 +58,14 @@ public sealed class GitHubReleaseClientTests
             [
               {
                 "tag_name": "v1.1.0",
-                "html_url": "https://github.com/7b7b7b/battuta/releases/tag/v1.1.0",
+                "html_url": "https://github.com/wormforce/battuta/releases/tag/v1.1.0",
                 "draft": false,
                 "prerelease": false,
                 "assets": [{ "name": "Battuta-1.1.0-unnotarized.dmg" }]
               },
               {
                 "tag_name": "v0.1.1-rc.1",
-                "html_url": "https://github.com/7b7b7b/battuta/releases/tag/v0.1.1-rc.1",
+                "html_url": "https://github.com/wormforce/battuta/releases/tag/v0.1.1-rc.1",
                 "draft": false,
                 "prerelease": true,
                 "assets": [{ "name": "Battuta-Windows-0.1.1-win-{{architecture}}.zip" }]

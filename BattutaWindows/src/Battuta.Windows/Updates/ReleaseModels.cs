@@ -6,7 +6,7 @@ public sealed record GitHubReleaseSummary(
     Uri ReleaseUri,
     DateTimeOffset? PublishedAt)
 {
-    public const string AllowedReleasePathPrefix = "/7b7b7b/battuta/releases/";
+    public const string AllowedReleasePathPrefix = "/wormforce/battuta/releases/";
 
     public static GitHubReleaseSummary Create(
         string tagName,

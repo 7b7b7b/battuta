@@ -9,7 +9,7 @@ namespace Battuta.Windows.Updates;
 public sealed class GitHubReleaseClient : IReleaseClient
 {
     public static readonly Uri ReleasesEndpoint = new(
-        "https://api.github.com/repos/7b7b7b/battuta/releases?per_page=20");
+        "https://api.github.com/repos/wormforce/battuta/releases?per_page=20");
 
     private readonly HttpClient _httpClient;
     private readonly TimeProvider _timeProvider;

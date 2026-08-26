@@ -37,7 +37,7 @@ struct UpdateInstallerCoreHarness {
     static func main() async throws {
         let release = try ReleaseSummary(
             tagName: "v1.0.0",
-            releaseURL: URL(string: "https://github.com/7b7b7b/battuta/releases/tag/v1.0.0")!,
+            releaseURL: URL(string: "https://github.com/wormforce/battuta/releases/tag/v1.0.0")!,
             publishedAt: nil
         )
         let response = GitHubReleaseFetchResult.modified(
