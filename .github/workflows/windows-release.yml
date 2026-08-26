@@ -6,11 +6,9 @@ on:
       version:
         description: Semantic version without the v prefix
         required: true
-        default: 1.1.1
       tag:
         description: Existing draft release tag to update
         required: true
-        default: v1.1.1
 
 permissions:
   contents: write
@@ -31,6 +29,13 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v5
+
+      - name: Validate release inputs
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -ne "v$env:RELEASE_VERSION") {
+              throw "Release tag '$env:RELEASE_TAG' must equal v$env:RELEASE_VERSION."
+          }
 
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v5
