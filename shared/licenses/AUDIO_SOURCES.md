@@ -5,6 +5,11 @@ audio used by Battuta's shipped bundles.
 Derived files are trimmed and/or resampled to 48 kHz mono PCM WAV unless noted
 otherwise.
 
+The public desktop resource tree lives at `shared/audio/builtin`. Both desktop
+applications consume this directory; platform projects must not keep a second
+canonical copy. Permissioned packaged sound packs live separately under
+`shared/soundpacks/bundled` so they retain their manifest and permission notice.
+
 ## Bundled sources
 
 | Battuta profiles | Upstream | Upstream revision | License | Processing |
@@ -16,13 +21,13 @@ otherwise.
 | Keychron Red Linear | [Typing on Keychron V1 Ultra (Red Linear Switch)](https://commons.wikimedia.org/wiki/File:Typing_on_Keychron_V1_Ultra_(Red_Linear_Switch).wav) by C40115 | Wikimedia file revision available on the source page | CC BY 4.0 | Five 180 ms excerpts selected from the original 48 kHz WAV and downmixed to mono; each complete keystroke is separated into press/release samples, with later neighboring keystrokes excluded |
 | Kailh Low-profile Blue | [Fast Typing on Mechanical Keyboard](https://freesound.org/people/HeinzBBQ/sounds/502653/) by HeinzBBQ | Freesound ID `502653` | CC0 1.0 | Five 220 ms excerpts selected from the public HQ preview, downmixed and resampled; click and bottom-out remain in press while the later release event is separated and neighboring keystrokes are excluded |
 | Cherry MX Clear | [Mechanical keyboard clicking. Different keys (4)](https://freesound.org/people/humi74/sounds/412926/) by humi74 | Freesound ID `412926` | CC0 1.0 | Five 220 ms excerpts selected from the public HQ preview, downmixed and resampled, then separated at the audited energy valley before release; one excerpt without a usable release reuses the closest clean release variation from the same recording |
-| BCP (Suit80) | `【打字声音】Suit80｜BCP轴｜GMK Ursa 大熊 - Original.mp4`, visible uploader `J_Eason001` | Maintainer-supplied source recording; redistribution permission confirmed 2026-08-25 and retained privately by the Battuta maintainer | Used with permission for Battuta | Rendered with `scripts/render-local-bcp-profile.sh`: stereo downmix, `-3 dB` headroom, `55 Hz` high-pass, conservative `afftdn` denoise with measured `25 ms` latency compensation, then 28 audited press/release cuts. Five base row pairs and five alternate small-key pairs use separated transients, a light `95 Hz` press high-pass, a light `108 Hz` release high-pass, and `1 ms` release fade-in. Three late secondary impacts are excluded to prevent cumulative desk resonance during rapid typing; dedicated Shift, Backspace, Enter, and Space pairs retain their audited cuts. The release package is stored as a read-only bundled `.simuboardpack`. |
+| BCP (Suit80) | `【打字声音】Suit80｜BCP轴｜GMK Ursa 大熊 - Original.mp4`, visible uploader `J_Eason001` | Maintainer-supplied source recording; redistribution permission confirmed 2026-08-25 and retained privately by the Battuta maintainer | Used with permission for Battuta | Rendered with `SimuBoardMac/scripts/render-local-bcp-profile.sh`: stereo downmix, `-3 dB` headroom, `55 Hz` high-pass, conservative `afftdn` denoise with measured `25 ms` latency compensation, then 28 audited press/release cuts. Five base row pairs and five alternate small-key pairs use separated transients, a light `95 Hz` press high-pass, a light `108 Hz` release high-pass, and `1 ms` release fade-in. Three late secondary impacts are excluded to prevent cumulative desk resonance during rapid typing; dedicated Shift, Backspace, Enter, and Space pairs retain their audited cuts. The release package is stored as a read-only bundled `.simuboardpack`. |
 | Pointer Classic, Silent, Crisp, Heavy, and Glass | [Kenney UI Audio](https://kenney.nl/assets/ui-audio) by Kenney Vleugels | Archive downloaded 2026-08-22; original files `mouseclick1.ogg` and `mouserelease1.ogg` | CC0 1.0 | The matched press/release recordings are downmixed and rendered as five generic simulated tonal treatments. Each phase is pitch-lowered with compensation for the associated tempo change, then receives profile-specific low-pass filtering, restrained midrange EQ and level adjustment; Crisp and Glass retain a gentle low cut for definition without the former high-frequency boost. Leading signal below −45 dBFS is removed while retaining up to 2 ms of pre-roll; all outputs have a 4 ms tail fade and are 48 kHz mono 16-bit PCM WAV. The profile names do not identify or claim to reproduce a particular mouse brand or switch. |
 
 The imported files can be reproduced with:
 
 ```bash
-./scripts/import-open-soundpacks.sh \
+./SimuBoardMac/scripts/import-open-soundpacks.sh \
   /path/to/clicketyclack \
   /path/to/keyboardsounds-pro \
   /path/to/stavsounds-preview-directory \
@@ -35,7 +40,7 @@ The five pointer profiles can be reproduced separately from the unmodified
 Kenney UI Audio archive with:
 
 ```bash
-./scripts/import-pointer-sounds.sh /path/to/kenney-ui-audio
+./SimuBoardMac/scripts/import-pointer-sounds.sh /path/to/kenney-ui-audio
 ```
 
 The pointer importer verifies SHA-256 for both source OGG files and Kenney's
@@ -54,7 +59,7 @@ are verified byte-for-byte identical.
 The importer rejects a different Git revision, a modified source directory, or
 any of the 13 downloaded files whose SHA-256 does not match this audited import.
 For the five full-keystroke sources, the importer uses the per-recording split
-manifest in `scripts/split-full-keystrokes.py`. Split points were selected from
+manifest in `SimuBoardMac/scripts/split-full-keystrokes.py`. Split points were selected from
 4 ms RMS energy and spectral-flux features: press ends at the quiet valley
 before the release event, while explicit release end points exclude the next
 keystroke in continuous recordings. Press tails fade for 4 ms; release samples
@@ -64,15 +69,15 @@ renders all seven profiles in a staging directory before replacing the previous
 generated copies, so stale files cannot survive a re-import.
 
 The copyright notices and license terms required for redistribution are in
-`SimuBoardMac/Resources/THIRD_PARTY_NOTICES.txt` and the repository-level
+`SimuBoardMac/SimuBoardMac/Resources/THIRD_PARTY_NOTICES.txt` and the repository-level
 `THIRD_PARTY_NOTICES.md`.
 
 BCP (Suit80) is shipped from
-`SimuBoardMac/Resources/BundledSoundPacks/15d04652-5265-4ea7-a376-8a7e11ff6813.simuboardpack`.
+`shared/soundpacks/bundled/15d04652-5265-4ea7-a376-8a7e11ff6813.simuboardpack`.
 Its manifest and bundled permission notice record the authorized release status;
 the underlying permission correspondence remains private with the maintainer.
-The ignored `build/BCP-rendered-assets` directory remains only a deterministic
-re-rendering workspace and is not used directly by the runtime.
+The ignored `SimuBoardMac/build/BCP-rendered-assets` directory remains only a
+deterministic re-rendering workspace and is not used directly by the runtime.
 
 ## Evaluated but not bundled
 

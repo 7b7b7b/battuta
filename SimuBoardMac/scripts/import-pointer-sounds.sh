@@ -12,7 +12,8 @@ RELEASE_SOURCE="$SOURCE_ROOT/Audio/mouserelease1.ogg"
 LICENSE_SOURCE="$SOURCE_ROOT/License.txt"
 SCRIPT_DIR=${0:A:h}
 PROJECT_DIR=${SCRIPT_DIR:h}
-FINAL_TARGET_ROOT="$PROJECT_DIR/SimuBoardMac/Resources/Audio/pointer"
+REPOSITORY_ROOT=${PROJECT_DIR:h}
+FINAL_TARGET_ROOT="$REPOSITORY_ROOT/shared/audio/builtin/pointer"
 STAGE_DIR=$(mktemp -d /private/tmp/simuboard-pointer-import.XXXXXX)
 TARGET_ROOT="$STAGE_DIR/pointer"
 

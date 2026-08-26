@@ -5,15 +5,14 @@ namespace Battuta.Core.Tests.Audio;
 public sealed class BundledAudioResourceContractTests
 {
     [Fact]
-    public void MacAudioTreeContainsEverySampleRequiredByWindowsCore()
+    public void SharedAudioTreeContainsEverySampleRequiredByWindowsCore()
     {
         var repositoryRoot = FindRepositoryRoot();
         var audioRoot = Path.Combine(
             repositoryRoot,
-            "SimuBoardMac",
-            "SimuBoardMac",
-            "Resources",
-            "Audio");
+            "shared",
+            "audio",
+            "builtin");
         var actual = Directory.EnumerateFiles(audioRoot, "*.*", SearchOption.AllDirectories)
             .Where(path => Path.GetExtension(path) is ".wav" or ".mp3")
             .Select(path => Path.GetRelativePath(audioRoot, path).Replace('\\', '/'))
@@ -58,7 +57,11 @@ public sealed class BundledAudioResourceContractTests
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            if (Directory.Exists(Path.Combine(directory.FullName, "SimuBoardMac")))
+            if (Directory.Exists(Path.Combine(
+                    directory.FullName,
+                    "shared",
+                    "audio",
+                    "builtin")))
             {
                 return directory.FullName;
             }

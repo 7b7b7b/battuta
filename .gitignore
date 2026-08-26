@@ -15,4 +15,7 @@ BattutaWindows/store-assets/raw/
 *Sparkle-private-key*
 *sparkle-private-key*
 
-SimuBoardMac/build/*
+# macOS build and release output. Published installers belong in GitHub Releases,
+# not in the source tree.
+*.dmg
+SimuBoardMac/build/

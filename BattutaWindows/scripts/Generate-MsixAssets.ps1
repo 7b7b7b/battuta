@@ -11,7 +11,7 @@ $scriptRoot = Split-Path -Parent $PSCommandPath
 $windowsRoot = (Resolve-Path -LiteralPath (Join-Path $scriptRoot '..')).Path
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $windowsRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($SourceImage)) {
-    $SourceImage = Join-Path $repositoryRoot 'SimuBoardMac\Design\AppIconSquare.png'
+    $SourceImage = Join-Path $repositoryRoot 'shared\brand\source\AppIconSquare.png'
 }
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $windowsRoot 'src\Battuta.Packaging\Assets'
