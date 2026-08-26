@@ -327,18 +327,16 @@ public sealed class KeyboardCanvas : FrameworkElement
         Brush fill;
         Pen border;
         var count = CountFor(keyId);
-        var heatIntensity = 0d;
         if (statistics)
         {
-            heatIntensity = heatScale.Normalize(count);
-            var heatColor = BattutaHeatmapPalette.SequentialColor(heatIntensity);
+            var heatIntensity = heatScale.Normalize(count);
             fill = new SolidColorBrush(count == 0
                 ? Color.FromArgb(230, 37, 41, 37)
-                : heatColor);
+                : BattutaHeatmapPalette.KeyboardFillColor(heatIntensity));
             border = new Pen(
                 new SolidColorBrush(count == 0
                     ? Color.FromArgb(48, 255, 255, 255)
-                    : heatColor),
+                    : BattutaHeatmapPalette.KeyboardBorderColor(heatIntensity)),
                 1);
         }
         else
@@ -369,12 +367,7 @@ public sealed class KeyboardCanvas : FrameworkElement
             FontStyles.Normal,
             selected ? FontWeights.SemiBold : FontWeights.Normal,
             FontStretches.Normal);
-        var activeTextColor = heatIntensity >= .70
-            ? Color.FromArgb(214, 0, 0, 0)
-            : Color.FromArgb(240, 255, 255, 255);
-        var labelColor = statistics && count > 0
-            ? activeTextColor
-            : Color.FromArgb(235, 255, 255, 255);
+        var labelColor = Color.FromArgb(235, 255, 255, 255);
         var text = new FormattedText(
             label,
             CultureInfo.CurrentUICulture,
@@ -404,7 +397,7 @@ public sealed class KeyboardCanvas : FrameworkElement
                     FontStretches.Normal),
                 8.5,
                 new SolidColorBrush(count > 0
-                    ? activeTextColor
+                    ? Color.FromArgb(210, 255, 255, 255)
                     : Color.FromArgb(110, 255, 255, 255)),
                 VisualTreeHelper.GetDpi(this).PixelsPerDip)
             {

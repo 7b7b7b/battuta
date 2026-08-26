@@ -930,7 +930,7 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
         case .current:
             let current = currentAverage(value)
             color = value.characterCount > 0
-                ? BattutaHeatmapPalette.sequentialColor(
+                ? BattutaHeatmapPalette.rhythmColor(
                     at: currentScale.normalized(current)
                 )
                 : BattutaVisualStyle.instrumentSeparator.opacity(0.64)
@@ -975,6 +975,7 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
                     trailingLabel: currentScale.hasValues
                         ? "高 ≥\(averageText(currentScale.high))"
                         : "高 0",
+                    palette: .rhythm,
                     barWidth: 132,
                     labelColor: BattutaVisualStyle.instrumentSecondary
                 )

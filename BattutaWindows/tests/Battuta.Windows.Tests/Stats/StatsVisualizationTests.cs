@@ -65,40 +65,107 @@ public sealed class StatsVisualizationTests
     }
 
     [Fact]
-    public void SequentialHeatmapPaletteMatchesSharedViridisStops()
+    public void HeatmapPalettesRestoreViewSpecificGreenAndCyanRamps()
     {
-        (double Location, Color Color)[] expected =
-        [
-            (0.00, Color.FromRgb(0x44, 0x01, 0x54)),
-            (0.13, Color.FromRgb(0x48, 0x24, 0x75)),
-            (0.25, Color.FromRgb(0x41, 0x44, 0x87)),
-            (0.38, Color.FromRgb(0x35, 0x5F, 0x8D)),
-            (0.50, Color.FromRgb(0x21, 0x91, 0x8D)),
-            (0.63, Color.FromRgb(0x22, 0xA8, 0x84)),
-            (0.75, Color.FromRgb(0x44, 0xBF, 0x70)),
-            (0.88, Color.FromRgb(0x7A, 0xD1, 0x51)),
-            (1.00, Color.FromRgb(0xBD, 0xDF, 0x26)),
-        ];
-
-        foreach (var stop in expected)
-        {
-            Assert.Equal(stop.Color, BattutaHeatmapPalette.SequentialColor(stop.Location));
-        }
-
-        var gradient = BattutaHeatmapPalette.CreateSequentialGradientBrush();
-        Assert.True(gradient.IsFrozen);
-        Assert.Equal(expected.Length, gradient.GradientStops.Count);
-        Assert.Equal(expected.Select(stop => stop.Location), gradient.GradientStops.Select(stop => stop.Offset));
+        Assert.Equal(
+            Color.FromArgb(0x19, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.KeyboardFillColor(0));
+        Assert.Equal(
+            Color.FromArgb(0x8E, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.KeyboardFillColor(1));
+        Assert.Equal(
+            Color.FromArgb(0x42, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.KeyboardBorderColor(0));
+        Assert.Equal(
+            Color.FromArgb(0x99, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.KeyboardBorderColor(1));
+        Assert.Equal(
+            Color.FromArgb(0x48, 0x40, 0xB8, 0xD1),
+            BattutaHeatmapPalette.ApplicationTimelineColor(0));
+        Assert.Equal(
+            Color.FromArgb(0xFF, 0x91, 0xC9, 0x2B),
+            BattutaHeatmapPalette.ApplicationTimelineColor(1));
+        Assert.Equal(
+            Color.FromArgb(0x48, 0x40, 0xB8, 0xD1),
+            BattutaHeatmapPalette.ApplicationTimelineColor(.249));
+        Assert.Equal(
+            Color.FromArgb(0x8C, 0x40, 0xB8, 0xD1),
+            BattutaHeatmapPalette.ApplicationTimelineColor(.25));
+        Assert.Equal(
+            Color.FromArgb(0xB8, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.ApplicationTimelineColor(.55));
+        Assert.Equal(
+            Color.FromArgb(0xFF, 0x91, 0xC9, 0x2B),
+            BattutaHeatmapPalette.ApplicationTimelineColor(.82));
+        Assert.Equal(
+            Color.FromArgb(0x28, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.RhythmCurrentColor(0));
+        Assert.Equal(
+            Color.FromArgb(0xC1, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.RhythmCurrentColor(1));
+        Assert.Equal(
+            Color.FromArgb(0x3D, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.YearColor(0));
+        Assert.Equal(
+            Color.FromArgb(0xEB, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.YearColor(1));
     }
 
     [Fact]
-    public void DivergingHeatmapPaletteKeepsZeroAtSharedNeutralColor()
+    public void HeatmapPaletteInterpolatesAlphaAndKeepsRhythmZeroNeutral()
     {
-        Assert.Equal(Color.FromRgb(0x1B, 0x8E, 0xB3), BattutaHeatmapPalette.DivergingColor(-1));
-        Assert.Equal(Color.FromRgb(0x2E, 0x63, 0x74), BattutaHeatmapPalette.DivergingColor(-.5));
-        Assert.Equal(Color.FromRgb(0x3E, 0x42, 0x3E), BattutaHeatmapPalette.DivergingColor(0));
-        Assert.Equal(Color.FromRgb(0x74, 0x9C, 0x38), BattutaHeatmapPalette.DivergingColor(.5));
-        Assert.Equal(Color.FromRgb(0xBD, 0xDF, 0x26), BattutaHeatmapPalette.DivergingColor(1));
+        Assert.Equal(
+            Color.FromArgb(0xB7, 0x40, 0xB8, 0xD1),
+            BattutaHeatmapPalette.RhythmDifferenceColor(-1));
+        Assert.Equal(
+            Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF),
+            BattutaHeatmapPalette.RhythmDifferenceColor(0));
+        Assert.Equal(
+            Color.FromArgb(0xC1, 0xB8, 0xE8, 0x4D),
+            BattutaHeatmapPalette.RhythmDifferenceColor(1));
+
+        var middle = BattutaHeatmapPalette.RhythmCurrentColor(.5);
+        Assert.InRange((int)middle.A, 0x74, 0x75);
+        Assert.Equal((byte)0xB8, middle.R);
+        Assert.Equal((byte)0xE8, middle.G);
+        Assert.Equal((byte)0x4D, middle.B);
+    }
+
+    [Fact]
+    public void HeatmapColorBarsRemainContinuousAndUseAlphaStops()
+    {
+        var keyboardGradient = BattutaHeatmapPalette.CreateKeyboardGradientBrush();
+        var timelineGradient = BattutaHeatmapPalette.CreateApplicationTimelineGradientBrush();
+        var rhythmGradient = BattutaHeatmapPalette.CreateRhythmCurrentGradientBrush();
+        var differenceGradient = BattutaHeatmapPalette.CreateRhythmDifferenceGradientBrush();
+        var yearGradient = BattutaHeatmapPalette.CreateYearGradientBrush();
+
+        Assert.True(keyboardGradient.IsFrozen);
+        Assert.Equal(
+            new[] { 0d, .33, .67, 1d },
+            keyboardGradient.GradientStops.Select(stop => stop.Offset));
+        Assert.Equal(
+            new[] { 0x1A, 0x40, 0x66, 0x8F },
+            keyboardGradient.GradientStops.Select(stop => (int)stop.Color.A));
+        Assert.True(timelineGradient.IsFrozen);
+        Assert.Equal(
+            new[] { 0d, .33, .67, 1d },
+            timelineGradient.GradientStops.Select(stop => stop.Offset));
+        Assert.True(rhythmGradient.IsFrozen);
+        Assert.Equal(
+            new[] { 0x28, 0xC1 },
+            rhythmGradient.GradientStops.Select(stop => (int)stop.Color.A));
+        Assert.True(differenceGradient.IsFrozen);
+        Assert.Equal(
+            new[] { 0d, .45, .5, .55, 1d },
+            differenceGradient.GradientStops.Select(stop => stop.Offset));
+        Assert.Equal(
+            Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF),
+            differenceGradient.GradientStops[2].Color);
+        Assert.True(yearGradient.IsFrozen);
+        Assert.Equal(
+            new[] { 0x3D, 0x6B, 0xA8, 0xEB },
+            yearGradient.GradientStops.Select(stop => (int)stop.Color.A));
     }
 
     [Fact]

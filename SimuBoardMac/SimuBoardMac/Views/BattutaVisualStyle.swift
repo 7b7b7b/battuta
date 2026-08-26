@@ -51,110 +51,123 @@ enum BattutaVisualStyle {
     static let glassTintOpacity = 0.14
 }
 
-/// Continuous heatmap colors shared by the annual, rhythm, application and
-/// keyboard views. The sequential stops are sampled from a Viridis-style
-/// perceptually uniform ramp, while the diverging ramp keeps equal visual travel
-/// from cyan through a neutral centre to Battuta lime.
+/// Heatmap colors keep Battuta's original lime/cyan visual language while the
+/// statistics model supplies the adaptive, continuous value distribution.
 enum BattutaHeatmapPalette {
-    private struct RGBStop: Sendable {
-        let location: Double
-        let red: Double
-        let green: Double
-        let blue: Double
+    static var sequentialGradient: LinearGradient {
+        gradient([
+            (BattutaVisualStyle.accent.opacity(0.10), 0.00),
+            (BattutaVisualStyle.accent.opacity(0.25), 0.33),
+            (BattutaVisualStyle.accent.opacity(0.40), 0.67),
+            (BattutaVisualStyle.accent.opacity(0.56), 1.00),
+        ])
     }
 
-    private static let sequentialStops: [RGBStop] = [
-        RGBStop(location: 0.00, red: 0.267, green: 0.005, blue: 0.329),
-        RGBStop(location: 0.13, red: 0.283, green: 0.141, blue: 0.458),
-        RGBStop(location: 0.25, red: 0.254, green: 0.265, blue: 0.530),
-        RGBStop(location: 0.38, red: 0.207, green: 0.372, blue: 0.553),
-        RGBStop(location: 0.50, red: 0.128, green: 0.567, blue: 0.551),
-        RGBStop(location: 0.63, red: 0.135, green: 0.659, blue: 0.518),
-        RGBStop(location: 0.75, red: 0.267, green: 0.749, blue: 0.441),
-        RGBStop(location: 0.88, red: 0.478, green: 0.821, blue: 0.318),
-        RGBStop(location: 1.00, red: 0.741, green: 0.873, blue: 0.150),
-    ]
+    static var yearGradient: LinearGradient {
+        gradient([
+            (BattutaVisualStyle.accent.opacity(0.24), 0.00),
+            (BattutaVisualStyle.accent.opacity(0.42), 0.33),
+            (BattutaVisualStyle.accent.opacity(0.66), 0.67),
+            (BattutaVisualStyle.accent.opacity(0.92), 1.00),
+        ])
+    }
 
-    private static let divergingStops: [RGBStop] = [
-        RGBStop(location: 0.00, red: 0.105, green: 0.555, blue: 0.700),
-        RGBStop(location: 0.25, red: 0.180, green: 0.390, blue: 0.455),
-        RGBStop(location: 0.50, red: 0.245, green: 0.260, blue: 0.245),
-        RGBStop(location: 0.75, red: 0.455, green: 0.610, blue: 0.220),
-        RGBStop(location: 1.00, red: 0.741, green: 0.873, blue: 0.150),
-    ]
+    static var timelineGradient: LinearGradient {
+        gradient([
+            (BattutaVisualStyle.cyan.opacity(0.28), 0.00),
+            (BattutaVisualStyle.cyan.opacity(0.55), 0.33),
+            (BattutaVisualStyle.accent.opacity(0.72), 0.67),
+            (BattutaVisualStyle.accentStrong, 1.00),
+        ])
+    }
 
-    static var sequentialGradient: LinearGradient {
-        LinearGradient(
-            gradient: gradient(from: sequentialStops),
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+    static var rhythmGradient: LinearGradient {
+        gradient([
+            (BattutaVisualStyle.accent.opacity(0.16), 0.00),
+            (BattutaVisualStyle.accent.opacity(0.76), 1.00),
+        ])
     }
 
     static var divergingGradient: LinearGradient {
-        LinearGradient(
-            gradient: gradient(from: divergingStops),
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+        gradient([
+            (BattutaVisualStyle.cyan.opacity(0.72), 0.00),
+            (BattutaVisualStyle.cyan.opacity(0.14), 0.45),
+            (Color.white.opacity(0.08), 0.50),
+            (BattutaVisualStyle.accent.opacity(0.14), 0.55),
+            (BattutaVisualStyle.accent.opacity(0.76), 1.00),
+        ])
     }
 
-    static func sequentialColor(at normalizedValue: Double) -> Color {
-        interpolatedColor(at: normalizedValue, stops: sequentialStops)
+    static func keyboardFillColor(at normalizedValue: Double) -> Color {
+        BattutaVisualStyle.accent.opacity(0.10 + normalized(normalizedValue) * 0.46)
+    }
+
+    static func keyboardStrokeColor(at normalizedValue: Double) -> Color {
+        BattutaVisualStyle.accent.opacity(0.26 + normalized(normalizedValue) * 0.34)
+    }
+
+    static func yearColor(at normalizedValue: Double) -> Color {
+        BattutaVisualStyle.accent.opacity(0.24 + normalized(normalizedValue) * 0.68)
+    }
+
+    static func timelineColor(at normalizedValue: Double) -> Color {
+        let intensity = normalized(normalizedValue)
+        if intensity < 0.25 {
+            return BattutaVisualStyle.cyan.opacity(0.28)
+        }
+        if intensity < 0.55 {
+            return BattutaVisualStyle.cyan.opacity(0.55)
+        }
+        if intensity < 0.82 {
+            return BattutaVisualStyle.accent.opacity(0.72)
+        }
+        return BattutaVisualStyle.accentStrong
+    }
+
+    static func rhythmColor(at normalizedValue: Double) -> Color {
+        BattutaVisualStyle.accent.opacity(0.16 + normalized(normalizedValue) * 0.60)
     }
 
     /// Accepts the symmetric -1...1 value produced by
     /// `TypingDivergingHeatmapScale.normalized(_:)`.
     static func divergingColor(at normalizedValue: Double) -> Color {
-        interpolatedColor(at: (normalizedValue + 1) / 2, stops: divergingStops)
+        let value = min(1, max(-1, normalizedValue))
+        if value < 0 {
+            return BattutaVisualStyle.cyan.opacity(0.14 + abs(value) * 0.58)
+        }
+        if value > 0 {
+            return BattutaVisualStyle.accent.opacity(0.14 + value * 0.62)
+        }
+        return Color.white.opacity(0.08)
     }
 
-    private static func gradient(from stops: [RGBStop]) -> Gradient {
-        Gradient(stops: stops.map { stop in
-            Gradient.Stop(
-                color: Color(red: stop.red, green: stop.green, blue: stop.blue),
-                location: stop.location
-            )
-        })
-    }
-
-    private static func interpolatedColor(
-        at rawLocation: Double,
-        stops: [RGBStop]
-    ) -> Color {
-        let location = min(1, max(0, rawLocation))
-        guard let first = stops.first, let last = stops.last else { return .clear }
-        guard location > first.location else {
-            return Color(red: first.red, green: first.green, blue: first.blue)
-        }
-        guard location < last.location else {
-            return Color(red: last.red, green: last.green, blue: last.blue)
-        }
-
-        guard let upperIndex = stops.firstIndex(where: { $0.location >= location }) else {
-            return Color(red: last.red, green: last.green, blue: last.blue)
-        }
-        let lower = stops[max(0, upperIndex - 1)]
-        let upper = stops[upperIndex]
-        let span = max(Double.ulpOfOne, upper.location - lower.location)
-        let progress = (location - lower.location) / span
-        return Color(
-            red: lower.red + (upper.red - lower.red) * progress,
-            green: lower.green + (upper.green - lower.green) * progress,
-            blue: lower.blue + (upper.blue - lower.blue) * progress
+    private static func gradient(_ stops: [(Color, CGFloat)]) -> LinearGradient {
+        LinearGradient(
+            stops: stops.map { color, location in
+                Gradient.Stop(color: color, location: location)
+            },
+            startPoint: .leading,
+            endPoint: .trailing
         )
+    }
+
+    private static func normalized(_ value: Double) -> Double {
+        min(1, max(0, value))
     }
 }
 
 enum BattutaHeatmapLegendPalette {
-    case sequential
+    case keyboard
+    case year
+    case timeline
+    case rhythm
     case diverging
 }
 
 struct BattutaHeatmapLegend: View {
     let leadingLabel: String
     let trailingLabel: String
-    var palette: BattutaHeatmapLegendPalette = .sequential
+    var palette: BattutaHeatmapLegendPalette = .keyboard
     var barWidth: CGFloat = 112
     var labelColor: Color = .secondary
 
@@ -182,8 +195,14 @@ struct BattutaHeatmapLegend: View {
 
     private var gradient: LinearGradient {
         switch palette {
-        case .sequential:
+        case .keyboard:
             return BattutaHeatmapPalette.sequentialGradient
+        case .year:
+            return BattutaHeatmapPalette.yearGradient
+        case .timeline:
+            return BattutaHeatmapPalette.timelineGradient
+        case .rhythm:
+            return BattutaHeatmapPalette.rhythmGradient
         case .diverging:
             return BattutaHeatmapPalette.divergingGradient
         }
@@ -191,7 +210,7 @@ struct BattutaHeatmapLegend: View {
 
     private var accessibilityText: String {
         switch palette {
-        case .sequential:
+        case .keyboard, .year, .timeline, .rhythm:
             "连续颜色图例，从 \(leadingLabel) 到 \(trailingLabel)"
         case .diverging:
             "连续差异颜色图例，从 \(leadingLabel)，经过零，到 \(trailingLabel)"

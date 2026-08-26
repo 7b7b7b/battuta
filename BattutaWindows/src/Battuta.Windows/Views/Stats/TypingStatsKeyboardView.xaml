@@ -24,15 +24,10 @@
                                     ToolTip="色阶按当前显示按键的非零计数自动调整">
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                        <GradientStop Color="#440154" Offset="0" />
-                                        <GradientStop Color="#482475" Offset="0.13" />
-                                        <GradientStop Color="#414487" Offset="0.25" />
-                                        <GradientStop Color="#355F8D" Offset="0.38" />
-                                        <GradientStop Color="#21918D" Offset="0.5" />
-                                        <GradientStop Color="#22A884" Offset="0.63" />
-                                        <GradientStop Color="#44BF70" Offset="0.75" />
-                                        <GradientStop Color="#7AD151" Offset="0.88" />
-                                        <GradientStop Color="#BDDF26" Offset="1" />
+                                        <GradientStop Color="#1AB8E84D" Offset="0" />
+                                        <GradientStop Color="#40B8E84D" Offset="0.33" />
+                                        <GradientStop Color="#66B8E84D" Offset="0.67" />
+                                        <GradientStop Color="#8FB8E84D" Offset="1" />
                                     </LinearGradientBrush>
                                 </Border.Background>
                             </Border>

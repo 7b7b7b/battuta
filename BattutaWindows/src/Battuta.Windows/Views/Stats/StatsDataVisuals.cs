@@ -328,7 +328,7 @@ public sealed class StatsAppTimeline : FrameworkElement
                 var intensity = heatScale.Normalize(value);
                 var color = value <= 0
                     ? Color.FromArgb(14, 255, 255, 255)
-                    : BattutaHeatmapPalette.SequentialColor(intensity);
+                    : BattutaHeatmapPalette.ApplicationTimelineColor(intensity);
                 var width = Math.Max(1, timelineWidth / bucketCount - 1);
                 drawingContext.DrawRoundedRectangle(
                     FrozenBrush(color),
@@ -575,18 +575,18 @@ public sealed class StatsRhythmHeatmap : FrameworkElement
                 if (Mode == StatsRhythmMode.Current)
                 {
                     color = value.CharacterCount > 0
-                        ? BattutaHeatmapPalette.SequentialColor(intensity)
+                        ? BattutaHeatmapPalette.RhythmCurrentColor(intensity)
                         : Color.FromArgb(20, 255, 255, 255);
                     symbol = "";
                 }
                 else if (presentation.DisplayValue > 0)
                 {
-                    color = BattutaHeatmapPalette.DivergingColor(intensity);
+                    color = BattutaHeatmapPalette.RhythmDifferenceColor(intensity);
                     symbol = intensity >= .34 ? "↑" : "";
                 }
                 else if (presentation.DisplayValue < 0)
                 {
-                    color = BattutaHeatmapPalette.DivergingColor(-intensity);
+                    color = BattutaHeatmapPalette.RhythmDifferenceColor(-intensity);
                     symbol = intensity >= .34 ? "↓" : "";
                 }
                 else
@@ -594,7 +594,7 @@ public sealed class StatsRhythmHeatmap : FrameworkElement
                     var hasComparisonData = value.CharacterCount > 0
                         || value.ComparisonCharacterCount > 0;
                     color = hasComparisonData
-                        ? BattutaHeatmapPalette.DivergingColor(0)
+                        ? BattutaHeatmapPalette.RhythmDifferenceColor(0)
                         : Color.FromArgb(20, 255, 255, 255);
                     symbol = hasComparisonData ? "•" : "";
                 }
@@ -902,7 +902,7 @@ public sealed class StatsYearHeatmap : FrameworkElement
         DrawText(drawingContext, "少", new Point(legend.Left, legend.Top), 8.5, dpi);
         var gradientX = legend.Left + LegendLabelSlot + LegendItemGap;
         var gradientWidth = 5 * cell + 4 * gap;
-        var gradientBrush = BattutaHeatmapPalette.CreateSequentialGradientBrush();
+        var gradientBrush = BattutaHeatmapPalette.CreateYearGradientBrush();
         drawingContext.DrawRoundedRectangle(
             gradientBrush,
             FrozenPen(Color.FromArgb(15, 255, 255, 255), .5),
@@ -973,7 +973,7 @@ public sealed class StatsYearHeatmap : FrameworkElement
     private static SolidColorBrush HeatBrush(long count, double intensity) =>
         FrozenBrush(
             count > 0
-                ? BattutaHeatmapPalette.SequentialColor(intensity)
+                ? BattutaHeatmapPalette.YearColor(intensity)
                 : Color.FromArgb(20, 255, 255, 255));
 
     private static void DrawText(
