@@ -1,5 +1,87 @@
 import Foundation
 
+/// Automatic value range shared by every one-way typing heatmap.
+///
+/// Only non-zero values currently represented by the view participate in the
+/// range. Small samples use their real maximum; larger samples cap the range at
+/// P95 so one exceptional bucket does not make every other cell look empty.
+struct TypingHeatmapScale: Equatable, Sendable {
+    static let percentileSampleThreshold = 20
+
+    let low: Double
+    let high: Double
+    let hasValues: Bool
+
+    init(values: [Double]) {
+        let nonzeroValues = values
+            .filter { $0.isFinite && $0 > 0 }
+            .sorted()
+
+        guard let minimum = nonzeroValues.first,
+              let upperBound = Self.automaticUpperBound(for: nonzeroValues) else {
+            low = 0
+            high = 0
+            hasValues = false
+            return
+        }
+
+        low = minimum
+        high = max(minimum, upperBound)
+        hasValues = true
+    }
+
+    func normalized(_ value: Double) -> Double {
+        guard hasValues, value.isFinite, value > 0 else { return 0 }
+        guard high > low else { return 1 }
+        return min(1, max(0, (value - low) / (high - low)))
+    }
+
+    fileprivate static func automaticUpperBound(for sortedValues: [Double]) -> Double? {
+        guard !sortedValues.isEmpty else { return nil }
+        guard sortedValues.count >= percentileSampleThreshold else {
+            return sortedValues.last
+        }
+
+        // Linear-interpolated P95 matches the Windows implementation and keeps
+        // the threshold stable as visible samples enter or leave the range.
+        let position = 0.95 * Double(sortedValues.count - 1)
+        let lowerIndex = Int(floor(position))
+        let upperIndex = Int(ceil(position))
+        let lower = sortedValues[lowerIndex]
+        let upper = sortedValues[upperIndex]
+        return lower + (upper - lower) * (position - Double(lowerIndex))
+    }
+}
+
+/// Symmetric automatic range for a difference heatmap. Zero always maps to the
+/// neutral centre and positive/negative values share the same P95 magnitude.
+struct TypingDivergingHeatmapScale: Equatable, Sendable {
+    let limit: Double
+    let hasValues: Bool
+
+    init(values: [Double]) {
+        let magnitudes = values
+            .lazy
+            .map(abs)
+            .filter { $0.isFinite && $0 > 0 }
+            .sorted()
+
+        guard let upperBound = TypingHeatmapScale.automaticUpperBound(for: magnitudes) else {
+            limit = 0
+            hasValues = false
+            return
+        }
+
+        limit = upperBound
+        hasValues = true
+    }
+
+    func normalized(_ value: Double) -> Double {
+        guard hasValues, value.isFinite, limit > 0 else { return 0 }
+        return min(1, max(-1, value / limit))
+    }
+}
+
 struct TypingDaySummary: Equatable, Identifiable, Sendable {
     let dateKey: String
     let date: Date

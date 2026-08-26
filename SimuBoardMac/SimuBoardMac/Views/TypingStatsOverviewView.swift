@@ -411,12 +411,18 @@ private struct TypingAppTimelinePanel: View {
     private let appWidth: CGFloat = 150
     private let countWidth: CGFloat = 74
 
-    private var globalPeak: Int64 {
-        max(1, timelines.lazy.map(\.peakBucketCount).max() ?? 1)
+    private var heatScale: TypingHeatmapScale {
+        TypingHeatmapScale(
+            values: timelines.flatMap { timeline in
+                timeline.buckets.map { Double($0.characterCount) }
+            }
+        )
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let resolvedHeatScale = heatScale
+
+        return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 BattutaSectionHeading(
                     "应用时间线",
@@ -424,12 +430,16 @@ private struct TypingAppTimelinePanel: View {
                     symbol: "square.grid.3x1.folder.badge.plus"
                 )
                 Spacer()
-                Text("\(timelines.count) 个应用")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(BattutaVisualStyle.accentStrong)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(BattutaVisualStyle.accentSoft, in: Capsule())
+                VStack(alignment: .trailing, spacing: 7) {
+                    Text("\(timelines.count) 个应用")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BattutaVisualStyle.accentStrong)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(BattutaVisualStyle.accentSoft, in: Capsule())
+
+                    timelineHeatLegend(resolvedHeatScale)
+                }
             }
             .padding(16)
 
@@ -453,7 +463,7 @@ private struct TypingAppTimelinePanel: View {
                 ForEach(Array(timelines.enumerated()), id: \.element.id) { index, timeline in
                     TypingAppTimelineRow(
                         timeline: timeline,
-                        globalPeak: globalPeak,
+                        heatScale: resolvedHeatScale,
                         appWidth: appWidth,
                         countWidth: countWidth,
                         range: range
@@ -473,6 +483,18 @@ private struct TypingAppTimelinePanel: View {
             }
         }
         .battutaPanel(radius: 20)
+    }
+
+    private func timelineHeatLegend(_ heatScale: TypingHeatmapScale) -> some View {
+        BattutaHeatmapLegend(
+            leadingLabel: heatScale.hasValues
+                ? "低 \(statsCount(Int64(heatScale.low.rounded())))"
+                : "低 0",
+            trailingLabel: heatScale.hasValues
+                ? "高 ≥\(statsCount(Int64(heatScale.high.rounded())))"
+                : "高 0",
+            barWidth: 92
+        )
     }
 
     private var timelineHeader: some View {
@@ -527,7 +549,7 @@ private struct TypingAppTimelinePanel: View {
 @MainActor
 private struct TypingAppTimelineRow: View {
     let timeline: TypingAppTimeline
-    let globalPeak: Int64
+    let heatScale: TypingHeatmapScale
     let appWidth: CGFloat
     let countWidth: CGFloat
     let range: TypingTimelineRange
@@ -591,17 +613,9 @@ private struct TypingAppTimelineRow: View {
     }
 
     private func color(for count: Int64) -> Color {
-        guard count > 0 else { return Color.white.opacity(0.055) }
-        let intensity = min(1, Double(count) / Double(globalPeak))
-        if intensity < 0.25 {
-            return BattutaVisualStyle.cyan.opacity(0.28)
-        }
-        if intensity < 0.55 {
-            return BattutaVisualStyle.cyan.opacity(0.55)
-        }
-        if intensity < 0.82 {
-            return BattutaVisualStyle.accent.opacity(0.72)
-        }
-        return BattutaVisualStyle.accentStrong
+        guard count > 0 else { return Color.secondary.opacity(0.08) }
+        return BattutaHeatmapPalette.sequentialColor(
+            at: heatScale.normalized(Double(count))
+        )
     }
 }

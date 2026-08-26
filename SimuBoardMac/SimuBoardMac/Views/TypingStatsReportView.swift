@@ -329,42 +329,10 @@ struct TypingStatsHistoryView: View {
                 metrics: heatmapMetrics
             )
             .equatable()
-
-            rhythmLegend(hasComparison: report.comparisonRange != nil)
         }
         .padding(16)
         .frame(height: panelHeight, alignment: .top)
         .historyInstrumentPanel()
-    }
-
-    private func rhythmLegend(hasComparison: Bool) -> some View {
-        HStack(spacing: 24) {
-            if hasComparison && rhythmMode == .difference {
-                instrumentLegend(color: BattutaVisualStyle.accent, title: "增加（较上期）")
-                instrumentLegend(color: BattutaVisualStyle.instrumentSecondary, title: "基本持平", usesDot: true)
-                instrumentLegend(color: BattutaVisualStyle.cyan, title: "减少（较上期）")
-            } else {
-                instrumentLegend(color: BattutaVisualStyle.accent, title: "输入越多颜色越亮")
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-    }
-
-    private func instrumentLegend(
-        color: Color,
-        title: String,
-        usesDot: Bool = false
-    ) -> some View {
-        HStack(spacing: 7) {
-            if usesDot {
-                Circle().fill(color).frame(width: 4, height: 4)
-            } else {
-                RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 13, height: 13)
-            }
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
-        }
     }
 
     private func reportSummary(_ report: TypingRangeReportSnapshot) -> some View {
@@ -868,9 +836,7 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
         let value: TypingWeekdayHourAggregate
         let frame: CGRect
         let color: Color
-        let opacity: Double
         let symbol: String
-        let symbolOpacity: Double
         let detail: String
 
         var id: Int { value.id }
@@ -889,10 +855,12 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
 
     var body: some View {
         let valuesByID = Dictionary(uniqueKeysWithValues: values.map { ($0.id, $0) })
-        let maximumCurrent = values.lazy.map { currentAverage($0) }.max() ?? 0
-        let maximumDifference = values.lazy.map {
-            abs(significantDifference(for: $0))
-        }.max() ?? 0
+        let currentScale = TypingHeatmapScale(
+            values: values.map { currentAverage($0) }
+        )
+        let differenceScale = TypingDivergingHeatmapScale(
+            values: values.map { significantDifference(for: $0) }
+        )
         let exposesEmptyCellsToAssistiveTech = NSWorkspace.shared.isVoiceOverEnabled
             || NSWorkspace.shared.isSwitchControlEnabled
         let canvasWidth = TypingHeatmapCellMetrics.axisWidth
@@ -925,111 +893,62 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
                 return cellPresentation(
                     value,
                     frame: frame,
-                    maximumCurrent: maximumCurrent,
-                    maximumDifference: maximumDifference
+                    currentScale: currentScale,
+                    differenceScale: differenceScale
                 )
             }
         }
 
-        return ZStack(alignment: .topLeading) {
-            Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) {
-                context,
-                _ in
-                for hour in 0..<24 where hour.isMultiple(of: 3) {
-                    let x = TypingHeatmapCellMetrics.axisWidth
-                        + metrics.spacing
-                        + CGFloat(hour) * (metrics.cellSize + metrics.spacing)
-                        + metrics.cellSize / 2
-                    context.draw(
-                        Text("\(hour)")
-                            .font(.caption2.monospacedDigit())
-                            .foregroundColor(BattutaVisualStyle.instrumentSecondary),
-                        at: CGPoint(x: x, y: 7),
-                        anchor: .center
-                    )
-                }
+        return VStack(alignment: .leading, spacing: 10) {
+            TypingWeekdayHourInteractiveGrid(
+                cells: cells,
+                weekdays: weekdays,
+                mode: mode,
+                metrics: metrics,
+                canvasWidth: canvasWidth,
+                canvasHeight: canvasHeight,
+                exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
+            )
 
-                for (rowIndex, weekday) in weekdays.enumerated() {
-                    let y = 14
-                        + metrics.spacing
-                        + CGFloat(rowIndex) * (metrics.cellSize + metrics.spacing)
-                        + metrics.cellSize / 2
-                    context.draw(
-                        Text(weekdayTitle(weekday))
-                            .font(.caption.weight(.medium))
-                            .foregroundColor(BattutaVisualStyle.instrumentSecondary),
-                        at: CGPoint(x: 0, y: y),
-                        anchor: .leading
-                    )
-                }
-
-                for cell in cells {
-                    let path = Path(roundedRect: cell.frame, cornerRadius: 2)
-                    context.fill(path, with: .color(cell.color.opacity(cell.opacity)))
-                    context.stroke(
-                        path,
-                        with: .color(Color.white.opacity(0.035)),
-                        lineWidth: 1
-                    )
-                    context.draw(
-                        Text(cell.symbol)
-                            .font(.system(
-                                size: max(6, metrics.cellSize * 0.62),
-                                weight: .semibold
-                            ))
-                            .foregroundColor(Color.white.opacity(cell.symbolOpacity)),
-                        at: CGPoint(x: cell.frame.midX, y: cell.frame.midY),
-                        anchor: .center
-                    )
-                }
-            }
-            .frame(width: canvasWidth, height: canvasHeight)
-            .accessibilityHidden(true)
-
-            ForEach(cells) { cell in
-                rhythmInteraction(
-                    cell,
-                    exposesEmptyCellsToAssistiveTech: exposesEmptyCellsToAssistiveTech
-                )
-                    .offset(x: cell.frame.minX, y: cell.frame.minY)
-            }
+            legend(currentScale: currentScale, differenceScale: differenceScale)
+                .frame(width: canvasWidth, alignment: .center)
         }
-        .frame(width: canvasWidth, height: canvasHeight, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func cellPresentation(
         _ value: TypingWeekdayHourAggregate,
         frame: CGRect,
-        maximumCurrent: Double,
-        maximumDifference: Double
+        currentScale: TypingHeatmapScale,
+        differenceScale: TypingDivergingHeatmapScale
     ) -> CellPresentation {
         let delta = significantDifference(for: value)
         let color: Color
-        let opacity: Double
         let symbol: String
 
         switch mode {
         case .current:
             let current = currentAverage(value)
-            let intensity = normalized(current, maximum: maximumCurrent)
-            color = value.characterCount > 0 ? BattutaVisualStyle.accent : Color.white
-            opacity = value.characterCount > 0 ? 0.16 + intensity * 0.60 : 0.08
-            symbol = "•"
+            color = value.characterCount > 0
+                ? BattutaHeatmapPalette.sequentialColor(
+                    at: currentScale.normalized(current)
+                )
+                : BattutaVisualStyle.instrumentSeparator.opacity(0.64)
+            symbol = ""
         case .difference:
-            let intensity = normalized(abs(delta), maximum: maximumDifference)
-            if delta > 0 {
-                color = BattutaVisualStyle.accent
-                opacity = 0.14 + intensity * 0.62
-                symbol = intensity >= 0.34 ? "↑" : "•"
-            } else if delta < 0 {
-                color = BattutaVisualStyle.cyan
-                opacity = 0.14 + intensity * 0.58
-                symbol = intensity >= 0.34 ? "↓" : "•"
+            let normalizedDifference = differenceScale.normalized(delta)
+            if value.characterCount == 0 && value.comparisonCharacterCount == 0 {
+                color = BattutaVisualStyle.instrumentSeparator.opacity(0.64)
+                symbol = ""
             } else {
-                color = Color.white
-                opacity = 0.08
-                symbol = "•"
+                color = BattutaHeatmapPalette.divergingColor(at: normalizedDifference)
+                if normalizedDifference >= 0.34 {
+                    symbol = "↑"
+                } else if normalizedDifference <= -0.34 {
+                    symbol = "↓"
+                } else {
+                    symbol = "•"
+                }
             }
         }
 
@@ -1037,39 +956,42 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
             value: value,
             frame: frame,
             color: color,
-            opacity: opacity,
             symbol: symbol,
-            symbolOpacity: mode == .difference && delta == 0 ? 0.42 : 0.90,
             detail: detailText(value)
         )
     }
 
-    private func rhythmInteraction(
-        _ cell: CellPresentation,
-        exposesEmptyCellsToAssistiveTech: Bool
+    private func legend(
+        currentScale: TypingHeatmapScale,
+        differenceScale: TypingDivergingHeatmapScale
     ) -> some View {
-        let hitTarget = Color.clear
-            .frame(width: cell.frame.width, height: cell.frame.height)
-            .contentShape(Rectangle())
-            .help(cell.detail)
-
-        return Group {
-            if cell.hasInput || exposesEmptyCellsToAssistiveTech {
-                hitTarget
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(
-                        "\(weekdayTitle(cell.value.weekday)) \(cell.value.hour) 点"
-                    )
-                    .accessibilityValue(cell.detail)
-            } else {
-                hitTarget.accessibilityHidden(true)
+        Group {
+            switch mode {
+            case .current:
+                BattutaHeatmapLegend(
+                    leadingLabel: currentScale.hasValues
+                        ? "低 \(averageText(currentScale.low))"
+                        : "低 0",
+                    trailingLabel: currentScale.hasValues
+                        ? "高 ≥\(averageText(currentScale.high))"
+                        : "高 0",
+                    barWidth: 132,
+                    labelColor: BattutaVisualStyle.instrumentSecondary
+                )
+            case .difference:
+                BattutaHeatmapLegend(
+                    leadingLabel: differenceScale.hasValues
+                        ? "−\(averageText(differenceScale.limit))"
+                        : "−0",
+                    trailingLabel: differenceScale.hasValues
+                        ? "+\(averageText(differenceScale.limit))"
+                        : "+0",
+                    palette: .diverging,
+                    barWidth: 132,
+                    labelColor: BattutaVisualStyle.instrumentSecondary
+                )
             }
         }
-    }
-
-    private func normalized(_ value: Double, maximum: Double) -> Double {
-        guard value > 0, maximum > 0 else { return 0 }
-        return min(1, sqrt(value / maximum))
     }
 
     private func currentAverage(_ value: TypingWeekdayHourAggregate) -> Double {
@@ -1109,6 +1031,184 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
 
     private func averageText(_ value: Double) -> String {
         value.formatted(.number.grouping(.automatic).precision(.fractionLength(value < 10 ? 1 : 0)))
+    }
+
+    @MainActor
+    private struct TypingWeekdayHourInteractiveGrid: View {
+        let cells: [CellPresentation]
+        let weekdays: [Int]
+        let mode: TypingRhythmMode
+        let metrics: TypingHeatmapCellMetrics
+        let canvasWidth: CGFloat
+        let canvasHeight: CGFloat
+        let exposesEmptyCellsToAssistiveTech: Bool
+
+        @State private var hoveredCellID: Int?
+        @State private var pinnedCellID: Int?
+
+        private var activeCell: CellPresentation? {
+            let activeID = pinnedCellID ?? hoveredCellID
+            return cells.first { $0.id == activeID }
+        }
+
+        var body: some View {
+            ZStack(alignment: .topLeading) {
+                Canvas(opaque: false, colorMode: .nonLinear, rendersAsynchronously: true) {
+                    context,
+                    _ in
+                    drawAxes(in: &context)
+                    drawCells(in: &context)
+                }
+                .frame(width: canvasWidth, height: canvasHeight)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    pinnedCellID = nil
+                }
+                .accessibilityHidden(true)
+
+                ForEach(cells) { cell in
+                    interaction(for: cell)
+                        .offset(x: cell.frame.minX, y: cell.frame.minY)
+                }
+
+                if let activeCell {
+                    if pinnedCellID == activeCell.id {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .stroke(BattutaVisualStyle.accent, lineWidth: 1.5)
+                            .frame(
+                                width: activeCell.frame.width + 2,
+                                height: activeCell.frame.height + 2
+                            )
+                            .position(
+                                x: activeCell.frame.midX,
+                                y: activeCell.frame.midY
+                            )
+                            .allowsHitTesting(false)
+                    }
+
+                    BattutaHeatmapTooltip(
+                        text: activeCell.detail,
+                        isPinned: pinnedCellID == activeCell.id,
+                        maxWidth: 300
+                    )
+                    .frame(width: 300)
+                    .position(tooltipPosition(for: activeCell))
+                    .transition(.opacity)
+                    .zIndex(2)
+                }
+            }
+            .frame(width: canvasWidth, height: canvasHeight, alignment: .leading)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("星期与小时输入热力图")
+            .onChange(of: mode) { _ in
+                hoveredCellID = nil
+                pinnedCellID = nil
+            }
+            .onExitCommand {
+                hoveredCellID = nil
+                pinnedCellID = nil
+            }
+        }
+
+        @ViewBuilder
+        private func interaction(for cell: CellPresentation) -> some View {
+            let hitTarget = Color.clear
+                .frame(width: cell.frame.width, height: cell.frame.height)
+                .contentShape(Rectangle())
+                .onHover { isInside in
+                    if isInside {
+                        hoveredCellID = cell.id
+                    } else if hoveredCellID == cell.id {
+                        hoveredCellID = nil
+                    }
+                }
+                .onTapGesture {
+                    pinnedCellID = pinnedCellID == cell.id ? nil : cell.id
+                }
+
+            if cell.hasInput || exposesEmptyCellsToAssistiveTech {
+                hitTarget
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(
+                        "\(weekdayTitle(cell.value.weekday)) \(cell.value.hour) 点"
+                    )
+                    .accessibilityValue(cell.detail)
+            } else {
+                hitTarget.accessibilityHidden(true)
+            }
+        }
+
+        private func drawAxes(in context: inout GraphicsContext) {
+            for hour in 0..<24 where hour.isMultiple(of: 3) {
+                let x = TypingHeatmapCellMetrics.axisWidth
+                    + metrics.spacing
+                    + CGFloat(hour) * (metrics.cellSize + metrics.spacing)
+                    + metrics.cellSize / 2
+                context.draw(
+                    Text("\(hour)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundColor(BattutaVisualStyle.instrumentSecondary),
+                    at: CGPoint(x: x, y: 7),
+                    anchor: .center
+                )
+            }
+
+            for (rowIndex, weekday) in weekdays.enumerated() {
+                let y = 14
+                    + metrics.spacing
+                    + CGFloat(rowIndex) * (metrics.cellSize + metrics.spacing)
+                    + metrics.cellSize / 2
+                context.draw(
+                    Text(weekdayTitle(weekday))
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(BattutaVisualStyle.instrumentSecondary),
+                    at: CGPoint(x: 0, y: y),
+                    anchor: .leading
+                )
+            }
+        }
+
+        private func drawCells(in context: inout GraphicsContext) {
+            for cell in cells {
+                let path = Path(roundedRect: cell.frame, cornerRadius: 2)
+                context.fill(path, with: .color(cell.color))
+                context.stroke(
+                    path,
+                    with: .color(Color.white.opacity(0.08)),
+                    lineWidth: 0.5
+                )
+                guard !cell.symbol.isEmpty else { continue }
+                context.draw(
+                    Text(cell.symbol)
+                        .font(.system(
+                            size: max(6, metrics.cellSize * 0.62),
+                            weight: .semibold
+                        ))
+                        .foregroundColor(Color.white.opacity(0.90)),
+                    at: CGPoint(x: cell.frame.midX, y: cell.frame.midY),
+                    anchor: .center
+                )
+            }
+        }
+
+        private func tooltipPosition(for cell: CellPresentation) -> CGPoint {
+            let halfWidth: CGFloat = 150
+            let x = min(
+                max(halfWidth, cell.frame.midX),
+                max(halfWidth, canvasWidth - halfWidth)
+            )
+            let prefersBelow = cell.frame.midY < canvasHeight / 2
+            let proposedY = cell.frame.midY + (prefersBelow ? 36 : -36)
+            return CGPoint(
+                x: x,
+                y: min(canvasHeight - 25, max(25, proposedY))
+            )
+        }
+
+        private func weekdayTitle(_ weekday: Int) -> String {
+            guard (1...7).contains(weekday) else { return "—" }
+            return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday - 1]
+        }
     }
 }
 

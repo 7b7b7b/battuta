@@ -21,7 +21,7 @@ private struct TypingStatsKeyboardPresentation: Equatable {
 
     let counts: [UInt16: Int64]
     let totalPresses: Int64
-    let maximumCount: Int64
+    let heatScale: TypingHeatmapScale
     let otherKeys: [KeyboardKeyDescriptor]
 
     init(snapshot: TypingStatsSnapshot, scope: TypingKeyCountScope) {
@@ -33,7 +33,7 @@ private struct TypingStatsKeyboardPresentation: Equatable {
         }
 
         totalPresses = counts.values.reduce(0, +)
-        maximumCount = counts.values.max() ?? 0
+        heatScale = TypingHeatmapScale(values: counts.values.map(Double.init))
         otherKeys = counts.keys
             .filter { Self.knownKeysByCode[$0] == nil }
             .sorted()
@@ -87,7 +87,7 @@ struct TypingStatsKeyboardView: View {
                             .pickerStyle(.segmented)
                             .frame(width: 150)
 
-                            heatLegend
+                            heatLegend(scale: presentation.heatScale)
                         }
                     }
 
@@ -107,7 +107,7 @@ struct TypingStatsKeyboardView: View {
 
                     TypingStatsKeyboardHeatmap(
                         counts: presentation.counts,
-                        maximumCount: presentation.maximumCount,
+                        heatScale: presentation.heatScale,
                         exposesEmptyKeyMetadata: exposesEmptyKeysToAssistiveTech
                     )
                     .equatable()
@@ -119,7 +119,7 @@ struct TypingStatsKeyboardView: View {
                     DisclosureGroup(isExpanded: $showsExtendedKeys) {
                         TypingStatsKeyboardExtendedSection(
                             counts: presentation.counts,
-                            maximumCount: presentation.maximumCount,
+                            heatScale: presentation.heatScale,
                             otherKeys: presentation.otherKeys,
                             exposesEmptyMetadata: exposesEmptyKeysToAssistiveTech
                         )
@@ -149,31 +149,28 @@ struct TypingStatsKeyboardView: View {
         }
     }
 
-    private var heatLegend: some View {
-        HStack(spacing: 6) {
-            Text("低")
-            ForEach([0.10, 0.25, 0.40, 0.56], id: \.self) { opacity in
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(BattutaVisualStyle.accent.opacity(opacity))
-                    .frame(width: 18, height: 8)
-            }
-            Text("高")
-        }
-        .font(.caption2)
-        .foregroundStyle(.secondary)
+    private func heatLegend(scale: TypingHeatmapScale) -> some View {
+        BattutaHeatmapLegend(
+            leadingLabel: scale.hasValues
+                ? "低 \(statsCount(Int64(scale.low.rounded())))"
+                : "低 0",
+            trailingLabel: scale.hasValues
+                ? "高 ≥\(statsCount(Int64(scale.high.rounded())))"
+                : "高 0"
+        )
     }
 }
 
 @MainActor
 private struct TypingStatsKeyboardHeatmap: View, Equatable {
     let counts: [UInt16: Int64]
-    let maximumCount: Int64
+    let heatScale: TypingHeatmapScale
     let exposesEmptyKeyMetadata: Bool
 
     var body: some View {
         FittedTypingStatsKeyboard(
             counts: counts,
-            maximumCount: maximumCount,
+            heatScale: heatScale,
             exposesEmptyKeyMetadata: exposesEmptyKeyMetadata
         )
     }
@@ -209,7 +206,7 @@ private enum TypingStatsKeyboardCanvasLayout {
 @MainActor
 private struct TypingStatsKeyboardExtendedSection: View, Equatable {
     let counts: [UInt16: Int64]
-    let maximumCount: Int64
+    let heatScale: TypingHeatmapScale
     let otherKeys: [KeyboardKeyDescriptor]
     let exposesEmptyMetadata: Bool
 
@@ -224,7 +221,7 @@ private struct TypingStatsKeyboardExtendedSection: View, Equatable {
                         TypingStatsKeycap(
                             key: key,
                             count: counts[key.keyCode, default: 0],
-                            maximumCount: maximumCount,
+                            heatScale: heatScale,
                             exposesEmptyMetadata: exposesEmptyMetadata
                         )
                     }
@@ -242,7 +239,7 @@ private struct TypingStatsKeyboardExtendedSection: View, Equatable {
                         TypingStatsKeycap(
                             key: key,
                             count: counts[key.keyCode, default: 0],
-                            maximumCount: maximumCount,
+                            heatScale: heatScale,
                             exposesEmptyMetadata: exposesEmptyMetadata
                         )
                     }
@@ -259,7 +256,7 @@ private struct TypingStatsKeyboardExtendedSection: View, Equatable {
                         TypingStatsKeycap(
                             key: key,
                             count: counts[key.keyCode, default: 0],
-                            maximumCount: maximumCount,
+                            heatScale: heatScale,
                             exposesEmptyMetadata: exposesEmptyMetadata
                         )
                     }
@@ -271,10 +268,8 @@ private struct TypingStatsKeyboardExtendedSection: View, Equatable {
 
 @MainActor
 private struct FittedTypingStatsKeyboard: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     let counts: [UInt16: Int64]
-    let maximumCount: Int64
+    let heatScale: TypingHeatmapScale
     let exposesEmptyKeyMetadata: Bool
 
     var body: some View {
@@ -496,47 +491,48 @@ private struct FittedTypingStatsKeyboard: View {
 
     private func keycapTint(for count: Int64) -> Color {
         guard count > 0 else { return .clear }
-        return BattutaVisualStyle.accent.opacity(0.10 + keycapIntensity(for: count) * 0.46)
+        return BattutaHeatmapPalette.sequentialColor(
+            at: keycapIntensity(for: count)
+        )
     }
 
     private func strokeColor(for count: Int64) -> Color {
         guard count > 0 else { return BattutaVisualStyle.separator.opacity(0.55) }
-        return BattutaVisualStyle.accent.opacity(0.26 + keycapIntensity(for: count) * 0.34)
+        return BattutaHeatmapPalette.sequentialColor(
+            at: keycapIntensity(for: count)
+        )
     }
 
     private func keycapForeground(for count: Int64) -> Color {
         guard count > 0 else { return .primary }
-        return colorScheme == .dark
-            ? .white.opacity(0.92)
-            : .black.opacity(0.84)
+        return keycapIntensity(for: count) >= 0.70
+            ? .black.opacity(0.84)
+            : .white.opacity(0.94)
     }
 
     private func keycapIntensity(for count: Int64) -> Double {
-        guard count > 0, maximumCount > 0 else { return 0 }
-        return log(Double(count) + 1) / log(Double(maximumCount) + 1)
+        heatScale.normalized(Double(count))
     }
 }
 
 @MainActor
 private struct TypingStatsKeycap: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     let key: KeyboardKeyDescriptor
     let count: Int64
-    let maximumCount: Int64
+    let heatScale: TypingHeatmapScale
     let size: CGSize?
     let exposesEmptyMetadata: Bool
 
     init(
         key: KeyboardKeyDescriptor,
         count: Int64,
-        maximumCount: Int64,
+        heatScale: TypingHeatmapScale,
         size: CGSize? = nil,
         exposesEmptyMetadata: Bool = false
     ) {
         self.key = key
         self.count = count
-        self.maximumCount = maximumCount
+        self.heatScale = heatScale
         self.size = size
         self.exposesEmptyMetadata = exposesEmptyMetadata
     }
@@ -550,8 +546,7 @@ private struct TypingStatsKeycap: View {
     }
 
     private var intensity: Double {
-        guard count > 0, maximumCount > 0 else { return 0 }
-        return log(Double(count) + 1) / log(Double(maximumCount) + 1)
+        heatScale.normalized(Double(count))
     }
 
     var body: some View {
@@ -586,7 +581,7 @@ private struct TypingStatsKeycap: View {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .stroke(
                     count > 0
-                        ? BattutaVisualStyle.accent.opacity(0.26 + intensity * 0.34)
+                        ? BattutaHeatmapPalette.sequentialColor(at: intensity)
                         : BattutaVisualStyle.separator.opacity(0.55)
                 )
         )
@@ -633,14 +628,14 @@ private struct TypingStatsKeycap: View {
 
     private var keycapTint: Color {
         guard count > 0 else { return .clear }
-        return BattutaVisualStyle.accent.opacity(0.10 + intensity * 0.46)
+        return BattutaHeatmapPalette.sequentialColor(at: intensity)
     }
 
     private var keycapForeground: Color {
         guard count > 0 else { return .primary }
-        return colorScheme == .dark
-            ? .white.opacity(0.92)
-            : .black.opacity(0.84)
+        return intensity >= 0.70
+            ? .black.opacity(0.84)
+            : .white.opacity(0.94)
     }
 }
 

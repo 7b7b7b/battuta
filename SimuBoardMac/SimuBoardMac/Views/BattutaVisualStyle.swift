@@ -51,6 +51,197 @@ enum BattutaVisualStyle {
     static let glassTintOpacity = 0.14
 }
 
+/// Continuous heatmap colors shared by the annual, rhythm, application and
+/// keyboard views. The sequential stops are sampled from a Viridis-style
+/// perceptually uniform ramp, while the diverging ramp keeps equal visual travel
+/// from cyan through a neutral centre to Battuta lime.
+enum BattutaHeatmapPalette {
+    private struct RGBStop: Sendable {
+        let location: Double
+        let red: Double
+        let green: Double
+        let blue: Double
+    }
+
+    private static let sequentialStops: [RGBStop] = [
+        RGBStop(location: 0.00, red: 0.267, green: 0.005, blue: 0.329),
+        RGBStop(location: 0.13, red: 0.283, green: 0.141, blue: 0.458),
+        RGBStop(location: 0.25, red: 0.254, green: 0.265, blue: 0.530),
+        RGBStop(location: 0.38, red: 0.207, green: 0.372, blue: 0.553),
+        RGBStop(location: 0.50, red: 0.128, green: 0.567, blue: 0.551),
+        RGBStop(location: 0.63, red: 0.135, green: 0.659, blue: 0.518),
+        RGBStop(location: 0.75, red: 0.267, green: 0.749, blue: 0.441),
+        RGBStop(location: 0.88, red: 0.478, green: 0.821, blue: 0.318),
+        RGBStop(location: 1.00, red: 0.741, green: 0.873, blue: 0.150),
+    ]
+
+    private static let divergingStops: [RGBStop] = [
+        RGBStop(location: 0.00, red: 0.105, green: 0.555, blue: 0.700),
+        RGBStop(location: 0.25, red: 0.180, green: 0.390, blue: 0.455),
+        RGBStop(location: 0.50, red: 0.245, green: 0.260, blue: 0.245),
+        RGBStop(location: 0.75, red: 0.455, green: 0.610, blue: 0.220),
+        RGBStop(location: 1.00, red: 0.741, green: 0.873, blue: 0.150),
+    ]
+
+    static var sequentialGradient: LinearGradient {
+        LinearGradient(
+            gradient: gradient(from: sequentialStops),
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    static var divergingGradient: LinearGradient {
+        LinearGradient(
+            gradient: gradient(from: divergingStops),
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    static func sequentialColor(at normalizedValue: Double) -> Color {
+        interpolatedColor(at: normalizedValue, stops: sequentialStops)
+    }
+
+    /// Accepts the symmetric -1...1 value produced by
+    /// `TypingDivergingHeatmapScale.normalized(_:)`.
+    static func divergingColor(at normalizedValue: Double) -> Color {
+        interpolatedColor(at: (normalizedValue + 1) / 2, stops: divergingStops)
+    }
+
+    private static func gradient(from stops: [RGBStop]) -> Gradient {
+        Gradient(stops: stops.map { stop in
+            Gradient.Stop(
+                color: Color(red: stop.red, green: stop.green, blue: stop.blue),
+                location: stop.location
+            )
+        })
+    }
+
+    private static func interpolatedColor(
+        at rawLocation: Double,
+        stops: [RGBStop]
+    ) -> Color {
+        let location = min(1, max(0, rawLocation))
+        guard let first = stops.first, let last = stops.last else { return .clear }
+        guard location > first.location else {
+            return Color(red: first.red, green: first.green, blue: first.blue)
+        }
+        guard location < last.location else {
+            return Color(red: last.red, green: last.green, blue: last.blue)
+        }
+
+        guard let upperIndex = stops.firstIndex(where: { $0.location >= location }) else {
+            return Color(red: last.red, green: last.green, blue: last.blue)
+        }
+        let lower = stops[max(0, upperIndex - 1)]
+        let upper = stops[upperIndex]
+        let span = max(Double.ulpOfOne, upper.location - lower.location)
+        let progress = (location - lower.location) / span
+        return Color(
+            red: lower.red + (upper.red - lower.red) * progress,
+            green: lower.green + (upper.green - lower.green) * progress,
+            blue: lower.blue + (upper.blue - lower.blue) * progress
+        )
+    }
+}
+
+enum BattutaHeatmapLegendPalette {
+    case sequential
+    case diverging
+}
+
+struct BattutaHeatmapLegend: View {
+    let leadingLabel: String
+    let trailingLabel: String
+    var palette: BattutaHeatmapLegendPalette = .sequential
+    var barWidth: CGFloat = 112
+    var labelColor: Color = .secondary
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(leadingLabel)
+                .monospacedDigit()
+
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(gradient)
+                .frame(width: barWidth, height: 9)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .stroke(Color.white.opacity(0.16), lineWidth: 0.5)
+                }
+
+            Text(trailingLabel)
+                .monospacedDigit()
+        }
+        .font(.caption2)
+        .foregroundStyle(labelColor)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var gradient: LinearGradient {
+        switch palette {
+        case .sequential:
+            return BattutaHeatmapPalette.sequentialGradient
+        case .diverging:
+            return BattutaHeatmapPalette.divergingGradient
+        }
+    }
+
+    private var accessibilityText: String {
+        switch palette {
+        case .sequential:
+            "连续颜色图例，从 \(leadingLabel) 到 \(trailingLabel)"
+        case .diverging:
+            "连续差异颜色图例，从 \(leadingLabel)，经过零，到 \(trailingLabel)"
+        }
+    }
+}
+
+/// Immediate, app-drawn heatmap detail. This avoids AppKit's intentionally
+/// delayed `.help` tooltip while still communicating a click-locked state.
+struct BattutaHeatmapTooltip: View {
+    let text: String
+    let isPinned: Bool
+    var maxWidth: CGFloat = 280
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            if isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(BattutaVisualStyle.accent)
+            }
+            Text(text)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
+                .monospacedDigit()
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .frame(maxWidth: maxWidth, alignment: .leading)
+        .background(
+            BattutaVisualStyle.instrumentSurface,
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(
+                    isPinned
+                        ? BattutaVisualStyle.accent.opacity(0.55)
+                        : Color.white.opacity(0.18),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: Color.black.opacity(0.30), radius: 8, y: 4)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
 struct BattutaWindowGlass: View {
     var body: some View {
         Rectangle()
