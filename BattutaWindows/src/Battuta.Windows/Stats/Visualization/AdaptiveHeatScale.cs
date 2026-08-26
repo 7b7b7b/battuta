@@ -67,9 +67,9 @@ public readonly record struct AdaptiveHeatScale(double Low, double High)
         return Math.Clamp(Math.Abs(value) / High, 0, 1);
     }
 
-    private static double Percentile(IReadOnlyList<double> sorted, double fraction)
+    private static double Percentile(double[] sorted, double fraction)
     {
-        var position = Math.Clamp(fraction, 0, 1) * (sorted.Count - 1);
+        var position = Math.Clamp(fraction, 0, 1) * (sorted.Length - 1);
         var lowerIndex = (int)Math.Floor(position);
         var upperIndex = (int)Math.Ceiling(position);
         if (lowerIndex == upperIndex)
