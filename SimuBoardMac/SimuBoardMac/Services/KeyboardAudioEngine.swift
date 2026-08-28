@@ -88,10 +88,37 @@ enum KeyboardLeadingSilenceTrimmer {
     }
 }
 
+enum AudioVoiceSelector {
+    static func nextIndex(
+        count: Int,
+        cursor: Int,
+        allowsStealing: Bool,
+        isActive: (Int) -> Bool,
+        lastScheduledEpoch: (Int) -> UInt64
+    ) -> Int? {
+        guard count > 0 else { return nil }
+
+        let normalizedCursor = cursor % count
+        for offset in 0..<count {
+            let index = (normalizedCursor + offset) % count
+            if !isActive(index) { return index }
+        }
+
+        guard allowsStealing else { return nil }
+        var oldestIndex = 0
+        for index in 1..<count
+        where lastScheduledEpoch(index) < lastScheduledEpoch(oldestIndex) {
+            oldestIndex = index
+        }
+        return oldestIndex
+    }
+}
+
 @MainActor
 final class KeyboardAudioEngine {
     private static let playbackSampleRate = 48_000.0
     private static let conversionCapacityPadding: AVAudioFrameCount = 32
+    private static let idlePauseDelay = Duration.seconds(1)
 
     private struct BufferKey: Hashable {
         let phase: KeySoundPhase
@@ -108,9 +135,17 @@ final class KeyboardAudioEngine {
         case pointer
     }
 
-    private struct Voice {
+    private final class Voice {
         let player: AVAudioPlayerNode
         let speed: AVAudioUnitVarispeed
+        var playbackGeneration: UInt64 = 0
+        var isActive = false
+        var lastScheduledEpoch: UInt64 = 0
+
+        init(player: AVAudioPlayerNode, speed: AVAudioUnitVarispeed) {
+            self.player = player
+            self.speed = speed
+        }
     }
 
     private final class PreparedKeyboardSample {
@@ -131,14 +166,14 @@ final class KeyboardAudioEngine {
         standardFormatWithSampleRate: playbackSampleRate,
         channels: 1
     )!
-    private var keyboardVoices: [Voice] = []
-    private var pointerVoices: [Voice] = []
+    private var voices: [Voice] = []
     private var buffers: [BufferKey: PreparedKeyboardSample] = [:]
     private var pointerBuffers: [PointerBufferKey: AVAudioPCMBuffer] = [:]
     private var customBuffers: [SoundPackAssetID: PreparedKeyboardSample] = [:]
     private var customResolver: SoundPackResolver?
-    private var keyboardVoiceCursor = 0
-    private var pointerVoiceCursor = 0
+    private var voiceCursor = 0
+    private var activityEpoch: UInt64 = 0
+    private var idlePauseTask: Task<Void, Never>?
     private var configurationObserver: NSObjectProtocol?
     private(set) var loadedProfile: SwitchProfile = .holyPanda
     private(set) var loadedSelectionID: String = SwitchProfile.holyPanda.rawValue
@@ -149,16 +184,9 @@ final class KeyboardAudioEngine {
 
     var lastError: String? { engineError ?? resourceError ?? pointerResourceError }
 
-    init(
-        voiceCount: Int = 16,
-        pointerVoiceCount: Int? = nil
-    ) {
-        keyboardVoices = makeVoicePool(count: voiceCount, output: engine.mainMixerNode)
-        pointerVoices = makeVoicePool(
-            count: pointerVoiceCount ?? voiceCount,
-            output: engine.mainMixerNode
-        )
-        engine.isAutoShutdownEnabled = false
+    init(voiceCount: Int = 16) {
+        voices = makeVoicePool(count: voiceCount, output: engine.mainMixerNode)
+        engine.isAutoShutdownEnabled = true
         engine.prepare()
         configurationObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange,
@@ -167,15 +195,16 @@ final class KeyboardAudioEngine {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.engine.prepare()
-                _ = self.startEngineIfNeeded()
+                self.handleEngineConfigurationChange()
             }
         }
     }
 
     func warmUp() {
         engine.prepare()
-        _ = startEngineIfNeeded()
+        if startEngineIfNeeded() {
+            scheduleIdlePauseIfNeeded()
+        }
     }
 
     @discardableResult
@@ -414,13 +443,10 @@ final class KeyboardAudioEngine {
         baseRate: Float = 1
     ) {
         guard startEngineIfNeeded() else { return }
-        guard !keyboardVoices.isEmpty else { return }
-
-        let voice = keyboardVoices[keyboardVoiceCursor]
-        keyboardVoiceCursor = (keyboardVoiceCursor + 1) % keyboardVoices.count
+        guard let voiceIndex = nextVoiceIndex(allowsStealing: true) else { return }
         schedule(
             buffer: buffer,
-            on: voice,
+            voiceIndex: voiceIndex,
             volume: Float(max(0, min(1, volume))),
             pitchVariation: pitchVariation,
             baseRate: baseRate
@@ -434,13 +460,10 @@ final class KeyboardAudioEngine {
         baseRate: Float = 1
     ) {
         guard startEngineIfNeeded() else { return }
-        guard !pointerVoices.isEmpty else { return }
-
-        let voice = pointerVoices[pointerVoiceCursor]
-        pointerVoiceCursor = (pointerVoiceCursor + 1) % pointerVoices.count
+        guard let voiceIndex = nextVoiceIndex(allowsStealing: false) else { return }
         schedule(
             buffer: buffer,
-            on: voice,
+            voiceIndex: voiceIndex,
             volume: Float(max(0, min(1, volume))),
             pitchVariation: pitchVariation,
             baseRate: baseRate
@@ -479,17 +502,96 @@ final class KeyboardAudioEngine {
 
     private func schedule(
         buffer: AVAudioPCMBuffer,
-        on voice: Voice,
+        voiceIndex: Int,
         volume: Float,
         pitchVariation: Bool,
         baseRate: Float
     ) {
+        let voice = voices[voiceIndex]
+        activityEpoch &+= 1
+        idlePauseTask?.cancel()
+        idlePauseTask = nil
+        voice.playbackGeneration &+= 1
+        let playbackGeneration = voice.playbackGeneration
+        voice.isActive = true
+        voice.lastScheduledEpoch = activityEpoch
         voice.player.volume = volume
         let variation: Float = pitchVariation ? .random(in: 0.97...1.03) : 1
         voice.speed.rate = max(0.25, min(4, baseRate * variation))
-        voice.player.scheduleBuffer(buffer, at: nil, options: [.interrupts])
+        voice.player.scheduleBuffer(
+            buffer,
+            at: nil,
+            options: [.interrupts],
+            completionCallbackType: .dataPlayedBack
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.finishPlayback(
+                    voiceIndex: voiceIndex,
+                    generation: playbackGeneration
+                )
+            }
+        }
         if !voice.player.isPlaying {
             voice.player.play()
+        }
+    }
+
+    private func nextVoiceIndex(allowsStealing: Bool) -> Int? {
+        guard let index = AudioVoiceSelector.nextIndex(
+            count: voices.count,
+            cursor: voiceCursor,
+            allowsStealing: allowsStealing,
+            isActive: { voices[$0].isActive },
+            lastScheduledEpoch: { voices[$0].lastScheduledEpoch }
+        ) else { return nil }
+        voiceCursor = (index + 1) % voices.count
+        return index
+    }
+
+    private func finishPlayback(
+        voiceIndex: Int,
+        generation: UInt64
+    ) {
+        let voice = voices[voiceIndex]
+        guard voice.playbackGeneration == generation else { return }
+        voice.isActive = false
+        scheduleIdlePauseIfNeeded()
+    }
+
+    private func scheduleIdlePauseIfNeeded() {
+        guard allVoicesAreIdle else { return }
+        idlePauseTask?.cancel()
+        let expectedActivityEpoch = activityEpoch
+        idlePauseTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: Self.idlePauseDelay)
+            } catch {
+                return
+            }
+
+            guard let self,
+                  self.activityEpoch == expectedActivityEpoch,
+                  self.allVoicesAreIdle,
+                  self.engine.isRunning else { return }
+            self.engine.pause()
+            self.idlePauseTask = nil
+        }
+    }
+
+    private var allVoicesAreIdle: Bool {
+        voices.allSatisfy { !$0.isActive }
+    }
+
+    private func handleEngineConfigurationChange() {
+        idlePauseTask?.cancel()
+        idlePauseTask = nil
+        engine.prepare()
+        if allVoicesAreIdle {
+            if engine.isRunning {
+                engine.pause()
+            }
+        } else {
+            _ = startEngineIfNeeded()
         }
     }
 
@@ -621,6 +723,7 @@ final class KeyboardAudioEngine {
     }
 
     isolated deinit {
+        idlePauseTask?.cancel()
         if let configurationObserver {
             NotificationCenter.default.removeObserver(configurationObserver)
         }

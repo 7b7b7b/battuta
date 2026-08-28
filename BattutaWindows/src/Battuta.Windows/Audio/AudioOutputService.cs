@@ -5,6 +5,7 @@ public enum AudioOutputState
     Stopped,
     Starting,
     Running,
+    Idle,
     Recovering,
     Stopping,
 }
@@ -42,9 +43,13 @@ public sealed class AudioOutputService : IAsyncDisposable
     private readonly CancellationTokenSource lifetimeCancellation = new();
     private readonly SemaphoreSlim lifecycleGate = new(1, 1);
     private readonly object recoveryWorkerLock = new();
+    private readonly object playbackWakeWorkerLock = new();
     private IAudioOutputSession? session;
     private Task recoveryWorker = Task.CompletedTask;
+    private Task playbackWakeWorker = Task.CompletedTask;
     private int recoveryWorkerRunning;
+    private int playbackWakeWorkerRunning;
+    private int playbackWakeRequested;
     private int restartRequested;
     private int started;
     private int stopping;
@@ -59,6 +64,7 @@ public sealed class AudioOutputService : IAsyncDisposable
         this.mixer = mixer ?? throw new ArgumentNullException(nameof(mixer));
         this.sessionFactory = sessionFactory ?? new WasapiOutputSessionFactory();
         this.recoveryDelay = recoveryDelay ?? new SystemAudioRecoveryDelay();
+        this.mixer.PlaybackRequested += HandlePlaybackRequested;
     }
 
     public event EventHandler? StateChanged;
@@ -76,7 +82,7 @@ public sealed class AudioOutputService : IAsyncDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref stopping) != 0, this);
         if (Interlocked.CompareExchange(ref started, 1, 0) != 0)
         {
-            return IsRunning;
+            return State is AudioOutputState.Running or AudioOutputState.Idle;
         }
 
         try
@@ -150,14 +156,20 @@ public sealed class AudioOutputService : IAsyncDisposable
         lifetimeCancellation.Cancel();
 
         Task worker;
+        Task wakeWorker;
         lock (recoveryWorkerLock)
         {
             worker = recoveryWorker;
         }
 
+        lock (playbackWakeWorkerLock)
+        {
+            wakeWorker = playbackWakeWorker;
+        }
+
         try
         {
-            await worker.ConfigureAwait(false);
+            await Task.WhenAll(worker, wakeWorker).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
         {
@@ -178,6 +190,7 @@ public sealed class AudioOutputService : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        mixer.PlaybackRequested -= HandlePlaybackRequested;
         await StopAsync().ConfigureAwait(false);
         lifetimeCancellation.Dispose();
         lifecycleGate.Dispose();
@@ -242,6 +255,127 @@ public sealed class AudioOutputService : IAsyncDisposable
         }
     }
 
+    private void HandlePlaybackRequested(object? sender, EventArgs eventArgs)
+    {
+        if (State == AudioOutputState.Idle)
+        {
+            RequestPlaybackWake();
+        }
+    }
+
+    private void RequestPlaybackWake()
+    {
+        if (Volatile.Read(ref started) == 0 || Volatile.Read(ref stopping) != 0)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref playbackWakeRequested, 1);
+        EnsurePlaybackWakeWorker();
+    }
+
+    private void EnsurePlaybackWakeWorker()
+    {
+        lock (playbackWakeWorkerLock)
+        {
+            if (playbackWakeWorkerRunning != 0 || Volatile.Read(ref stopping) != 0)
+            {
+                return;
+            }
+
+            playbackWakeWorkerRunning = 1;
+            playbackWakeWorker = Task.Run(PlaybackWakeWorkerAsync);
+        }
+    }
+
+    private async Task PlaybackWakeWorkerAsync()
+    {
+        try
+        {
+            while (!lifetimeCancellation.IsCancellationRequested)
+            {
+                Interlocked.Exchange(ref playbackWakeRequested, 0);
+                await ResumeIdleSessionAsync(lifetimeCancellation.Token).ConfigureAwait(false);
+                if (Volatile.Read(ref playbackWakeRequested) == 0)
+                {
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            var reschedule = false;
+            lock (playbackWakeWorkerLock)
+            {
+                playbackWakeWorkerRunning = 0;
+                reschedule = Volatile.Read(ref playbackWakeRequested) != 0
+                    && Volatile.Read(ref stopping) == 0;
+            }
+
+            if (reschedule)
+            {
+                EnsurePlaybackWakeWorker();
+            }
+        }
+    }
+
+    private async Task ResumeIdleSessionAsync(CancellationToken cancellationToken)
+    {
+        if (!mixer.HasPendingPlayback)
+        {
+            return;
+        }
+
+        await lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var recoveryNeeded = false;
+        try
+        {
+            if (Volatile.Read(ref stopping) != 0
+                || State != AudioOutputState.Idle
+                || !mixer.HasPendingPlayback)
+            {
+                return;
+            }
+
+            var current = Volatile.Read(ref session);
+            if (current is null)
+            {
+                recoveryNeeded = true;
+                return;
+            }
+
+            try
+            {
+                current.Resume();
+                if (current.IsPlaying)
+                {
+                    Volatile.Write(ref lastError, null);
+                    SetState(AudioOutputState.Running);
+                }
+                else
+                {
+                    recoveryNeeded = true;
+                }
+            }
+            catch (Exception error)
+            {
+                Volatile.Write(ref lastError, error);
+                recoveryNeeded = true;
+            }
+        }
+        finally
+        {
+            lifecycleGate.Release();
+            if (recoveryNeeded)
+            {
+                RequestRecovery();
+            }
+        }
+    }
+
     private async Task<bool> RestartCoreAsync(CancellationToken cancellationToken)
     {
         using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
@@ -267,8 +401,19 @@ public sealed class AudioOutputService : IAsyncDisposable
                     .CreateAndStartAsync(mixer, token)
                     .ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
-                uncommittedSession.Stopped += HandleSessionStopped;
                 Volatile.Write(ref session, uncommittedSession);
+                uncommittedSession.Stopped += HandleSessionStopped;
+                if (!uncommittedSession.IsPlaying)
+                {
+                    uncommittedSession.Stopped -= HandleSessionStopped;
+                    _ = Interlocked.CompareExchange(
+                        ref session,
+                        null,
+                        uncommittedSession);
+                    throw new InvalidOperationException(
+                        "The audio output session stopped while it was being started.");
+                }
+
                 uncommittedSession = null;
                 mixer.ResumeAfterOutputRestart();
                 Volatile.Write(ref lastError, null);
@@ -320,8 +465,20 @@ public sealed class AudioOutputService : IAsyncDisposable
 
     private void HandleSessionStopped(object? sender, AudioOutputSessionStoppedEventArgs eventArgs)
     {
-        if (Volatile.Read(ref stopping) != 0)
+        if (Volatile.Read(ref stopping) != 0
+            || !ReferenceEquals(sender, Volatile.Read(ref session)))
         {
+            return;
+        }
+
+        if (eventArgs.Exception is null)
+        {
+            SetState(AudioOutputState.Idle);
+            if (mixer.HasPendingPlayback)
+            {
+                RequestPlaybackWake();
+            }
+
             return;
         }
 

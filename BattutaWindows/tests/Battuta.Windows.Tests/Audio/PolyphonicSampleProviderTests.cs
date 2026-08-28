@@ -5,17 +5,36 @@ namespace Battuta.Windows.Tests.Audio;
 public sealed class PolyphonicSampleProviderTests
 {
     [Fact]
-    public void IdleReadReturnsFullStereoSilenceAndKeepsStreamAlive()
+    public void SustainedIdleReturnsEndOfStreamAfterOneSecond()
     {
         var mixer = new PolyphonicSampleProvider();
-        var output = Enumerable.Repeat(1f, 64).ToArray();
+        var output = Enumerable.Repeat(1f, 960).ToArray();
 
-        var read = mixer.Read(output);
+        for (var index = 0; index < 99; index++)
+        {
+            Assert.Equal(output.Length, mixer.Read(output));
+        }
 
-        Assert.Equal(output.Length, read);
+        Assert.Equal(0, mixer.Read(output));
         Assert.All(output, sample => Assert.Equal(0f, sample));
         Assert.Equal(48_000, mixer.WaveFormat.SampleRate);
         Assert.Equal(2, mixer.WaveFormat.Channels);
+    }
+
+    [Fact]
+    public void AcceptedPlaybackResetsTheIdleCountdown()
+    {
+        var mixer = new PolyphonicSampleProvider();
+        var output = new float[960];
+        for (var index = 0; index < 99; index++)
+        {
+            Assert.Equal(output.Length, mixer.Read(output));
+        }
+
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample([0.25f]), 1, 1));
+        Assert.Equal(output.Length, mixer.Read(output));
+        Assert.Equal(0.25f, output[0]);
+        Assert.Equal(output.Length, mixer.Read(output));
     }
 
     [Fact]
@@ -49,6 +68,64 @@ public sealed class PolyphonicSampleProviderTests
 
         Assert.Equal(0.35f, output[0], precision: 5);
         Assert.Equal(output[0], output[1]);
+        Assert.Equal(1, mixer.VoiceStealCount);
+    }
+
+    [Fact]
+    public void IdleVoiceIsPreferredBeforeStealingAnActiveVoice()
+    {
+        var mixer = new PolyphonicSampleProvider(voiceCount: 3);
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample(Enumerable.Repeat(0.01f, 8).ToArray()), 1, 1));
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample([0.02f]), 1, 1));
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample(Enumerable.Repeat(0.03f, 8).ToArray()), 1, 1));
+        mixer.Read(new float[2]);
+
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample(Enumerable.Repeat(0.04f, 8).ToArray()), 1, 1));
+        var output = new float[2];
+        mixer.Read(output);
+
+        Assert.Equal(0.08f, output[0], precision: 5);
+        Assert.Equal(0, mixer.VoiceStealCount);
+        Assert.Equal(3, mixer.ActiveVoiceCount);
+    }
+
+    [Fact]
+    public void NonStealingPointerCommandIsDroppedWhenAllVoicesAreBusy()
+    {
+        var mixer = new PolyphonicSampleProvider(voiceCount: 2);
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample(Enumerable.Repeat(0.1f, 8).ToArray()), 1, 1));
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample(Enumerable.Repeat(0.2f, 8).ToArray()), 1, 1));
+        mixer.Read(new float[2]);
+
+        Assert.True(mixer.TrySchedule(
+            new PreparedPcmSample(Enumerable.Repeat(0.9f, 8).ToArray()),
+            1,
+            1,
+            allowsStealing: false));
+        var output = new float[2];
+        mixer.Read(output);
+
+        Assert.Equal(0.3f, output[0], precision: 5);
+        Assert.Equal(1, mixer.DroppedCommandCount);
+        Assert.Equal(0, mixer.VoiceStealCount);
+    }
+
+    [Fact]
+    public void StealingCommandReplacesTheOldestVoiceRatherThanTheCursorVoice()
+    {
+        var mixer = new PolyphonicSampleProvider(voiceCount: 3);
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample(Enumerable.Repeat(0.01f, 8).ToArray()), 1, 1));
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample([0.02f]), 1, 1));
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample(Enumerable.Repeat(0.03f, 8).ToArray()), 1, 1));
+        mixer.Read(new float[2]);
+
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample(Enumerable.Repeat(0.04f, 8).ToArray()), 1, 1));
+        mixer.Read(new float[2]);
+        Assert.True(mixer.TrySchedule(new PreparedPcmSample(Enumerable.Repeat(0.08f, 8).ToArray()), 1, 1));
+        var output = new float[2];
+        mixer.Read(output);
+
+        Assert.Equal(0.15f, output[0], precision: 5);
         Assert.Equal(1, mixer.VoiceStealCount);
     }
 

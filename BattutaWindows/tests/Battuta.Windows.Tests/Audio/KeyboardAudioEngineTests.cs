@@ -74,6 +74,57 @@ public sealed class KeyboardAudioEngineTests
     }
 
     [Fact]
+    public async Task PointerUsesOnlyASpareVoiceWhileKeyboardMayStealTheOldestVoice()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"battuta-shared-voice-{Guid.NewGuid():N}");
+        try
+        {
+            var keyboardProfile = SwitchProfileCatalog.Default;
+            var pointerProfile = PointerSoundProfileCatalog.Default;
+            AudioTestFiles.CreateKeyboardProfile(
+                root,
+                keyboardProfile,
+                Enumerable.Repeat(0.1f, 480).ToArray());
+            AudioTestFiles.CreatePointerProfile(
+                root,
+                pointerProfile,
+                Enumerable.Repeat(0.2f, 480).ToArray());
+            var mixer = new PolyphonicSampleProvider(voiceCount: 1);
+            var engine = new KeyboardAudioEngine(mixer, new BuiltInAudioResourceCatalog(root));
+            Assert.True(await engine.LoadKeyboardProfileAsync(keyboardProfile.Id));
+            Assert.True(await engine.LoadPointerProfileAsync(pointerProfile.Id));
+
+            Assert.True(engine.PlayKeyboard(
+                PhysicalKeys.KeyA,
+                KeySoundPhase.Press,
+                volume: 1,
+                variationEnabled: false));
+            mixer.Read(new float[2]);
+
+            Assert.True(engine.PlayPointer(
+                PointerButton.Primary,
+                PointerSoundPhase.Press,
+                volume: 1,
+                variationEnabled: false));
+            mixer.Read(new float[2]);
+            Assert.Equal(1, mixer.DroppedCommandCount);
+            Assert.Equal(0, mixer.VoiceStealCount);
+
+            Assert.True(engine.PlayKeyboard(
+                PhysicalKeys.KeyA,
+                KeySoundPhase.Press,
+                volume: 1,
+                variationEnabled: false));
+            mixer.Read(new float[2]);
+            Assert.Equal(1, mixer.VoiceStealCount);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task KeyboardVariationUsesPerSampleBalancedCycle()
     {
         var root = Path.Combine(Path.GetTempPath(), $"battuta-variant-bank-{Guid.NewGuid():N}");

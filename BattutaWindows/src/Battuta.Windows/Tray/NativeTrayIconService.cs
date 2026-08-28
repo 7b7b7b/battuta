@@ -6,13 +6,21 @@ using System.Windows.Interop;
 namespace Battuta.Windows.Tray;
 
 /// <summary>
-/// Shell notification icon with a stable GUID, keyboard activation, exact icon
-/// bounds, and Explorer-restart recovery.
+/// Shell notification icon with a stable per-process identity, keyboard
+/// activation, exact icon bounds, and Explorer-restart recovery.
 /// </summary>
 public sealed class NativeTrayIconService : ITrayIconService
 {
     public static readonly Guid DefaultIconGuid = new("74C77CE9-C111-4EDD-A74D-4B7DF75F7019");
     public static TimeSpan InvocationDeduplicationWindow { get; } = TimeSpan.FromMilliseconds(300);
+
+    private static readonly TimeSpan[] InitialRegistrationRetryDelays =
+    [
+        TimeSpan.Zero,
+        TimeSpan.FromMilliseconds(100),
+        TimeSpan.FromMilliseconds(250),
+        TimeSpan.FromMilliseconds(500),
+    ];
 
     private const uint CallbackMessage = 0x8001; // WM_APP + 1
     private const uint NimAdd = 0x00000000;
@@ -42,6 +50,9 @@ public sealed class NativeTrayIconService : ITrayIconService
     private long _lastContextInvocationTimestamp;
     private int _seenInvocationMask;
     private int _activeInvocationMask;
+    private readonly bool _usesGuidIdentifier;
+    private bool _usesVersion4;
+    private bool _recoveryInProgress;
     private bool _disposed;
 
     public NativeTrayIconService(
@@ -49,7 +60,8 @@ public sealed class NativeTrayIconService : ITrayIconService
         string tooltip = "Battuta",
         Guid? iconGuid = null,
         bool ownsIconHandle = false,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        bool useGuidIdentifier = true)
     {
         if (iconHandle == IntPtr.Zero)
         {
@@ -61,6 +73,7 @@ public sealed class NativeTrayIconService : ITrayIconService
         _iconGuid = iconGuid ?? DefaultIconGuid;
         _ownsIconHandle = ownsIconHandle;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _usesGuidIdentifier = useGuidIdentifier;
         _taskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
 
         var parameters = new HwndSourceParameters("Battuta.TrayMessageWindow")
@@ -77,6 +90,8 @@ public sealed class NativeTrayIconService : ITrayIconService
     public event EventHandler<TrayIconInvokedEventArgs>? Invoked;
 
     public bool IsVisible { get; private set; }
+
+    public bool UsesGuidIdentifier => _usesGuidIdentifier;
 
     public IntPtr OwnerWindowHandle
     {
@@ -99,6 +114,32 @@ public sealed class NativeTrayIconService : ITrayIconService
         IsVisible = true;
     }
 
+    public async Task ShowAsync(CancellationToken cancellationToken = default)
+    {
+        VerifyAccessAndState();
+        Win32Exception? lastFailure = null;
+        foreach (var delay in InitialRegistrationRetryDelays)
+        {
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, cancellationToken);
+            }
+
+            try
+            {
+                Show();
+                return;
+            }
+            catch (Win32Exception exception)
+            {
+                lastFailure = exception;
+            }
+        }
+
+        throw lastFailure
+            ?? new Win32Exception(0, "Unable to add the Battuta tray icon.");
+    }
+
     public void Hide()
     {
         VerifyAccessAndState();
@@ -107,9 +148,10 @@ public sealed class NativeTrayIconService : ITrayIconService
             return;
         }
 
-        var data = CreateData(NifGuid);
+        var data = CreateData(flags: 0);
         _ = Shell_NotifyIcon(NimDelete, ref data);
         IsVisible = false;
+        _usesVersion4 = false;
     }
 
     public void SetTooltip(string tooltip)
@@ -121,7 +163,7 @@ public sealed class NativeTrayIconService : ITrayIconService
             return;
         }
 
-        var data = CreateData(NifGuid | NifTip);
+        var data = CreateData(NifTip);
         if (!Shell_NotifyIcon(NimModify, ref data))
         {
             _ = RecoverAfterExplorerRestartAsync();
@@ -136,7 +178,7 @@ public sealed class NativeTrayIconService : ITrayIconService
             CbSize = Marshal.SizeOf<NotifyIconIdentifier>(),
             HWnd = _messageWindow.Handle,
             Id = 1,
-            GuidItem = _iconGuid,
+            GuidItem = _usesGuidIdentifier ? _iconGuid : Guid.Empty,
         };
         var result = Shell_NotifyIconGetRect(ref identifier, out var rect);
         bounds = result >= 0
@@ -184,19 +226,17 @@ public sealed class NativeTrayIconService : ITrayIconService
 
     private void AddToShell()
     {
-        var data = CreateData(NifGuid | NifMessage | NifIcon | NifTip);
+        var data = CreateData(NifMessage | NifIcon | NifTip);
         if (!Shell_NotifyIcon(NimAdd, ref data))
         {
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to add the Battuta tray icon.");
+            throw new Win32Exception(0, "Unable to add the Battuta tray icon.");
         }
 
+        // The icon is already usable if protocol negotiation fails. Keep it
+        // registered and fall back to legacy callback coordinates rather than
+        // turning a nonessential version handshake into a startup failure.
         data.TimeoutOrVersion = NotifyIconVersion4;
-        if (!Shell_NotifyIcon(NimSetVersion, ref data))
-        {
-            var cleanup = CreateData(NifGuid);
-            _ = Shell_NotifyIcon(NimDelete, ref cleanup);
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to set the Battuta tray icon protocol version.");
-        }
+        _usesVersion4 = Shell_NotifyIcon(NimSetVersion, ref data);
     }
 
     private IntPtr WindowProcedure(
@@ -219,11 +259,12 @@ public sealed class NativeTrayIconService : ITrayIconService
         }
 
         var notification = unchecked((int)(lParam.ToInt64() & 0xFFFF));
-        var screenPoint = notification is NinSelect
-            or NinKeySelect
-            or WmContextMenu
-            or WmLButtonUp
-            or WmRButtonUp
+        var carriesVersion4Point = _usesVersion4
+            && notification is (NinSelect
+                or NinKeySelect
+                or WmLButtonUp
+                or WmRButtonUp);
+        var screenPoint = carriesVersion4Point
             ? ReadScreenPoint(wParam)
             : null;
         switch (notification)
@@ -329,33 +370,51 @@ public sealed class NativeTrayIconService : ITrayIconService
 
     private async Task RecoverAfterExplorerRestartAsync()
     {
-        for (var attempt = 0; attempt < 4; attempt++)
+        if (_recoveryInProgress)
         {
-            if (_disposed || !IsVisible)
-            {
-                return;
-            }
+            return;
+        }
 
-            if (attempt > 0)
+        _recoveryInProgress = true;
+        try
+        {
+            for (var attempt = 0; ; attempt++)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt));
-            }
+                if (_disposed || !IsVisible)
+                {
+                    return;
+                }
 
-            if (_disposed || !IsVisible)
-            {
-                return;
-            }
+                if (attempt > 0)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(
+                        Math.Min(250 * attempt, 5_000)));
+                }
 
-            try
-            {
-                AddToShell();
-                return;
+                if (_disposed || !IsVisible)
+                {
+                    return;
+                }
+
+                // A failed modify does not guarantee that Explorer discarded
+                // the old icon. Remove this exact identity before rebuilding it.
+                var stale = CreateData(flags: 0);
+                _ = Shell_NotifyIcon(NimDelete, ref stale);
+                try
+                {
+                    AddToShell();
+                    return;
+                }
+                catch (Win32Exception)
+                {
+                    // Explorer can broadcast TaskbarCreated before the notification
+                    // area accepts icons. Retry without throwing through WndProc.
+                }
             }
-            catch (Win32Exception)
-            {
-                // Explorer can broadcast TaskbarCreated before the notification
-                // area accepts icons. Retry without throwing through WndProc.
-            }
+        }
+        finally
+        {
+            _recoveryInProgress = false;
         }
     }
 
@@ -364,13 +423,13 @@ public sealed class NativeTrayIconService : ITrayIconService
         CbSize = Marshal.SizeOf<NotifyIconData>(),
         HWnd = _messageWindow.Handle,
         Id = 1,
-        Flags = flags,
+        Flags = flags | (_usesGuidIdentifier ? NifGuid : 0),
         CallbackMessage = CallbackMessage,
         Icon = _iconHandle,
         Tip = _tooltip,
         Info = string.Empty,
         InfoTitle = string.Empty,
-        GuidItem = _iconGuid,
+        GuidItem = _usesGuidIdentifier ? _iconGuid : Guid.Empty,
     };
 
     private void VerifyAccessAndState()
@@ -388,9 +447,10 @@ public sealed class NativeTrayIconService : ITrayIconService
 
         if (IsVisible)
         {
-            var data = CreateData(NifGuid);
+            var data = CreateData(flags: 0);
             _ = Shell_NotifyIcon(NimDelete, ref data);
             IsVisible = false;
+            _usesVersion4 = false;
         }
 
         _messageWindow.RemoveHook(WindowProcedure);

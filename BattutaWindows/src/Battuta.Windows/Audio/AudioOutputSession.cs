@@ -14,6 +14,8 @@ public interface IAudioOutputSession : IAsyncDisposable
     event EventHandler<AudioOutputSessionStoppedEventArgs>? Stopped;
 
     bool IsPlaying { get; }
+
+    void Resume();
 }
 
 public interface IAudioOutputSessionFactory
@@ -84,6 +86,12 @@ public sealed class WasapiOutputSession : IAudioOutputSession
         Volatile.Read(ref disposed) == 0 && player.PlaybackState == PlaybackState.Playing;
 
     public int ActualLatencyMilliseconds => player.LatencyMilliseconds;
+
+    public void Resume()
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        player.Play();
+    }
 
     public async ValueTask DisposeAsync()
     {

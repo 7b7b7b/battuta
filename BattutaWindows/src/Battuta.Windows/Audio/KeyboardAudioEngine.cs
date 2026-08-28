@@ -199,7 +199,7 @@ public sealed class KeyboardAudioEngine
 
         var variant = sample.NextVariant(variationEnabled);
         var gain = ClampVolume(volume * variant.Gain);
-        return mixer.TrySchedule(sample.Pcm, gain, variant.Rate);
+        return mixer.TrySchedule(sample.Pcm, gain, variant.Rate, allowsStealing: true);
     }
 
     public bool PlayPointer(
@@ -225,11 +225,11 @@ public sealed class KeyboardAudioEngine
             button.PlaybackRate * variation,
             AudioConstants.MinimumPlaybackRate,
             AudioConstants.MaximumPlaybackRate);
-        return mixer.TrySchedule(sample, ClampVolume(volume), rate);
+        return mixer.TrySchedule(sample, ClampVolume(volume), rate, allowsStealing: false);
     }
 
     public bool Preview(PreparedPcmSample sample, double volume, float rate = 1f) =>
-        mixer.TrySchedule(sample, ClampVolume(volume), rate);
+        mixer.TrySchedule(sample, ClampVolume(volume), rate, allowsStealing: true);
 
     private static float ClampVolume(double volume) =>
         double.IsFinite(volume) ? (float)Math.Clamp(volume, 0, 1) : 0f;

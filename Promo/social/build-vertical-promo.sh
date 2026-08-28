@@ -5,9 +5,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OUTPUT_PATH="${1:-$REPO_DIR/media/battuta-social-vertical-v4.mp4}"
+PLATFORM_VARIANT="${2:-generic}"
 COVER_PATH="${OUTPUT_PATH%.*}-cover.png"
 PROMO_TMP_DIR="$(mktemp -d /tmp/battuta-social.XXXXXX)"
 
+case "$PLATFORM_VARIANT" in
+    generic|xiaohongshu|douyin|moments) ;;
+    *)
+        echo "unknown platform variant: $PLATFORM_VARIANT" >&2
+        echo "usage: $0 [OUTPUT_PATH] [generic|xiaohongshu|douyin|moments]" >&2
+        exit 2
+        ;;
+esac
 cleanup() {
     rm -rf -- "$PROMO_TMP_DIR"
 }
@@ -16,8 +25,10 @@ trap cleanup EXIT
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 mkdir -p "$PROMO_TMP_DIR/overlays"
 
-swift "$REPO_DIR/Promo/generate_download_qr.swift"
-swift "$SCRIPT_DIR/render_overlays.swift" "$PROMO_TMP_DIR/overlays"
+if [[ "$PLATFORM_VARIANT" == "generic" || "$PLATFORM_VARIANT" == "moments" ]]; then
+    swift "$REPO_DIR/Promo/generate_download_qr.swift"
+fi
+swift "$SCRIPT_DIR/render_overlays.swift" "$PROMO_TMP_DIR/overlays" "$PLATFORM_VARIANT"
 
 ICON="$REPO_DIR/shared/brand/source/AppIconSquare.png"
 SOUND_VIDEO="$REPO_DIR/media/battuta-sound-demo-polished.mp4"
@@ -102,20 +113,34 @@ ffmpeg -y -v error \
      [base][overlay]overlay=0:0,fade=t=in:st=0:d=0.20,fade=t=out:st=${STATS_FADE_OUT}:d=0.20,format=yuv420p[out]" \
     -map "[out]" -t "$STATS_DURATION" "${COMMON_VIDEO[@]}" "$PROMO_TMP_DIR/scene-7.mp4"
 
-ffmpeg -y -v error \
-    -loop 1 -t 4 -i "$ICON" \
-    -loop 1 -t 4 -i "$QR_IMAGE" \
-    -loop 1 -t 4 -i "$PROMO_TMP_DIR/overlays/outro.png" \
-    -filter_complex \
-    "[0:v]split=2[bgsrc][iconsrc]; \
-     [bgsrc]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=42:2,eq=brightness=-0.60:saturation=0.72[bg]; \
-     [iconsrc]scale=260:260[icon]; \
-     [1:v]scale=300:300:flags=neighbor[qr]; \
-     [bg][icon]overlay=(W-w)/2:215[base1]; \
-     [base1][qr]overlay=390:925[base2]; \
-     [2:v]format=rgba[overlay]; \
-     [base2][overlay]overlay=0:0,fade=t=in:st=0:d=0.20,fade=t=out:st=3.70:d=0.30,format=yuv420p[out]" \
-    -map "[out]" -t 4 "${COMMON_VIDEO[@]}" "$PROMO_TMP_DIR/scene-8.mp4"
+if [[ "$PLATFORM_VARIANT" == "generic" || "$PLATFORM_VARIANT" == "moments" ]]; then
+    ffmpeg -y -v error \
+        -loop 1 -t 4 -i "$ICON" \
+        -loop 1 -t 4 -i "$QR_IMAGE" \
+        -loop 1 -t 4 -i "$PROMO_TMP_DIR/overlays/outro.png" \
+        -filter_complex \
+        "[0:v]split=2[bgsrc][iconsrc]; \
+         [bgsrc]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=42:2,eq=brightness=-0.60:saturation=0.72[bg]; \
+         [iconsrc]scale=260:260[icon]; \
+         [1:v]scale=300:300:flags=neighbor[qr]; \
+         [bg][icon]overlay=(W-w)/2:215[base1]; \
+         [base1][qr]overlay=390:925[base2]; \
+         [2:v]format=rgba[overlay]; \
+         [base2][overlay]overlay=0:0,fade=t=in:st=0:d=0.20,fade=t=out:st=3.70:d=0.30,format=yuv420p[out]" \
+        -map "[out]" -t 4 "${COMMON_VIDEO[@]}" "$PROMO_TMP_DIR/scene-8.mp4"
+else
+    ffmpeg -y -v error \
+        -loop 1 -t 4 -i "$ICON" \
+        -loop 1 -t 4 -i "$PROMO_TMP_DIR/overlays/outro.png" \
+        -filter_complex \
+        "[0:v]split=2[bgsrc][iconsrc]; \
+         [bgsrc]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=42:2,eq=brightness=-0.60:saturation=0.72[bg]; \
+         [iconsrc]scale=260:260[icon]; \
+         [bg][icon]overlay=(W-w)/2:235[base]; \
+         [1:v]format=rgba[overlay]; \
+         [base][overlay]overlay=0:0,fade=t=in:st=0:d=0.20,fade=t=out:st=3.70:d=0.30,format=yuv420p[out]" \
+        -map "[out]" -t 4 "${COMMON_VIDEO[@]}" "$PROMO_TMP_DIR/scene-8.mp4"
+fi
 
 ffmpeg -y -v error \
     -i "$PROMO_TMP_DIR/scene-1.mp4" \
@@ -152,4 +177,4 @@ ffmpeg -y -v error \
 
 ffmpeg -y -v error -ss 0.9 -i "$OUTPUT_PATH" -frames:v 1 "$COVER_PATH"
 
-printf 'video: %s\ncover: %s\n' "$OUTPUT_PATH" "$COVER_PATH"
+printf 'platform: %s\nvideo: %s\ncover: %s\n' "$PLATFORM_VARIANT" "$OUTPUT_PATH" "$COVER_PATH"

@@ -89,6 +89,7 @@ private struct AudioVariantCoreHarness {
                 passed: &passed
             )
 
+            try testSharedVoiceSelection(passed: &passed)
             try testLeadingSilenceTrimming(passed: &passed)
             try testNormalOutputRouteIntegration(passed: &passed)
 
@@ -106,6 +107,72 @@ private struct AudioVariantCoreHarness {
     ) throws {
         guard condition() else { throw AudioVariantHarnessFailure.assertion(message) }
         passed += 1
+    }
+
+    private static func testSharedVoiceSelection(passed: inout Int) throws {
+        try check(
+            AudioVoiceSelector.nextIndex(
+                count: 0,
+                cursor: 0,
+                allowsStealing: true,
+                isActive: { _ in false },
+                lastScheduledEpoch: { _ in 0 }
+            ) == nil,
+            "an empty shared voice pool should reject playback",
+            passed: &passed
+        )
+
+        let mixedActivity = [true, false, true, false]
+        let mixedEpochs: [UInt64] = [1, 2, 3, 4]
+        try check(
+            AudioVoiceSelector.nextIndex(
+                count: mixedActivity.count,
+                cursor: 2,
+                allowsStealing: true,
+                isActive: { mixedActivity[$0] },
+                lastScheduledEpoch: { mixedEpochs[$0] }
+            ) == 3,
+            "shared playback should prefer the next idle voice",
+            passed: &passed
+        )
+
+        let allActive = [true, true, true, true]
+        let scheduledEpochs: [UInt64] = [8, 3, 7, 6]
+        try check(
+            AudioVoiceSelector.nextIndex(
+                count: allActive.count,
+                cursor: 0,
+                allowsStealing: false,
+                isActive: { allActive[$0] },
+                lastScheduledEpoch: { scheduledEpochs[$0] }
+            ) == nil,
+            "pointer playback should be dropped instead of interrupting a full keyboard pool",
+            passed: &passed
+        )
+        try check(
+            AudioVoiceSelector.nextIndex(
+                count: allActive.count,
+                cursor: 0,
+                allowsStealing: true,
+                isActive: { allActive[$0] },
+                lastScheduledEpoch: { scheduledEpochs[$0] }
+            ) == 1,
+            "keyboard playback should steal the oldest voice only when every voice is active",
+            passed: &passed
+        )
+
+        let tiedEpochs: [UInt64] = [3, 3, 5, 4]
+        try check(
+            AudioVoiceSelector.nextIndex(
+                count: allActive.count,
+                cursor: 2,
+                allowsStealing: true,
+                isActive: { allActive[$0] },
+                lastScheduledEpoch: { tiedEpochs[$0] }
+            ) == 0,
+            "oldest-voice ties should resolve deterministically",
+            passed: &passed
+        )
     }
 
     private static func testLeadingSilenceTrimming(passed: inout Int) throws {
@@ -174,9 +241,13 @@ private struct AudioVariantCoreHarness {
         )
 
         try check(
-            engineSource.contains("private var keyboardVoices: [Voice] = []")
-                && engineSource.contains("private var pointerVoices: [Voice] = []"),
-            "keyboard and pointer playback should maintain distinct voice pools",
+            engineSource.contains("private var voices: [Voice] = []")
+                && !engineSource.contains("keyboardVoices")
+                && !engineSource.contains("pointerVoices")
+                && !engineSource.contains("keyboardVoiceCursor")
+                && !engineSource.contains("pointerVoiceCursor")
+                && !engineSource.contains("private enum VoicePool"),
+            "keyboard and pointer playback should share one voice pool",
             passed: &passed
         )
 
@@ -200,22 +271,32 @@ private struct AudioVariantCoreHarness {
             "the removed system-volume reader should not remain in the harness or Xcode project",
             passed: &passed
         )
+        try check(
+            engineSource.contains("engine.isAutoShutdownEnabled = true")
+                && !engineSource.contains("engine.isAutoShutdownEnabled = false"),
+            "the audio engine should release idle hardware instead of continuously rendering silence",
+            passed: &passed
+        )
+        try check(
+            engineSource.contains("if startEngineIfNeeded() {\n            scheduleIdlePauseIfNeeded()\n        }"),
+            "audio warm-up should schedule an idle pause even before the first sound plays",
+            passed: &passed
+        )
 
         guard let initializerStart = engineSource.range(
-            of: "    init(\n        voiceCount: Int = 16,"
+            of: "    init(voiceCount: Int = 16) {"
         )?.lowerBound,
         let initializerEnd = engineSource.range(
-            of: "        engine.isAutoShutdownEnabled = false",
+            of: "        engine.isAutoShutdownEnabled = true",
             range: initializerStart..<engineSource.endIndex
         )?.lowerBound else {
             throw AudioVariantHarnessFailure.assertion("could not isolate the audio-engine initializer")
         }
         let initializerSource = engineSource[initializerStart..<initializerEnd]
         try check(
-            initializerSource.contains("keyboardVoices = makeVoicePool(")
-                && initializerSource.contains("pointerVoices = makeVoicePool(")
-                && initializerSource.components(separatedBy: "output: engine.mainMixerNode").count == 3,
-            "both voice pools should connect directly to the system-controlled main mixer",
+            initializerSource.contains("voices = makeVoicePool(count: voiceCount")
+                && initializerSource.components(separatedBy: "output: engine.mainMixerNode").count == 2,
+            "one 16-voice shared pool should connect to the system-controlled main mixer",
             passed: &passed
         )
 
@@ -230,9 +311,9 @@ private struct AudioVariantCoreHarness {
         }
         let keyboardBufferSource = engineSource[keyboardBufferPlayStart..<pointerBufferPlayStart]
         try check(
-            keyboardBufferSource.contains("let voice = keyboardVoices[keyboardVoiceCursor]")
+            keyboardBufferSource.contains("nextVoiceIndex(allowsStealing: true)")
                 && keyboardBufferSource.contains("schedule("),
-            "keyboard playback should apply only the in-app gain before normal system output",
+            "keyboard playback should use the shared pool and may steal only when it is full",
             passed: &passed
         )
 
@@ -244,17 +325,40 @@ private struct AudioVariantCoreHarness {
         }
         let pointerBufferSource = engineSource[pointerBufferPlayStart..<startEngineIfNeeded]
         try check(
-            pointerBufferSource.contains("let voice = pointerVoices[pointerVoiceCursor]")
+            pointerBufferSource.contains("nextVoiceIndex(allowsStealing: false)")
                 && pointerBufferSource.contains("schedule("),
-            "pointer playback should keep its independent pool and normal system-relative gain",
+            "pointer playback should use only idle shared voices without interrupting keyboard sound",
+            passed: &passed
+        )
+        try check(
+            engineSource.contains("AudioVoiceSelector.nextIndex(")
+                && engineSource.contains("voice.lastScheduledEpoch = activityEpoch")
+                && engineSource.contains("voices.allSatisfy { !$0.isActive }"),
+            "the production path should prefer idle shared voices and track the oldest active voice",
             passed: &passed
         )
         try check(
             engineSource.contains("voice.player.volume = volume")
-                && engineSource.contains("voice.player.scheduleBuffer(buffer, at: nil, options: [.interrupts])")
-                && engineSource.contains("if !voice.player.isPlaying")
-                && !engineSource.contains("voice.player.stop()"),
+                && engineSource.contains("completionCallbackType: .dataPlayedBack")
+                && engineSource.contains("if !voice.player.isPlaying"),
             "voice reuse should preserve the optimized interrupt path without a stop/play cycle",
+            passed: &passed
+        )
+        try check(
+            engineSource.contains("voice.playbackGeneration &+= 1")
+                && engineSource.contains("guard voice.playbackGeneration == generation else { return }")
+                && engineSource.contains("expectedActivityEpoch")
+                && engineSource.contains("self.activityEpoch == expectedActivityEpoch")
+                && engineSource.contains("try await Task.sleep(for: Self.idlePauseDelay)")
+                && engineSource.contains("engine.pause()"),
+            "completed voices should release the engine after a race-safe idle grace period",
+            passed: &passed
+        )
+        try check(
+            engineSource.contains("self.handleEngineConfigurationChange()")
+                && engineSource.contains("if allVoicesAreIdle")
+                && engineSource.contains("_ = startEngineIfNeeded()"),
+            "audio-route changes should resume active playback without restarting an idle engine",
             passed: &passed
         )
     }

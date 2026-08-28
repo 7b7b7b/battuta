@@ -17,6 +17,34 @@ public sealed class TrayInteractionContractTests
     private const int WmLButtonUp = 0x0202;
     private const int WmRButtonUp = 0x0205;
     private const int NinSelect = 0x0400;
+    private const uint NifGuid = 0x00000020;
+
+    [Fact]
+    [Trait(TestCategories.TraitName, TestCategories.Integration)]
+    public void PortableIdentifierModeOmitsGuidFromShellData()
+    {
+        StaTestHost.Run(() =>
+        {
+            using var service = CreateTrayIconService(useGuidIdentifier: false);
+            var createData = typeof(NativeTrayIconService).GetMethod(
+                "CreateData",
+                BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new MissingMethodException(
+                    typeof(NativeTrayIconService).FullName,
+                    "CreateData");
+            var data = createData.Invoke(service, [0u])
+                ?? throw new InvalidOperationException("CreateData returned null.");
+            var dataType = data.GetType();
+            var flags = Assert.IsType<uint>(
+                dataType.GetField("Flags")?.GetValue(data));
+            var guid = Assert.IsType<Guid>(
+                dataType.GetField("GuidItem")?.GetValue(data));
+
+            Assert.False(service.UsesGuidIdentifier);
+            Assert.Equal(0u, flags & NifGuid);
+            Assert.Equal(Guid.Empty, guid);
+        });
+    }
 
     [Theory]
     [InlineData(WmLButtonUp)]
@@ -448,14 +476,17 @@ public sealed class TrayInteractionContractTests
         }
     }
 
-    private static NativeTrayIconService CreateTrayIconService(TimeProvider? timeProvider = null)
+    private static NativeTrayIconService CreateTrayIconService(
+        TimeProvider? timeProvider = null,
+        bool useGuidIdentifier = true)
     {
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Battuta.ico");
         var iconHandle = NativeTrayIconService.LoadIconFromFile(iconPath, 16);
         return new NativeTrayIconService(
             iconHandle,
             ownsIconHandle: true,
-            timeProvider: timeProvider);
+            timeProvider: timeProvider,
+            useGuidIdentifier: useGuidIdentifier);
     }
 
     private static bool DispatchNotification(

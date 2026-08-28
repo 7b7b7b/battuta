@@ -7,6 +7,7 @@ public static class AudioConstants
     public const int OutputChannelCount = 2;
     public const int VoiceCount = 16;
     public const int MaximumQueuedCommands = 512;
+    public const int IdleOutputFrameCount = SampleRate;
     public const float MinimumPlaybackRate = 0.25f;
     public const float MaximumPlaybackRate = 4f;
 }

@@ -116,7 +116,13 @@ public sealed class UpdateCheckService : IDisposable
 
             try
             {
-                var response = await _client.FetchLatestAsync(cache.ETag, cancellationToken)
+                // An ETag is only useful when the cached release can still be trusted. In
+                // particular, repository transfers can invalidate a previously cached
+                // release URL while GitHub continues to return 304 for the same releases
+                // collection. Sending that ETag would leave us without a usable release
+                // to pair with the 304 response, so force one full refresh instead.
+                var requestETag = cache.TryGetRelease() is null ? null : cache.ETag;
+                var response = await _client.FetchLatestAsync(requestETag, cancellationToken)
                     .ConfigureAwait(false);
                 GitHubReleaseSummary release;
                 if (response is ReleaseFetchResult.Modified modified)
