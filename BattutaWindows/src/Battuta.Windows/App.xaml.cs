@@ -59,10 +59,11 @@ public partial class App : Application, IDisposable
             _trayIcon = new NativeTrayIconService(
                 iconHandle,
                 $"Battuta - {_runtime.StatusText}",
-                ownsIconHandle: true);
+                ownsIconHandle: true,
+                useGuidIdentifier: false);
             _trayPlacement = new TrayFlyoutPlacementService(_trayIcon);
             _trayIcon.Invoked += TrayIconInvoked;
-            _trayIcon.Show();
+            await _trayIcon.ShowAsync();
 
             if (platform.SingleInstance is not null)
             {
@@ -188,7 +189,7 @@ public partial class App : Application, IDisposable
         {
             if (_trayIcon is { IsVisible: false })
             {
-                _trayIcon.Show();
+                await _trayIcon.ShowAsync();
             }
 
             Volatile.Write(ref _shutdownStarted, 0);
