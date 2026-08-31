@@ -47,7 +47,7 @@ final class SparkleUpdateService: AppUpdateInstalling {
         do {
             try updater.start()
         } catch {
-            state = .unavailable(.startupFailed(error.localizedDescription))
+            state = .unavailable(.startupFailed(L10n.tr(error.localizedDescription)))
             self.updater = nil
             self.userDriver = nil
         }
@@ -60,7 +60,7 @@ final class SparkleUpdateService: AppUpdateInstalling {
             return
         }
         guard updater.canCheckForUpdates else {
-            transition(to: .failed("更新服务正忙，请稍后再试。"))
+            transition(to: .failed(L10n.tr("更新服务正忙，请稍后再试。")))
             return
         }
 
@@ -125,7 +125,7 @@ private final class BattutaUpdateUserDriver: NSObject, SPUUserDriver {
         reply: @escaping (SPUUserUpdateChoice) -> Void
     ) {
         guard !appcastItem.isInformationOnlyUpdate else {
-            transition(to: .failed("这个版本需要前往 GitHub 手动下载安装。"))
+            transition(to: .failed(L10n.tr("这个版本需要前往 GitHub 手动下载安装。")))
             reply(.dismiss)
             return
         }
@@ -142,12 +142,12 @@ private final class BattutaUpdateUserDriver: NSObject, SPUUserDriver {
         _ error: Error,
         acknowledgement: @escaping () -> Void
     ) {
-        transition(to: .failed("没有可安装的新版本。"))
+        transition(to: .failed(L10n.tr("没有可安装的新版本。")))
         acknowledgement()
     }
 
     func showUpdaterError(_ error: Error, acknowledgement: @escaping () -> Void) {
-        transition(to: .failed("更新失败：\(error.localizedDescription)"))
+        transition(to: .failed(L10n.format("更新失败：%@", L10n.tr(error.localizedDescription))))
         acknowledgement()
     }
 
@@ -198,7 +198,7 @@ private final class BattutaUpdateUserDriver: NSObject, SPUUserDriver {
         } else {
             self.retryTerminatingApplication = retryTerminatingApplication
             transition(
-                to: .failed("Battuta 尚未退出。请先关闭正在编辑的窗口，然后重试安装。")
+                to: .failed(L10n.tr("Battuta 尚未退出。请先关闭正在编辑的窗口，然后重试安装。"))
             )
         }
     }
@@ -215,7 +215,7 @@ private final class BattutaUpdateUserDriver: NSObject, SPUUserDriver {
     func dismissUpdateInstallation() {
         retryTerminatingApplication = nil
         if currentState.isActive {
-            transition(to: .failed("更新流程已取消，可以重试。"))
+            transition(to: .failed(L10n.tr("更新流程已取消，可以重试。")))
         }
     }
 }

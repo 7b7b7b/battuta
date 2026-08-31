@@ -109,7 +109,13 @@ struct AudioSplitEditorSheet: View {
                         in: minimumSegment...maximumSplit,
                         step: 0.001
                     )
-                    Text("建议：\(timeLabel(draft.analysis.suggestion.splitTime)) · 回弹瞬态约在 \(timeLabel(draft.analysis.suggestion.releaseTransientTime))")
+                    Text(
+                        L10n.format(
+                            "建议：%@ · 回弹瞬态约在 %@",
+                            timeLabel(draft.analysis.suggestion.splitTime),
+                            timeLabel(draft.analysis.suggestion.releaseTransientTime)
+                        )
+                    )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -151,7 +157,7 @@ struct AudioSplitEditorSheet: View {
             BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
             HStack {
-                Text("将设置到：\(draft.target.displayName)")
+                Text(L10n.format("将设置到：%@", draft.target.displayName))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -192,7 +198,12 @@ struct AudioSplitEditorSheet: View {
     private var confidenceBadge: some View {
         let confidence = max(0, min(1, draft.analysis.suggestion.confidence))
         return BattutaStatusPill(
-            title: "置信度 \(confidence.formatted(.percent.precision(.fractionLength(0))))",
+            title: L10n.format(
+                "置信度 %@",
+                confidence.formatted(
+                    .percent.precision(.fractionLength(0)).locale(L10n.locale)
+                )
+            ),
             symbol: confidence >= 0.7 ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
             tint: confidence >= 0.7 ? BattutaVisualStyle.accentStrong : .orange
         )
@@ -208,7 +219,7 @@ struct AudioSplitEditorSheet: View {
     }
 
     private func timeLabel(_ time: TimeInterval) -> String {
-        "\((time * 1_000).formatted(.number.precision(.fractionLength(0)))) ms"
+        "\((time * 1_000).formatted(.number.precision(.fractionLength(0)).locale(L10n.locale))) ms"
     }
 }
 
@@ -260,8 +271,13 @@ private struct AudioSplitWaveform: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("击键音频波形")
-        .accessibilityValue("切点 \(Int(splitTime * 1_000)) 毫秒")
+        .accessibilityLabel(L10n.tr("击键音频波形"))
+        .accessibilityValue(
+            L10n.format(
+                "切点 %@ 毫秒",
+                Int(splitTime * 1_000).formatted(.number.locale(L10n.locale))
+            )
+        )
     }
 
     private func splitMarker(width: CGFloat, height: CGFloat) -> some View {
@@ -302,7 +318,7 @@ private struct AudioSplitWaveform: View {
     }
 
     private func regionLabel(_ title: String, x: CGFloat, width: CGFloat) -> some View {
-        Text(title)
+        Text(L10n.tr(title))
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 5)
@@ -320,10 +336,10 @@ private struct AudioSplitWaveform: View {
 private extension AudioSplitAnalysisWarning {
     var message: String {
         switch self {
-        case .lowConfidence: "自动切点置信度较低，请仔细检查波形。"
-        case .fallbackValleyUsed: "未找到明显回弹瞬态，当前切点使用能量谷值。"
-        case .possibleAdditionalKeystroke: "检测到可能的下一次击键，已建议提前结束。"
-        case .sourceMayBeClipped: "源录音可能削波，建议降低录音增益后重试。"
+        case .lowConfidence: "自动切点置信度较低，请仔细检查波形。".localized
+        case .fallbackValleyUsed: "未找到明显回弹瞬态，当前切点使用能量谷值。".localized
+        case .possibleAdditionalKeystroke: "检测到可能的下一次击键，已建议提前结束。".localized
+        case .sourceMayBeClipped: "源录音可能削波，建议降低录音增益后重试。".localized
         }
     }
 }

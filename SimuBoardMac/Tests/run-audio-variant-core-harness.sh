@@ -14,6 +14,7 @@ xcrun --sdk macosx swiftc \
   -strict-concurrency=complete \
   -parse-as-library \
   -module-cache-path "$HARNESS_TEMP/module-cache" \
+  SimuBoardMac/SimuBoardMac/Localization.swift \
   SimuBoardMac/SimuBoardMac/Models/KeySound.swift \
   SimuBoardMac/SimuBoardMac/Models/PointerSound.swift \
   SimuBoardMac/SimuBoardMac/Models/SwitchProfile.swift \

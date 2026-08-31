@@ -232,13 +232,13 @@ final class KeyboardAudioEngine {
                 let url = try document.assetURL(for: assetID)
                 guard let buffer = loadBuffer(at: url) else {
                     if resourceError == nil {
-                        resourceError = "无法预载自定义音频 \(url.lastPathComponent)。"
+                        resourceError = L10n.format("无法预载自定义音频 %@。", url.lastPathComponent)
                     }
                     return false
                 }
                 nextCustomBuffers[assetID] = prepareKeyboardSample(buffer)
             } catch {
-                resourceError = "无法读取自定义音频：\(error.localizedDescription)"
+                resourceError = L10n.format("无法读取自定义音频：%@", error.localizedDescription)
                 return false
             }
         }
@@ -321,7 +321,7 @@ final class KeyboardAudioEngine {
         resourceError = nil
         guard let buffer = loadBuffer(at: url) else {
             if resourceError == nil {
-                resourceError = "无法读取 \(url.lastPathComponent)。"
+                resourceError = L10n.format("无法读取 %@。", url.lastPathComponent)
             }
             return
         }
@@ -368,7 +368,12 @@ final class KeyboardAudioEngine {
         let expectedBufferCount = pressSamples.count + releaseSamples.count
         guard nextBuffers.count == expectedBufferCount else {
             if resourceError == nil {
-                resourceError = "\(profile.displayName) 的音频资源不完整（\(nextBuffers.count)/\(expectedBufferCount)）。"
+                resourceError = L10n.format(
+                    "%@ 的音频资源不完整（%@/%@）。",
+                    profile.displayName,
+                    "\(nextBuffers.count)",
+                    "\(expectedBufferCount)"
+                )
             }
             return nil
         }
@@ -398,7 +403,12 @@ final class KeyboardAudioEngine {
 
         guard nextBuffers.count == PointerSoundPhase.allCases.count else {
             if pointerResourceError == nil {
-                pointerResourceError = "\(profile.displayName) 的点击音资源不完整（\(nextBuffers.count)/\(PointerSoundPhase.allCases.count)）。"
+                pointerResourceError = L10n.format(
+                    "%@ 的点击音资源不完整（%@/%@）。",
+                    profile.displayName,
+                    "\(nextBuffers.count)",
+                    "\(PointerSoundPhase.allCases.count)"
+                )
             }
             return nil
         }
@@ -478,7 +488,7 @@ final class KeyboardAudioEngine {
             engineError = nil
             return true
         } catch {
-            engineError = "音频引擎启动失败：\(error.localizedDescription)"
+            engineError = L10n.format("音频引擎启动失败：%@", error.localizedDescription)
             return false
         }
     }
@@ -492,8 +502,11 @@ final class KeyboardAudioEngine {
             let speed = AVAudioUnitVarispeed()
             engine.attach(player)
             engine.attach(speed)
-            engine.connect(player, to: speed, format: playbackFormat)
-            engine.connect(speed, to: output, format: playbackFormat)
+            guard connect(player, to: speed), connect(speed, to: output) else {
+                engine.detach(player)
+                engine.detach(speed)
+                break
+            }
             voices.append(Voice(player: player, speed: speed))
         }
 
@@ -532,8 +545,46 @@ final class KeyboardAudioEngine {
             }
         }
         if !voice.player.isPlaying {
+            guard startPlayback(for: voice) else {
+                voice.isActive = false
+                voice.player.stop()
+                return
+            }
+        }
+    }
+
+    private func connect(_ source: AVAudioNode, to destination: AVAudioNode) -> Bool {
+        if #available(macOS 27.0, *) {
+            do {
+                try engine.connectNode(source, to: destination, format: playbackFormat)
+            } catch {
+                engineError = L10n.format(
+                    "音频节点连接失败：%@",
+                    error.localizedDescription
+                )
+                return false
+            }
+        } else {
+            engine.connect(source, to: destination, format: playbackFormat)
+        }
+        return true
+    }
+
+    private func startPlayback(for voice: Voice) -> Bool {
+        if #available(macOS 27.0, *) {
+            do {
+                try voice.player.playAudio()
+            } catch {
+                engineError = L10n.format(
+                    "音频播放启动失败：%@",
+                    error.localizedDescription
+                )
+                return false
+            }
+        } else {
             voice.player.play()
         }
+        return true
     }
 
     private func nextVoiceIndex(allowsStealing: Bool) -> Int? {
@@ -648,7 +699,7 @@ final class KeyboardAudioEngine {
             try file.read(into: buffer)
             guard let convertedBuffer = convertToPlaybackFormat(buffer) else {
                 setResourceError(
-                    "无法将 \(url.lastPathComponent) 预转换为 48 kHz。",
+                    L10n.format("无法将 %@ 预转换为 48 kHz。", url.lastPathComponent),
                     domain: resourceDomain
                 )
                 return nil
@@ -656,7 +707,7 @@ final class KeyboardAudioEngine {
             return convertedBuffer
         } catch {
             setResourceError(
-                "无法预载 \(url.lastPathComponent)：\(error.localizedDescription)",
+                L10n.format("无法预载 %@：%@", url.lastPathComponent, error.localizedDescription),
                 domain: resourceDomain
             )
             return nil

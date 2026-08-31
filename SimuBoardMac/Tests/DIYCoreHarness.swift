@@ -481,6 +481,39 @@ private struct DIYCoreHarness {
             )
         }
 
+        let keyboardPressOnly = KeyboardMonitor.EventInterest(
+            keyboardPresses: true,
+            keyboardReleases: false,
+            pointerPresses: false,
+            pointerReleases: false
+        )
+        try results.check(
+            keyboardPressOnly.eventTypes == [.keyDown, .flagsChanged],
+            "press-only keyboard monitoring should omit key-up and every pointer event"
+        )
+
+        let pointerPressOnly = KeyboardMonitor.EventInterest(
+            keyboardPresses: false,
+            keyboardReleases: false,
+            pointerPresses: true,
+            pointerReleases: false
+        )
+        try results.check(
+            pointerPressOnly.eventTypes == [.leftMouseDown, .rightMouseDown, .otherMouseDown],
+            "press-only pointer monitoring should omit releases and keyboard events"
+        )
+
+        let disabled = KeyboardMonitor.EventInterest(
+            keyboardPresses: false,
+            keyboardReleases: false,
+            pointerPresses: false,
+            pointerReleases: false
+        )
+        try results.check(
+            disabled.isEmpty && disabled.eventMask == 0,
+            "disabled input features should produce an empty event tap mask"
+        )
+
         guard let keyboardEvent = CGEvent(
             keyboardEventSource: nil,
             virtualKey: 12,
@@ -580,6 +613,14 @@ private struct DIYCoreHarness {
         try results.check(!initial.isPointerSoundEnabled, "pointer sounds should be opt-in")
         try results.check(!initial.isTypingStatsEnabled, "persistent input statistics should be opt-in")
         try results.check(initial.isLaunchAtLoginEnabled, "launch at login should default to enabled")
+        try results.check(
+            initial.languagePreference == .system,
+            "a new install should follow the system language"
+        )
+        try results.check(
+            initial.appearancePreference == .system,
+            "a new install should follow the system appearance"
+        )
         try results.check(initial.selectedPointerProfile == .classic, "classic should be the default pointer profile")
         try results.check(initial.playsPointerReleaseSound, "pointer release sound should default to enabled")
         try results.check(
@@ -624,6 +665,8 @@ private struct DIYCoreHarness {
         initial.pointerVolume = 0.24
         initial.isTypingStatsEnabled = true
         initial.isLaunchAtLoginEnabled = false
+        initial.languagePreference = .english
+        initial.appearancePreference = .light
         let reloaded = AppSettings(defaults: defaults)
         try results.check(reloaded.isPointerSoundEnabled, "pointer enabled state should persist")
         try results.check(reloaded.selectedPointerProfile == .glass, "pointer profile should persist")
@@ -632,8 +675,18 @@ private struct DIYCoreHarness {
         try results.check(abs(reloaded.pointerVolume - 0.24) < 0.000_001, "pointer volume should persist independently")
         try results.check(reloaded.isTypingStatsEnabled, "typing statistics opt-in should persist")
         try results.check(!reloaded.isLaunchAtLoginEnabled, "launch-at-login preference should persist")
+        try results.check(
+            reloaded.languagePreference == .english,
+            "the in-app language override should persist"
+        )
+        try results.check(
+            reloaded.appearancePreference == .light,
+            "the in-app appearance override should persist"
+        )
 
         defaults.set("missing-future-profile", forKey: "selectedPointerProfile")
+        defaults.set("missing-language", forKey: "languagePreference")
+        defaults.set("missing-appearance", forKey: "appearancePreference")
         let repaired = AppSettings(defaults: defaults)
         try results.check(
             repaired.selectedPointerProfileID == PointerSoundProfile.classic.rawValue,
@@ -642,6 +695,16 @@ private struct DIYCoreHarness {
         try results.check(
             defaults.string(forKey: "selectedPointerProfile") == PointerSoundProfile.classic.rawValue,
             "pointer profile normalization should repair persisted storage"
+        )
+        try results.check(
+            repaired.languagePreference == .system
+                && defaults.string(forKey: "languagePreference") == AppLanguagePreference.system.rawValue,
+            "an invalid language preference should repair to follow-system"
+        )
+        try results.check(
+            repaired.appearancePreference == .system
+                && defaults.string(forKey: "appearancePreference") == AppAppearancePreference.system.rawValue,
+            "an invalid appearance preference should repair to follow-system"
         )
 
         let migrationSuiteName = "SimuBoard.DIYCoreHarness.PointerVolumeMigration.\(UUID().uuidString)"
@@ -1927,6 +1990,11 @@ private struct DIYCoreHarness {
             appModelSource.contains("if audioEngine.load(document: document)")
                 && appModelSource.contains("audioEngine.load(profile: fallback)"),
             "AppModel must detect custom-load failure and perform an explicit fallback"
+        )
+        try results.check(
+            !appModelSource.contains("Timer.publish(every: 1")
+                && appModelSource.contains("startPermissionPollingIfNeeded()"),
+            "permission checks should poll only while authorization is still pending"
         )
         try results.check(
             appModelSource.contains("音色载入失败，已回退到"),

@@ -30,6 +30,7 @@ struct TypingStatsHistoryView: View {
 
     private static var calendar: Calendar {
         var calendar = Calendar.autoupdatingCurrent
+        calendar.locale = L10n.locale
         calendar.firstWeekday = 2
         return calendar
     }
@@ -88,7 +89,11 @@ struct TypingStatsHistoryView: View {
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 12)
                                         .background(.regularMaterial, in: Capsule())
-                                        .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+                                        .shadow(
+                                            color: BattutaVisualStyle.tooltipShadow,
+                                            radius: 8,
+                                            y: 3
+                                        )
                                 }
                             }
                             .animation(.easeOut(duration: 0.18), value: model.isLoadingReport)
@@ -201,7 +206,7 @@ struct TypingStatsHistoryView: View {
                 symbol: "keyboard.fill",
                 title: "区间总计",
                 value: statsCount(report.metrics.characterCount),
-                detail: "\(report.metrics.calendarDayCount) 个自然日"
+                detail: L10n.format("%@ 个自然日", "\(report.metrics.calendarDayCount)")
             )
 
             overviewSeparator
@@ -213,8 +218,8 @@ struct TypingStatsHistoryView: View {
             overviewMetric(
                 symbol: delta.symbol,
                 title: report.comparisonMetrics == nil ? "区间变化" : "相比上期",
-                value: report.comparisonMetrics == nil ? "未对比" : delta.text,
-                detail: report.comparisonRange.map(dateRangeText) ?? "开启区间对比",
+                value: report.comparisonMetrics == nil ? L10n.tr("未对比") : delta.text,
+                detail: report.comparisonRange.map(dateRangeText) ?? L10n.tr("开启区间对比"),
                 tint: report.comparisonMetrics == nil ? BattutaVisualStyle.instrumentSecondary : delta.color
             )
 
@@ -224,7 +229,7 @@ struct TypingStatsHistoryView: View {
                 symbol: "chart.bar.fill",
                 title: "日均字符",
                 value: formattedAverage(report.metrics.dailyAverage),
-                detail: "\(report.metrics.activeDayCount) 个活跃日"
+                detail: L10n.format("%@ 个活跃日", "\(report.metrics.activeDayCount)")
             )
 
             overviewSeparator
@@ -232,8 +237,10 @@ struct TypingStatsHistoryView: View {
             overviewMetric(
                 symbol: "bolt.fill",
                 title: "区间峰值",
-                value: "\(report.metrics.peakCPS) 字/秒",
-                detail: report.metrics.bestDay.map { "最佳日 \(shortDate($0.date))" } ?? "暂无输入"
+                value: L10n.format("%@ 字/秒", statsCount(report.metrics.peakCPS)),
+                detail: report.metrics.bestDay.map {
+                    L10n.format("最佳日 %@", shortDate($0.date))
+                } ?? L10n.tr("暂无输入")
             )
         }
         .padding(.horizontal, 18)
@@ -257,7 +264,7 @@ struct TypingStatsHistoryView: View {
                 .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(L10n.tr(title))
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
                 Text(value)
@@ -310,7 +317,7 @@ struct TypingStatsHistoryView: View {
                     )
                 ) {
                     ForEach(TypingRhythmMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
+                        Text(L10n.tr(mode.rawValue)).tag(mode)
                     }
                 }
                 .labelsHidden()
@@ -357,8 +364,8 @@ struct TypingStatsHistoryView: View {
             Divider()
 
             summaryRow("日均", value: formattedAverage(report.metrics.dailyAverage))
-            summaryRow("活跃日期", value: "\(report.metrics.activeDayCount) 天")
-            summaryRow("区间峰值", value: "\(report.metrics.peakCPS) 字/秒")
+            summaryRow("活跃日期", value: L10n.format("%@ 天", "\(report.metrics.activeDayCount)"))
+            summaryRow("区间峰值", value: L10n.format("%@ 字/秒", statsCount(report.metrics.peakCPS)))
             if let comparison = report.comparisonMetrics {
                 summaryRow("对比区间", value: statsCount(comparison.characterCount))
             }
@@ -366,7 +373,7 @@ struct TypingStatsHistoryView: View {
             if !report.coverage.isRangeWithinAvailableDates,
                let firstDate = report.coverage.firstRecordedDate {
                 Label(
-                    "本机从 \(shortDate(firstDate)) 起有可用记录",
+                    L10n.format("本机从 %@ 起有可用记录", shortDate(firstDate)),
                     systemImage: "info.circle"
                 )
                 .font(.caption2)
@@ -391,13 +398,13 @@ struct TypingStatsHistoryView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(presentation.color.opacity(0.10), in: Capsule())
-                .help("与 \(dateRangeText(report.comparisonRange)) 相比")
+                .help(L10n.format("与 %@ 相比", dateRangeText(report.comparisonRange)))
         }
     }
 
     private func summaryRow(_ title: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title)
+            Text(L10n.tr(title))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 12)
             Text(value)
@@ -422,7 +429,7 @@ struct TypingStatsHistoryView: View {
 
                 Spacer(minLength: 8)
 
-                Text("\(report.applications.count) 个应用")
+                Text(L10n.format("%@ 个应用", "\(report.applications.count)"))
                     .font(.caption)
                     .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
             }
@@ -552,7 +559,13 @@ struct TypingStatsHistoryView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("全部应用")
                         .font(.title2.weight(.semibold))
-                    Text("\(dateRangeText(report.range)) · 共 \(report.applications.count) 个应用")
+                    Text(
+                        L10n.format(
+                            "%@ · 共 %@ 个应用",
+                            dateRangeText(report.range),
+                            "\(report.applications.count)"
+                        )
+                    )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -575,10 +588,10 @@ struct TypingStatsHistoryView: View {
     }
 
     private func tableHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
-            .lineLimit(1)
+            Text(L10n.tr(title))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
+                .lineLimit(1)
     }
 
     private func tableValue(_ value: String) -> some View {
@@ -595,7 +608,7 @@ struct TypingStatsHistoryView: View {
         hasComparison: Bool
     ) -> some View {
         let presentation = applicationChangePresentation(app, hasComparison: hasComparison)
-        return Text(presentation.text)
+        return Text(L10n.tr(presentation.text))
             .font(.caption.weight(.semibold))
             .foregroundStyle(presentation.color)
             .monospacedDigit()
@@ -616,7 +629,9 @@ struct TypingStatsHistoryView: View {
 
         let count = app.characterChange
         let percent = abs(Double(count) / Double(app.comparisonCharacterCount) * 100)
-            .formatted(.number.precision(.fractionLength(1)))
+            .formatted(
+                .number.precision(.fractionLength(1)).locale(L10n.locale)
+            )
         if count > 0 {
             return ("+\(statsCount(count))  ↑ \(percent)%", BattutaVisualStyle.accent)
         }
@@ -647,14 +662,14 @@ struct TypingStatsHistoryView: View {
                     tint: BattutaVisualStyle.amber,
                     title: "最佳一天",
                     value: report.metrics.bestDay.map { statsCount($0.characterCount) } ?? "—",
-                    detail: report.metrics.bestDay.map { shortDate($0.date) } ?? "暂无输入"
+                    detail: report.metrics.bestDay.map { shortDate($0.date) } ?? L10n.tr("暂无输入")
                 )
                 insight(
                     symbol: "flame.fill",
                     tint: BattutaVisualStyle.accentStrong,
                     title: "最长连续活跃",
-                    value: "\(report.metrics.longestActiveDayStreak) 天",
-                    detail: "连续出现有效输入"
+                    value: L10n.format("%@ 天", "\(report.metrics.longestActiveDayStreak)"),
+                    detail: L10n.tr("连续出现有效输入")
                 )
                 insight(
                     symbol: "calendar.badge.clock",
@@ -662,8 +677,8 @@ struct TypingStatsHistoryView: View {
                     title: "最常输入星期",
                     value: weekdayName(report.metrics.busiestWeekday?.weekday),
                     detail: report.metrics.busiestWeekday.map {
-                        "合计 \(statsCount($0.characterCount)) 个字符"
-                    } ?? "暂无输入"
+                        L10n.format("合计 %@ 个字符", statsCount($0.characterCount))
+                    } ?? L10n.tr("暂无输入")
                 )
                 insight(
                     symbol: "clock.fill",
@@ -671,8 +686,8 @@ struct TypingStatsHistoryView: View {
                     title: "最常输入时段",
                     value: hourRange(report.metrics.busiestHour?.hour),
                     detail: report.metrics.busiestHour.map {
-                        "合计 \(statsCount($0.characterCount)) 个字符"
-                    } ?? "暂无输入"
+                        L10n.format("合计 %@ 个字符", statsCount($0.characterCount))
+                    } ?? L10n.tr("暂无输入")
                 )
             }
         }
@@ -690,7 +705,7 @@ struct TypingStatsHistoryView: View {
         HStack(spacing: 11) {
             BattutaIconTile(symbol: symbol, tint: tint, size: 34, symbolSize: 14)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(L10n.tr(title))
                     .font(.caption)
                     .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
                 Text(value)
@@ -706,7 +721,10 @@ struct TypingStatsHistoryView: View {
             Spacer(minLength: 0)
         }
         .padding(11)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+        .background(
+            BattutaVisualStyle.instrumentSeparator.opacity(0.32),
+            in: RoundedRectangle(cornerRadius: 10)
+        )
     }
 
     private func reportError(_ message: String) -> some View {
@@ -749,7 +767,7 @@ struct TypingStatsHistoryView: View {
     }
 
     private func dateRangeText(_ range: TypingDateRange?) -> String {
-        guard let range else { return "未启用" }
+        guard let range else { return L10n.tr("未启用") }
         if calendar.isDate(range.startDate, inSameDayAs: range.endDate) {
             return longDate(range.startDate)
         }
@@ -757,24 +775,33 @@ struct TypingStatsHistoryView: View {
     }
 
     private func shortDate(_ date: Date) -> String {
-        date.formatted(.dateTime.month().day())
+        date.formatted(.dateTime.month().day().locale(L10n.locale))
     }
 
     private func longDate(_ date: Date) -> String {
-        date.formatted(.dateTime.year().month().day())
+        date.formatted(.dateTime.year().month().day().locale(L10n.locale))
     }
 
     private func formattedAverage(_ value: Double) -> String {
-        value.formatted(.number.grouping(.automatic).precision(.fractionLength(value < 10 ? 1 : 0)))
+        value.formatted(
+            .number
+                .grouping(.automatic)
+                .precision(.fractionLength(value < 10 ? 1 : 0))
+                .locale(L10n.locale)
+        )
     }
 
     private func percentText(_ share: Double) -> String {
-        (share * 100).formatted(.number.precision(.fractionLength(share < 0.1 ? 1 : 0))) + "%"
+        (share * 100).formatted(
+            .number
+                .precision(.fractionLength(share < 0.1 ? 1 : 0))
+                .locale(L10n.locale)
+        ) + "%"
     }
 
     private func weekdayName(_ weekday: Int?) -> String {
         guard let weekday, (1...7).contains(weekday) else { return "—" }
-        return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday - 1]
+        return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday - 1].localized
     }
 
     private func hourRange(_ hour: Int?) -> String {
@@ -800,9 +827,22 @@ struct TypingStatsHistoryView: View {
         _ app: TypingRangeApplicationSummary,
         hasComparison: Bool
     ) -> String {
-        var value = "本区间 \(app.characterCount) 个字符，占比 \(percentText(app.share))"
+        var value = L10n.format(
+            "本区间 %@ 个字符，占比 %@",
+            statsCount(app.characterCount),
+            percentText(app.share)
+        )
         if hasComparison {
-            value += "，对比区间 \(app.comparisonCharacterCount) 个字符，变化 \(changePresentation(current: app.characterCount, previous: app.comparisonCharacterCount).text)"
+            value += L10n.format(
+                "，对比区间 %@ 个字符，变化 %@",
+                statsCount(app.comparisonCharacterCount),
+                L10n.tr(
+                    changePresentation(
+                        current: app.characterCount,
+                        previous: app.comparisonCharacterCount
+                    ).text
+                )
+            )
         }
         return value
     }
@@ -819,7 +859,11 @@ struct TypingStatsHistoryView: View {
         }
 
         let delta = Double(current - previous) / Double(previous)
-        let magnitude = abs(delta * 100).formatted(.number.precision(.fractionLength(abs(delta) < 0.1 ? 1 : 0)))
+        let magnitude = abs(delta * 100).formatted(
+            .number
+                .precision(.fractionLength(abs(delta) < 0.1 ? 1 : 0))
+                .locale(L10n.locale)
+        )
         if delta > 0 {
             return ("+\(magnitude)%", "arrow.up.right", BattutaVisualStyle.accent)
         }
@@ -970,11 +1014,12 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
             case .current:
                 BattutaHeatmapLegend(
                     leadingLabel: currentScale.hasValues
-                        ? "低 \(averageText(currentScale.low))"
-                        : "低 0",
+                        ? L10n.format("低 %@ ", averageText(currentScale.low))
+                            .trimmingCharacters(in: .whitespaces)
+                        : L10n.tr("低 0"),
                     trailingLabel: currentScale.hasValues
-                        ? "高 ≥\(averageText(currentScale.high))"
-                        : "高 0",
+                        ? L10n.format("高 ≥%@", averageText(currentScale.high))
+                        : L10n.tr("高 0"),
                     palette: .rhythm,
                     barWidth: 132,
                     labelColor: BattutaVisualStyle.instrumentSecondary
@@ -1015,23 +1060,41 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
 
     private func weekdayTitle(_ weekday: Int) -> String {
         guard (1...7).contains(weekday) else { return "—" }
-        return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday - 1]
+        return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday - 1].localized
     }
 
     private func detailText(_ value: TypingWeekdayHourAggregate) -> String {
         let hour = String(format: "%02d:00–%02d:00", value.hour, (value.hour + 1) % 24)
         if mode == .current {
-            return "\(weekdayTitle(value.weekday)) \(hour) · 合计 \(statsCount(value.characterCount)) 个字符；每个该星期平均 \(averageText(currentAverage(value))) 个字符"
+            return L10n.format(
+                "%@ %@ · 合计 %@ 个字符；每个该星期平均 %@ 个字符",
+                weekdayTitle(value.weekday),
+                hour,
+                statsCount(value.characterCount),
+                averageText(currentAverage(value))
+            )
         }
         let current = currentAverage(value)
         let comparison = comparisonAverage(value)
         let delta = current - comparison
         let deltaText = delta > 0 ? "+\(averageText(delta))" : averageText(delta)
-        return "\(weekdayTitle(value.weekday)) \(hour) · 本期 \(statsCount(value.characterCount)) 个字符，上期 \(statsCount(value.comparisonCharacterCount)) 个字符；每个该星期平均变化 \(deltaText) 个字符"
+        return L10n.format(
+            "%@ %@ · 本期 %@ 个字符，上期 %@ 个字符；每个该星期平均变化 %@ 个字符",
+            weekdayTitle(value.weekday),
+            hour,
+            statsCount(value.characterCount),
+            statsCount(value.comparisonCharacterCount),
+            deltaText
+        )
     }
 
     private func averageText(_ value: Double) -> String {
-        value.formatted(.number.grouping(.automatic).precision(.fractionLength(value < 10 ? 1 : 0)))
+        value.formatted(
+            .number
+                .grouping(.automatic)
+                .precision(.fractionLength(value < 10 ? 1 : 0))
+                .locale(L10n.locale)
+        )
     }
 
     @MainActor
@@ -1043,13 +1106,33 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
         let canvasWidth: CGFloat
         let canvasHeight: CGFloat
         let exposesEmptyCellsToAssistiveTech: Bool
+        private let cellsByID: [Int: CellPresentation]
 
         @State private var hoveredCellID: Int?
         @State private var pinnedCellID: Int?
 
+        init(
+            cells: [CellPresentation],
+            weekdays: [Int],
+            mode: TypingRhythmMode,
+            metrics: TypingHeatmapCellMetrics,
+            canvasWidth: CGFloat,
+            canvasHeight: CGFloat,
+            exposesEmptyCellsToAssistiveTech: Bool
+        ) {
+            self.cells = cells
+            self.weekdays = weekdays
+            self.mode = mode
+            self.metrics = metrics
+            self.canvasWidth = canvasWidth
+            self.canvasHeight = canvasHeight
+            self.exposesEmptyCellsToAssistiveTech = exposesEmptyCellsToAssistiveTech
+            cellsByID = Dictionary(uniqueKeysWithValues: cells.map { ($0.id, $0) })
+        }
+
         private var activeCell: CellPresentation? {
-            let activeID = pinnedCellID ?? hoveredCellID
-            return cells.first { $0.id == activeID }
+            guard let activeID = pinnedCellID ?? hoveredCellID else { return nil }
+            return cellsByID[activeID]
         }
 
         var body: some View {
@@ -1100,7 +1183,7 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
             }
             .frame(width: canvasWidth, height: canvasHeight, alignment: .leading)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("星期与小时输入热力图")
+            .accessibilityLabel(L10n.tr("星期与小时输入热力图"))
             .onChange(of: mode) { _ in
                 hoveredCellID = nil
                 pinnedCellID = nil
@@ -1131,7 +1214,11 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
                 hitTarget
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(
-                        "\(weekdayTitle(cell.value.weekday)) \(cell.value.hour) 点"
+                        L10n.format(
+                            "%@ %@ 点",
+                            weekdayTitle(cell.value.weekday),
+                            "\(cell.value.hour)"
+                        )
                     )
                     .accessibilityValue(cell.detail)
             } else {
@@ -1175,7 +1262,7 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
                 context.fill(path, with: .color(cell.color))
                 context.stroke(
                     path,
-                    with: .color(Color.white.opacity(0.08)),
+                    with: .color(BattutaVisualStyle.instrumentSeparator),
                     lineWidth: 0.5
                 )
                 guard !cell.symbol.isEmpty else { continue }
@@ -1185,7 +1272,7 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
                             size: max(6, metrics.cellSize * 0.62),
                             weight: .semibold
                         ))
-                        .foregroundColor(Color.white.opacity(0.90)),
+                        .foregroundColor(BattutaVisualStyle.instrumentPrimary),
                     at: CGPoint(x: cell.frame.midX, y: cell.frame.midY),
                     anchor: .center
                 )
@@ -1208,7 +1295,7 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
 
         private func weekdayTitle(_ weekday: Int) -> String {
             guard (1...7).contains(weekday) else { return "—" }
-            return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday - 1]
+            return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][weekday - 1].localized
         }
     }
 }
@@ -1250,7 +1337,7 @@ private struct TypingReportApplicationIcon: View {
                     .scaledToFit()
                     .padding(5)
                     .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
-                    .background(Color.white.opacity(0.08))
+                    .background(BattutaVisualStyle.instrumentSeparator.opacity(0.55))
             }
         }
         .frame(width: 24, height: 24)
@@ -1268,9 +1355,9 @@ private struct HistoryInstrumentPanelModifier: ViewModifier {
             )
             .overlay {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.white.opacity(0.11), lineWidth: 1)
+                    .stroke(BattutaVisualStyle.instrumentStroke, lineWidth: 1)
             }
-            .shadow(color: Color.black.opacity(0.12), radius: 8, y: 4)
+            .shadow(color: BattutaVisualStyle.panelShadow, radius: 8, y: 4)
     }
 }
 

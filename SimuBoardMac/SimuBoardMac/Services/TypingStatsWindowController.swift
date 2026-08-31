@@ -12,9 +12,13 @@ final class TypingStatsWindowController: NSWindowController, NSWindowDelegate {
             model: appModel.typingStats,
             settings: appModel.settings
         )
+        .battutaUserPreferences(
+            appModel.settings,
+            windowTitleKey: "Battuta · 输入统计"
+        )
         let hostingController = BattutaGlassHostingController(rootView: content)
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "Battuta · 输入统计"
+        window.title = L10n.tr("Battuta · 输入统计")
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         BattutaWindowChrome.apply(to: window)
         window.setContentSize(NSSize(width: 1_040, height: 760))

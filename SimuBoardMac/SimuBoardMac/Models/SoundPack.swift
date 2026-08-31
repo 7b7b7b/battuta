@@ -296,8 +296,8 @@ struct SoundPackDescriptor: Identifiable, Codable, Hashable, Sendable {
         SoundPackDescriptor(
             origin: .bundledPack(packID: manifest.id),
             name: manifest.name,
-            family: manifest.family ?? "内置",
-            tone: manifest.tone ?? "内置音色"
+            family: manifest.family ?? "内置".localized,
+            tone: manifest.tone ?? "内置音色".localized
         )
     }
 
@@ -306,7 +306,7 @@ struct SoundPackDescriptor: Identifiable, Codable, Hashable, Sendable {
             origin: .custom(packID: manifest.id),
             name: manifest.name,
             family: manifest.family ?? "DIY",
-            tone: manifest.tone ?? "自定义音色"
+            tone: manifest.tone ?? "自定义音色".localized
         )
     }
 }
@@ -358,17 +358,28 @@ enum SoundPackError: Error, LocalizedError, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case let .invalidManifest(message): "音色包清单无效：\(message)"
-        case let .unsupportedSchema(version): "不支持音色包格式版本 \(version)。"
-        case let .unsafePath(path): "音色包包含不安全路径：\(path)"
-        case let .unsafeFile(path): "音色包包含不安全文件：\(path)"
-        case let .missingAsset(asset): "音色包缺少音频资源：\(asset)"
-        case let .invalidAudio(message): "音频无效：\(message)"
-        case let .sizeLimitExceeded(message): "音色包超过安全限制：\(message)"
-        case let .hashMismatch(path): "音频校验失败：\(path)"
-        case let .packAlreadyExists(id): "音色包已存在：\(id.uuidString)"
-        case let .packNotFound(id): "找不到音色包：\(id.uuidString)"
-        case let .fileOperation(message): "文件操作失败：\(message)"
+        case let .invalidManifest(message):
+            L10n.format("音色包清单无效：%@", message)
+        case let .unsupportedSchema(version):
+            L10n.format("不支持音色包格式版本 %@。", "\(version)")
+        case let .unsafePath(path):
+            L10n.format("音色包包含不安全路径：%@", path)
+        case let .unsafeFile(path):
+            L10n.format("音色包包含不安全文件：%@", path)
+        case let .missingAsset(asset):
+            L10n.format("音色包缺少音频资源：%@", asset)
+        case let .invalidAudio(message):
+            L10n.format("音频无效：%@", message)
+        case let .sizeLimitExceeded(message):
+            L10n.format("音色包超过安全限制：%@", message)
+        case let .hashMismatch(path):
+            L10n.format("音频校验失败：%@", path)
+        case let .packAlreadyExists(id):
+            L10n.format("音色包已存在：%@", id.uuidString)
+        case let .packNotFound(id):
+            L10n.format("找不到音色包：%@", id.uuidString)
+        case let .fileOperation(message):
+            L10n.format("文件操作失败：%@", message)
         }
     }
 }
@@ -386,7 +397,7 @@ enum SoundPackCoding {
         limits: SoundPackValidationLimits = .standard
     ) throws -> SoundPackManifest {
         guard data.count <= limits.maximumManifestBytes else {
-            throw SoundPackError.sizeLimitExceeded("manifest.json 过大")
+            throw SoundPackError.sizeLimitExceeded(L10n.tr("manifest.json 过大"))
         }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -409,7 +420,9 @@ enum SoundPackValidator {
         try validateRequiredText(manifest.name, field: "name", maximum: 128)
         try validateRequiredText(manifest.layoutID, field: "layoutID", maximum: 128)
         guard manifest.layoutID == KeyboardLayoutCatalog.defaultLayoutID else {
-            throw SoundPackError.invalidManifest("当前版本不支持键盘布局：\(manifest.layoutID)")
+            throw SoundPackError.invalidManifest(
+                L10n.format("当前版本不支持键盘布局：%@", manifest.layoutID)
+            )
         }
         try validateOptionalText(manifest.author, field: "author", limits: limits)
         try validateOptionalText(manifest.family, field: "family", limits: limits)
@@ -418,11 +431,15 @@ enum SoundPackValidator {
         try validateOptionalText(manifest.baseProfileID, field: "baseProfileID", limits: limits)
         if let baseProfileID = manifest.baseProfileID,
            SwitchProfile(rawValue: baseProfileID) == nil {
-            throw SoundPackError.invalidManifest("baseProfileID 不是已知内置音色：\(baseProfileID)")
+            throw SoundPackError.invalidManifest(
+                L10n.format("baseProfileID 不是已知内置音色：%@", baseProfileID)
+            )
         }
 
         guard manifest.assets.count <= limits.maximumAssetCount else {
-            throw SoundPackError.sizeLimitExceeded("音频数量超过 \(limits.maximumAssetCount)")
+            throw SoundPackError.sizeLimitExceeded(
+                L10n.format("音频数量超过 %@", "\(limits.maximumAssetCount)")
+            )
         }
         try validate(assignments: manifest.press, manifest: manifest, phase: "press")
         try validate(assignments: manifest.release, manifest: manifest, phase: "release")
@@ -431,11 +448,11 @@ enum SoundPackValidator {
         var totalAudioDuration: Double = 0
         for (dictionaryID, asset) in manifest.assets {
             guard dictionaryID == asset.id.rawValue else {
-                throw SoundPackError.invalidManifest("assets 字典键与资源 ID 不一致")
+                throw SoundPackError.invalidManifest(L10n.tr("assets 字典键与资源 ID 不一致"))
             }
             guard asset.id.rawValue == asset.sha256,
                   isLowercaseSHA256(asset.sha256) else {
-                throw SoundPackError.invalidManifest("资源 ID 必须是小写 SHA-256")
+                throw SoundPackError.invalidManifest(L10n.tr("资源 ID 必须是小写 SHA-256"))
             }
             let expectedPath = "assets/\(asset.sha256).wav"
             guard asset.relativePath == expectedPath else {
@@ -443,19 +460,25 @@ enum SoundPackValidator {
             }
             try SoundPackFileUtilities.validateRelativePath(asset.relativePath)
             guard paths.insert(asset.relativePath).inserted else {
-                throw SoundPackError.invalidManifest("多个资源使用相同路径")
+                throw SoundPackError.invalidManifest(L10n.tr("多个资源使用相同路径"))
             }
             guard asset.durationSeconds.isFinite,
                   asset.durationSeconds >= limits.minimumAudioDurationSeconds,
                   asset.durationSeconds <= limits.maximumAudioDurationSeconds else {
-                throw SoundPackError.invalidAudio("\(asset.relativePath) 时长超出范围")
+                throw SoundPackError.invalidAudio(
+                    L10n.format("%@ 时长超出范围", asset.relativePath)
+                )
             }
             totalAudioDuration += asset.durationSeconds
             guard asset.sampleRate == 48_000, asset.channelCount == 1 else {
-                throw SoundPackError.invalidAudio("\(asset.relativePath) 必须为 48 kHz 单声道")
+                throw SoundPackError.invalidAudio(
+                    L10n.format("%@ 必须为 48 kHz 单声道", asset.relativePath)
+                )
             }
             guard asset.byteCount > 0, asset.byteCount <= limits.maximumAssetBytes else {
-                throw SoundPackError.sizeLimitExceeded("\(asset.relativePath) 文件过大")
+                throw SoundPackError.sizeLimitExceeded(
+                    L10n.format("%@ 文件过大", asset.relativePath)
+                )
             }
             try validateOptionalText(asset.originalFilename, field: "originalFilename", limits: limits)
             if let license = asset.license {
@@ -468,12 +491,15 @@ enum SoundPackValidator {
         guard totalAudioDuration.isFinite,
               totalAudioDuration <= limits.maximumTotalAudioDurationSeconds else {
             throw SoundPackError.sizeLimitExceeded(
-                "音频总时长超过 \(Int(limits.maximumTotalAudioDurationSeconds)) 秒"
+                L10n.format(
+                    "音频总时长超过 %@ 秒",
+                    "\(Int(limits.maximumTotalAudioDurationSeconds))"
+                )
             )
         }
 
         guard manifest.attributions.count <= limits.maximumAssetCount else {
-            throw SoundPackError.sizeLimitExceeded("署名条目过多")
+            throw SoundPackError.sizeLimitExceeded(L10n.tr("署名条目过多"))
         }
         for attribution in manifest.attributions {
             try validateRequiredText(attribution.title, field: "attribution.title", maximum: 512)
@@ -492,18 +518,32 @@ enum SoundPackValidator {
         let allowedRows = Set(KeyboardRowID.allCases.map(\.rawValue))
         let unknownRows = Set(assignments.rows.keys).subtracting(allowedRows)
         guard unknownRows.isEmpty else {
-            throw SoundPackError.invalidManifest("\(phase) 包含未知行：\(unknownRows.sorted())")
+            throw SoundPackError.invalidManifest(
+                L10n.format(
+                    "%@ 包含未知行：%@",
+                    phase,
+                    String(describing: unknownRows.sorted())
+                )
+            )
         }
 
         let allowedSpecials = Set(KeyboardSpecialKeyID.allCases.map(\.rawValue))
         let unknownSpecials = Set(assignments.specials.keys).subtracting(allowedSpecials)
         guard unknownSpecials.isEmpty else {
-            throw SoundPackError.invalidManifest("\(phase) 包含未知特殊键：\(unknownSpecials.sorted())")
+            throw SoundPackError.invalidManifest(
+                L10n.format(
+                    "%@ 包含未知特殊键：%@",
+                    phase,
+                    String(describing: unknownSpecials.sorted())
+                )
+            )
         }
 
         for key in assignments.keyOverrides.keys {
             guard isSafeIdentifier(key) else {
-                throw SoundPackError.invalidManifest("\(phase) 包含无效按键 ID：\(key)")
+                throw SoundPackError.invalidManifest(
+                    L10n.format("%@ 包含无效按键 ID：%@", phase, key)
+                )
             }
         }
 
@@ -521,7 +561,9 @@ enum SoundPackValidator {
     ) throws {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, value.count <= maximum else {
-            throw SoundPackError.invalidManifest("\(field) 为空或过长")
+            throw SoundPackError.invalidManifest(
+                L10n.format("%@ 为空或过长", field)
+            )
         }
     }
 
@@ -532,7 +574,7 @@ enum SoundPackValidator {
     ) throws {
         guard let value else { return }
         guard value.count <= limits.maximumTextLength else {
-            throw SoundPackError.invalidManifest("\(field) 过长")
+            throw SoundPackError.invalidManifest(L10n.format("%@ 过长", field))
         }
     }
 

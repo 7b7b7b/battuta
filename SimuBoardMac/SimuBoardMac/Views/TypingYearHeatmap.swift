@@ -35,7 +35,12 @@ struct TypingYearHeatmap: View, Equatable {
     private let presentation: TypingYearHeatmapPresentation
     private let preferredMetrics: TypingHeatmapCellMetrics
 
-    private let weekdayLabels = ["一", "", "三", "", "五", "", ""]
+    private var weekdayLabels: [String] {
+        if statsPrefersChineseUI() {
+            return ["一", "", "三", "", "五", "", ""]
+        }
+        return ["M", "", "W", "", "F", "", ""]
+    }
 
     init(
         range: TypingDateRange,
@@ -79,7 +84,12 @@ struct TypingYearHeatmap: View, Equatable {
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
 
-                Text("\(presentation.rangeDescription) · 每格一天，颜色按当前可见数据自动连续映射")
+                Text(
+                    L10n.format(
+                        "%@ · 每格一天，颜色按当前可见数据自动连续映射",
+                        presentation.rangeDescription
+                    )
+                )
                     .font(.caption)
                     .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
             }
@@ -189,11 +199,11 @@ struct TypingYearHeatmap: View, Equatable {
     ) -> some View {
         BattutaHeatmapLegend(
             leadingLabel: presentation.heatScale.hasValues
-                ? "少 \(statsCount(Int64(presentation.heatScale.low.rounded())))"
-                : "少 0",
+                ? L10n.format("少 %@", statsCount(Int64(presentation.heatScale.low.rounded())))
+                : L10n.tr("少 0"),
             trailingLabel: presentation.heatScale.hasValues
-                ? "多 ≥\(statsCount(Int64(presentation.heatScale.high.rounded())))"
-                : "多 0",
+                ? L10n.format("多 ≥%@", statsCount(Int64(presentation.heatScale.high.rounded())))
+                : L10n.tr("多 0"),
             palette: .year,
             barWidth: max(76, 112 * scale(metrics)),
             labelColor: BattutaVisualStyle.instrumentSecondary
@@ -240,13 +250,9 @@ private struct TypingYearHeatmapInteractiveGrid: View {
         CGFloat(7) * metrics.cellSize + CGFloat(6) * metrics.spacing
     }
 
-    private var visibleCells: [TypingYearHeatmapPresentation.DayCell] {
-        presentation.weeks.flatMap(\.cells).filter(\.isVisible)
-    }
-
     private var activeCell: TypingYearHeatmapPresentation.DayCell? {
-        let activeID = pinnedCellID ?? hoveredCellID
-        return visibleCells.first { $0.id == activeID }
+        guard let activeID = pinnedCellID ?? hoveredCellID else { return nil }
+        return presentation.visibleCellsByID[activeID]
     }
 
     var body: some View {
@@ -274,7 +280,7 @@ private struct TypingYearHeatmapInteractiveGrid: View {
             }
             .accessibilityHidden(true)
 
-            ForEach(visibleCells) { cell in
+            ForEach(presentation.visibleCells) { cell in
                 dayInteraction(cell)
                     .offset(
                         x: frame(for: cell).minX,
@@ -307,7 +313,7 @@ private struct TypingYearHeatmapInteractiveGrid: View {
         }
         .frame(width: gridWidth, height: gridHeight, alignment: .leading)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("每日输入热力图")
+        .accessibilityLabel(L10n.tr("每日输入热力图"))
         .onExitCommand {
             pinnedCellID = nil
             hoveredCellID = nil
@@ -407,6 +413,8 @@ private struct TypingYearHeatmapPresentation: Equatable {
     let monthMarkers: [MonthMarker]
     let heatScale: TypingHeatmapScale
     let weeks: [Week]
+    let visibleCells: [DayCell]
+    let visibleCellsByID: [Int: DayCell]
 
     init(range: TypingDateRange, days: [TypingDaySummary], calendar: Calendar) {
         let startDate = calendar.startOfDay(for: range.startDate)
@@ -433,7 +441,7 @@ private struct TypingYearHeatmapPresentation: Equatable {
         }
         let resolvedHeatScale = TypingHeatmapScale(values: visibleCounts)
 
-        rangeDescription = "\(startDate.formatted(.dateTime.year().month().day())) – \(endDate.formatted(.dateTime.year().month().day()))"
+        rangeDescription = "\(startDate.formatted(.dateTime.year().month().day().locale(L10n.locale))) – \(endDate.formatted(.dateTime.year().month().day().locale(L10n.locale)))"
         weekCount = resolvedWeekCount
         monthMarkers = Self.monthMarkers(
             from: startDate,
@@ -442,7 +450,7 @@ private struct TypingYearHeatmapPresentation: Equatable {
             calendar: calendar
         )
         heatScale = resolvedHeatScale
-        weeks = (0..<resolvedWeekCount).map { weekIndex in
+        let resolvedWeeks = (0..<resolvedWeekCount).map { weekIndex in
             let cells = (0..<7).map { weekdayIndex in
                 let id = weekIndex * 7 + weekdayIndex
                 let date = calendar.date(
@@ -465,8 +473,12 @@ private struct TypingYearHeatmapPresentation: Equatable {
                 }
 
                 let count = countsByDate[date] ?? 0
-                let dateText = date.formatted(.dateTime.year().month().day().weekday(.wide))
-                let formattedCount = count.formatted(.number.grouping(.automatic))
+                let dateText = date.formatted(
+                    .dateTime.year().month().day().weekday(.wide).locale(L10n.locale)
+                )
+                let formattedCount = count.formatted(
+                    .number.grouping(.automatic).locale(L10n.locale)
+                )
                 return DayCell(
                     id: id,
                     date: date,
@@ -475,12 +487,18 @@ private struct TypingYearHeatmapPresentation: Equatable {
                     characterCount: count,
                     normalizedIntensity: resolvedHeatScale.normalized(Double(count)),
                     dateText: dateText,
-                    detailText: "\(dateText) · \(formattedCount) 个字符",
-                    accessibilityValue: "\(formattedCount) 个字符"
+                    detailText: L10n.format("%@ · %@ 个字符", dateText, formattedCount),
+                    accessibilityValue: L10n.format("%@ 个字符", formattedCount)
                 )
             }
             return Week(index: weekIndex, cells: cells)
         }
+        weeks = resolvedWeeks
+        let resolvedVisibleCells = resolvedWeeks.flatMap(\.cells).filter(\.isVisible)
+        visibleCells = resolvedVisibleCells
+        visibleCellsByID = Dictionary(
+            uniqueKeysWithValues: resolvedVisibleCells.map { ($0.id, $0) }
+        )
     }
 
     private static func mondayBasedWeekdayIndex(for date: Date, calendar: Calendar) -> Int {
@@ -510,7 +528,9 @@ private struct TypingYearHeatmapPresentation: Equatable {
                 markers.append(
                     MonthMarker(
                         date: cursor,
-                        title: cursor.formatted(.dateTime.month(.abbreviated)),
+                        title: cursor.formatted(
+                            .dateTime.month(.abbreviated).locale(L10n.locale)
+                        ),
                         weekIndex: max(0, dayOffset / 7)
                     )
                 )

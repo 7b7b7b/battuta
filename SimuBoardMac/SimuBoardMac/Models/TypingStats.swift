@@ -285,19 +285,19 @@ enum TypingTimelineRange: String, CaseIterable, Identifiable, Sendable {
 
     var displayTitle: String {
         switch self {
-        case .sevenDays: "最近 7 天"
-        case .twentyFourHours: "最近 24 小时"
-        case .sixHours: "最近 6 小时"
-        case .oneHour: "最近 1 小时"
+        case .sevenDays: "最近 7 天".localized
+        case .twentyFourHours: "最近 24 小时".localized
+        case .sixHours: "最近 6 小时".localized
+        case .oneHour: "最近 1 小时".localized
         }
     }
 
     var bucketDescription: String {
         switch self {
-        case .sevenDays: "每格 2 小时"
-        case .twentyFourHours: "每格 15 分钟"
-        case .sixHours: "每格 5 分钟"
-        case .oneHour: "每格 1 分钟"
+        case .sevenDays: "每格 2 小时".localized
+        case .twentyFourHours: "每格 15 分钟".localized
+        case .sixHours: "每格 5 分钟".localized
+        case .oneHour: "每格 1 分钟".localized
         }
     }
 
@@ -347,7 +347,7 @@ struct TypingApplicationIdentity: Equatable, Hashable, Sendable {
 
     static let unknown = TypingApplicationIdentity(
         processKey: "unknown",
-        displayName: "未知应用",
+        displayName: "未知应用".localized,
         processName: "unknown",
         bundleIdentifier: nil
     )

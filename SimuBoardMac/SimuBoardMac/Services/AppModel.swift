@@ -25,6 +25,8 @@ final class AppModel: ObservableObject {
     private let audioEngine: KeyboardAudioEngine
     private let keyboardMonitor: KeyboardMonitor
     private var cancellables: Set<AnyCancellable> = []
+    private var permissionPollingTask: Task<Void, Never>?
+    private var activeEventInterest: KeyboardMonitor.EventInterest?
     private var selectionLoadTask: Task<Void, Never>?
     private var libraryRefreshTask: Task<Void, Never>?
     private var selectionGeneration: UInt64 = 0
@@ -32,6 +34,7 @@ final class AppModel: ObservableObject {
     private var soundPackEditorWindowController: SoundPackEditorWindowController?
     private var typingStatsWindowController: TypingStatsWindowController?
     private var frontmostApplication: TypingApplicationIdentity = .unknown
+    private var shouldRefreshPermissionAfterSystemSettings = false
     private var isPreparingStatsTermination = false
 
     var selectedSoundPack: SoundPackDescriptor {
@@ -66,13 +69,24 @@ final class AppModel: ObservableObject {
         }
         let initialPointerProfile = settings.selectedPointerProfile
         if !audioEngine.load(pointerProfile: initialPointerProfile) {
-            let reason = audioEngine.pointerResourceError ?? "点击音资源不可用。"
+            let reason = localizedMessage(
+                audioEngine.pointerResourceError,
+                fallback: "点击音资源不可用。"
+            )
             if initialPointerProfile != .classic,
                audioEngine.load(pointerProfile: .classic) {
                 settings.selectedPointerProfile = .classic
-                pointerSoundError = "\(initialPointerProfile.displayName) 载入失败，已回退到经典微动：\(reason)"
+                pointerSoundError = L10n.format(
+                    "%@ 载入失败，已回退到经典微动：%@",
+                    initialPointerProfile.displayName,
+                    reason
+                )
             } else {
-                pointerSoundError = "\(initialPointerProfile.displayName) 载入失败：\(reason)"
+                pointerSoundError = L10n.format(
+                    "%@ 载入失败：%@",
+                    initialPointerProfile.displayName,
+                    reason
+                )
             }
         }
         if startsServices {
@@ -103,6 +117,21 @@ final class AppModel: ObservableObject {
                 loadPointerSoundProfile(profileID: profileID)
             }
             .store(in: &cancellables)
+        settings.$appearancePreference
+            .removeDuplicates()
+            .sink { [weak self] preference in
+                self?.applyAppearancePreference(preference)
+            }
+            .store(in: &cancellables)
+        settings.$languagePreference
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                refreshSoundPacks(selecting: settings.selectedProfileID)
+            }
+            .store(in: &cancellables)
+        applyAppearancePreference(settings.appearancePreference)
 
         guard startsServices else { return }
         launchAtLogin.reconcile(desiredEnabled: settings.isLaunchAtLoginEnabled)
@@ -121,24 +150,55 @@ final class AppModel: ObservableObject {
             notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
         }
         .sink { [weak self] application in
-            self?.frontmostApplication = Self.typingApplicationIdentity(from: application)
+            guard let self else { return }
+            if settings.isTypingStatsEnabled {
+                frontmostApplication = Self.typingApplicationIdentity(from: application)
+            }
+
+            if application.bundleIdentifier == "com.apple.systempreferences" {
+                shouldRefreshPermissionAfterSystemSettings = true
+            } else if shouldRefreshPermissionAfterSystemSettings {
+                shouldRefreshPermissionAfterSystemSettings = false
+                _ = permission.refresh()
+                startKeyboardMonitor()
+            }
         }
+        .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                settings.refreshSystemLanguageIfNeeded()
+                _ = permission.refresh()
+                startKeyboardMonitor()
+            }
+            .store(in: &cancellables)
+
+        Publishers.CombineLatest4(
+            settings.$isEnabled,
+            settings.$playsReleaseSound,
+            settings.$isPointerSoundEnabled,
+            settings.$playsPointerReleaseSound
+        )
+        .combineLatest(settings.$isTypingStatsEnabled)
+        .map { audioSettings, statsEnabled in
+            let (keyboardEnabled, keyboardReleases, pointerEnabled, pointerReleases) = audioSettings
+            return KeyboardMonitor.EventInterest(
+                keyboardPresses: keyboardEnabled || statsEnabled,
+                keyboardReleases: keyboardEnabled && keyboardReleases,
+                pointerPresses: pointerEnabled,
+                pointerReleases: pointerEnabled && pointerReleases
+            )
+        }
+        .removeDuplicates()
+        .dropFirst()
+        .sink { [weak self] _ in self?.startKeyboardMonitor() }
         .store(in: &cancellables)
 
         refreshSoundPacks()
         startKeyboardMonitor()
         updates.scheduleAutomaticCheck()
 
-        permission.$isGranted
-            .removeDuplicates()
-            .dropFirst()
-            .sink { [weak self] _ in self?.startKeyboardMonitor() }
-            .store(in: &cancellables)
-
-        Timer.publish(every: 1, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in _ = self?.permission.refresh() }
-            .store(in: &cancellables)
     }
 
     func requestInputMonitoring() {
@@ -207,7 +267,10 @@ final class AppModel: ObservableObject {
                 return
             } catch {
                 guard let self else { return }
-                soundPackError = "无法读取音色库：\(error.localizedDescription)"
+                soundPackError = L10n.format(
+                    "无法读取音色库：%@",
+                    L10n.tr(error.localizedDescription)
+                )
             }
         }
     }
@@ -266,7 +329,8 @@ final class AppModel: ObservableObject {
     /// Used both by the normal quit path and by the DIY editor's deferred quit path.
     /// Failure to persist is reported in the statistics UI but must not trap the user in the app.
     func flushTypingStatsBeforeTermination() async {
-        keyboardMonitor.stop()
+        stopPermissionPolling()
+        stopKeyboardMonitor()
         _ = await typingStats.flushPending()
     }
 
@@ -294,15 +358,78 @@ final class AppModel: ObservableObject {
     }
 
     private func startKeyboardMonitor() {
-        guard permission.isGranted else {
-            keyboardMonitor.stop()
-            monitoringState = .waitingForPermission
+        let interest = inputEventInterest
+        guard !interest.isEmpty else {
+            stopKeyboardMonitor()
+            monitoringState = .stopped
+            stopPermissionPolling()
             return
         }
-        let started = keyboardMonitor.start { [weak self] event in self?.handle(event) }
+        guard permission.isGranted else {
+            stopKeyboardMonitor()
+            monitoringState = .waitingForPermission
+            startPermissionPollingIfNeeded()
+            return
+        }
+        stopPermissionPolling()
+        if settings.isTypingStatsEnabled {
+            frontmostApplication = Self.typingApplicationIdentity(
+                from: NSWorkspace.shared.frontmostApplication
+            )
+        }
+        guard monitoringState != .running || activeEventInterest != interest else { return }
+
+        let started = keyboardMonitor.start(interest: interest) { [weak self] event in
+            self?.handle(event)
+        }
+        activeEventInterest = started ? interest : nil
         monitoringState = started
             ? .running
-            : .failed("无法启动全局键盘与点击监听。请退出并重新打开 Battuta 后再试。")
+            : .failed(L10n.tr("无法启动全局键盘与点击监听。请退出并重新打开 Battuta 后再试。"))
+    }
+
+    private var inputEventInterest: KeyboardMonitor.EventInterest {
+        KeyboardMonitor.EventInterest(
+            keyboardPresses: settings.isEnabled || settings.isTypingStatsEnabled,
+            keyboardReleases: settings.isEnabled && settings.playsReleaseSound,
+            pointerPresses: settings.isPointerSoundEnabled,
+            pointerReleases: settings.isPointerSoundEnabled && settings.playsPointerReleaseSound
+        )
+    }
+
+    private func stopKeyboardMonitor() {
+        keyboardMonitor.stop()
+        activeEventInterest = nil
+    }
+
+    private func startPermissionPollingIfNeeded() {
+        guard permissionPollingTask == nil,
+              !inputEventInterest.isEmpty,
+              !permission.isGranted else { return }
+
+        permissionPollingTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(
+                        for: .seconds(1),
+                        tolerance: .milliseconds(250)
+                    )
+                } catch {
+                    return
+                }
+                guard let self else { return }
+                if permission.refresh() {
+                    permissionPollingTask = nil
+                    startKeyboardMonitor()
+                    return
+                }
+            }
+        }
+    }
+
+    private func stopPermissionPolling() {
+        permissionPollingTask?.cancel()
+        permissionPollingTask = nil
     }
 
     private func beginStatsTermination(
@@ -317,6 +444,17 @@ final class AppModel: ObservableObject {
             application.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
+    }
+
+    private func applyAppearancePreference(_ preference: AppAppearancePreference) {
+        NSApplication.shared.appearance = switch preference {
+        case .system:
+            nil
+        case .light:
+            NSAppearance(named: .aqua)
+        case .dark:
+            NSAppearance(named: .darkAqua)
+        }
     }
 
     private func handle(_ event: GlobalInputEvent) {
@@ -373,14 +511,25 @@ final class AppModel: ObservableObject {
     private func loadPointerSoundProfile(profileID: String) {
         guard let profile = PointerSoundProfile(rawValue: profileID) else {
             let fallback = audioEngine.loadedPointerProfile
-            pointerSoundError = "无法识别所选点击音，继续使用 \(fallback.displayName)。"
+            pointerSoundError = L10n.format(
+                "无法识别所选点击音，继续使用 %@。",
+                fallback.displayName
+            )
             rollBackPointerSelection(to: fallback)
             return
         }
         guard audioEngine.load(pointerProfile: profile) else {
             let fallback = audioEngine.loadedPointerProfile
-            let reason = audioEngine.pointerResourceError ?? "点击音资源不可用。"
-            pointerSoundError = "\(profile.displayName) 载入失败，继续使用 \(fallback.displayName)：\(reason)"
+            let reason = localizedMessage(
+                audioEngine.pointerResourceError,
+                fallback: "点击音资源不可用。"
+            )
+            pointerSoundError = L10n.format(
+                "%@ 载入失败，继续使用 %@：%@",
+                profile.displayName,
+                fallback.displayName,
+                reason
+            )
             rollBackPointerSelection(to: fallback)
             syncAudioError()
             return
@@ -425,7 +574,7 @@ final class AppModel: ObservableObject {
 
         guard let descriptor = soundPacks.first(where: { $0.id == selectionID }) else {
             audioEngine.load(profile: .holyPanda)
-            soundPackError = "无法识别所选音色。"
+            soundPackError = L10n.tr("无法识别所选音色。")
             syncAudioError()
             return
         }
@@ -439,18 +588,28 @@ final class AppModel: ObservableObject {
                 if audioEngine.load(document: document) {
                     soundPackError = nil
                 } else {
-                    let reason = audioEngine.lastError ?? "自定义音频资源不完整。"
+                    let reason = localizedMessage(
+                        audioEngine.lastError,
+                        fallback: "自定义音频资源不完整。"
+                    )
                     let fallback = document.manifest.baseProfileID
                         .flatMap(SwitchProfile.init(rawValue:)) ?? .holyPanda
                     audioEngine.load(profile: fallback)
-                    soundPackError = "音色载入失败，已回退到 \(fallback.displayName)：\(reason)"
+                    soundPackError = L10n.format(
+                        "音色载入失败，已回退到 %@：%@",
+                        fallback.displayName,
+                        reason
+                    )
                 }
                 syncAudioError()
             } catch is CancellationError {
                 return
             } catch {
                 guard let self, settings.selectedProfileID == selectionID else { return }
-                soundPackError = "无法载入音色：\(error.localizedDescription)"
+                soundPackError = L10n.format(
+                    "无法载入音色：%@",
+                    L10n.tr(error.localizedDescription)
+                )
                 audioEngine.load(profile: .holyPanda)
                 syncAudioError()
             }
@@ -475,11 +634,16 @@ final class AppModel: ObservableObject {
     }
 
     private func syncAudioError() {
-        let latest = audioEngine.engineError ?? audioEngine.resourceError
+        let latest = (audioEngine.engineError ?? audioEngine.resourceError).map(L10n.tr)
         if audioError != latest { audioError = latest }
     }
 
+    private func localizedMessage(_ message: String?, fallback fallbackKey: String) -> String {
+        message.map(L10n.tr) ?? L10n.tr(fallbackKey)
+    }
+
     isolated deinit {
+        permissionPollingTask?.cancel()
         selectionLoadTask?.cancel()
         libraryRefreshTask?.cancel()
         keyboardMonitor.stop()

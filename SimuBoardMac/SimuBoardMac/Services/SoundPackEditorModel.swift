@@ -12,9 +12,9 @@ enum SoundPackEditorMappingMode: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .generic: "通用"
-        case .recommended: "推荐分布"
-        case .perKey: "单键"
+        case .generic: "通用".localized
+        case .recommended: "推荐分布".localized
+        case .perKey: "单键".localized
         }
     }
 }
@@ -22,11 +22,11 @@ enum SoundPackEditorMappingMode: String, CaseIterable, Identifiable, Sendable {
 extension KeyboardRowID {
     var diyDisplayName: String {
         switch self {
-        case .r0: "R1 · 数字行"
-        case .r1: "R2 · Q 行"
-        case .r2: "R3 · A 行"
-        case .r3: "R4 · Z 行"
-        case .r4: "功能 / 其他键"
+        case .r0: "R1 · 数字行".localized
+        case .r1: "R2 · Q 行".localized
+        case .r2: "R3 · A 行".localized
+        case .r3: "R4 · Z 行".localized
+        case .r4: "功能 / 其他键".localized
         }
     }
 
@@ -36,7 +36,7 @@ extension KeyboardRowID {
         case .r1: "R2"
         case .r2: "R3"
         case .r3: "R4"
-        case .r4: "其他"
+        case .r4: "其他".localized
         }
     }
 }
@@ -50,7 +50,7 @@ enum SoundPackEditorSlot: Hashable, Sendable {
     var displayName: String {
         switch self {
         case .generic:
-            "所有按键"
+            "所有按键".localized
         case let .row(row):
             row.diyDisplayName
         case let .special(special):
@@ -77,9 +77,9 @@ enum SoundPackKeyOverrideChoice: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .inherit: "继承"
-        case .silent: "静音"
-        case .asset: "自定义"
+        case .inherit: "继承".localized
+        case .silent: "静音".localized
+        case .asset: "自定义".localized
         }
     }
 }
@@ -100,10 +100,21 @@ struct SoundPackSplitDraft: Identifiable, Sendable {
 final class SoundPackEditorModel: ObservableObject {
     typealias LibraryDidChange = @MainActor @Sendable (String?) -> Void
     typealias AudioPreview = @MainActor @Sendable (URL) -> Void
+    private static let knownKeysByID = Dictionary(
+        uniqueKeysWithValues: (KeyboardLayoutCatalog.ansiTKL.keys + KeyboardExtendedLayoutCatalog.keys).map {
+            ($0.id, $0)
+        }
+    )
 
     @Published private(set) var customPacks: [SoundPackDescriptor] = []
     @Published private(set) var selectedPackID: UUID?
-    @Published private(set) var manifest: SoundPackManifest?
+    @Published private(set) var manifest: SoundPackManifest? {
+        didSet {
+            if oldValue?.assets != manifest?.assets {
+                cachedAssetChoices = Self.sortedAssetChoices(in: manifest)
+            }
+        }
+    }
     @Published var selectedKeyID: KeyboardKeyID = KeyboardKeyID("a")
     @Published var mappingMode: SoundPackEditorMappingMode = .recommended
     @Published var recommendedSlot: SoundPackEditorSlot = .row(.r2)
@@ -128,6 +139,7 @@ final class SoundPackEditorModel: ObservableObject {
     /// and the default normalized-audio cache here prevents multiple editor
     /// instances from deleting each other's temporary files.
     let temporaryCacheRootURL: URL
+    private var cachedAssetChoices: [SoundPackAudioAsset] = []
     private var assetURLs: [SoundPackAssetID: URL] = [:]
     private var preparedAudio: [SoundPackAssetID: PreparedSoundPackAudio] = [:]
     private var persistedPackID: UUID?
@@ -166,8 +178,7 @@ final class SoundPackEditorModel: ObservableObject {
     }
 
     var selectedKey: KeyboardKeyDescriptor? {
-        (layout.keys + KeyboardExtendedLayoutCatalog.keys)
-            .first { $0.id == selectedKeyID }
+        Self.knownKeysByID[selectedKeyID]
     }
 
     var canExport: Bool { persistedPackID != nil }
@@ -179,6 +190,12 @@ final class SoundPackEditorModel: ObservableObject {
     }
 
     var assetChoices: [SoundPackAudioAsset] {
+        cachedAssetChoices
+    }
+
+    private static func sortedAssetChoices(
+        in manifest: SoundPackManifest?
+    ) -> [SoundPackAudioAsset] {
         guard let manifest else { return [] }
         return manifest.assets.values.sorted { lhs, rhs in
             let left = lhs.originalFilename ?? lhs.id.rawValue
@@ -194,8 +211,10 @@ final class SoundPackEditorModel: ObservableObject {
             if let packID = Self.customPackID(from: initialSelectionID),
                customPacks.contains(where: { $0.customPackID == packID }) {
                 try await loadPackIntoEditor(id: packID)
+                statusMessage = nil
             } else if let first = customPacks.first?.customPackID {
                 try await loadPackIntoEditor(id: first)
+                statusMessage = nil
             } else {
                 try await createDraftBasedOnInitialSelection()
             }
@@ -229,9 +248,9 @@ final class SoundPackEditorModel: ObservableObject {
     private func installBlankDraft() {
         let now = Date()
         manifest = SoundPackManifest(
-            name: "未命名音色",
+            name: L10n.tr("未命名音色"),
             family: "DIY",
-            tone: "自定义音色",
+            tone: L10n.tr("自定义音色"),
             createdAt: now,
             modifiedAt: now
         )
@@ -286,7 +305,9 @@ final class SoundPackEditorModel: ObservableObject {
             await discardTemporaryAudioResources(reportFailure: true)
             let descriptors = try await library.descriptors()
             customPacks = descriptors.filter { !$0.isReadOnly }
-            statusMessage = enableAfterSaving ? "已保存并启用 \(descriptor.name)" : "已保存 \(descriptor.name)"
+            statusMessage = enableAfterSaving
+                ? L10n.format("已保存并启用 %@", descriptor.name)
+                : L10n.format("已保存 %@", descriptor.name)
             onLibraryDidChange(enableAfterSaving ? descriptor.id : nil)
         }
     }
@@ -318,7 +339,7 @@ final class SoundPackEditorModel: ObservableObject {
                     collisionPolicy: .duplicate
                 )
                 guard let id = descriptor.customPackID else {
-                    throw SoundPackError.invalidManifest("导入结果不是自定义音色包")
+            throw SoundPackError.invalidManifest(L10n.tr("导入结果不是自定义音色包"))
                 }
                 let descriptors = try await library.descriptors()
                 customPacks = descriptors.filter { !$0.isReadOnly }
@@ -331,7 +352,7 @@ final class SoundPackEditorModel: ObservableObject {
                 persistedPackID = id
                 selectedPackID = id
                 isDirty = false
-                statusMessage = "已导入 \(descriptor.name)"
+                statusMessage = L10n.format("已导入 %@", descriptor.name)
                 onLibraryDidChange(nil)
             }
         }
@@ -340,7 +361,7 @@ final class SoundPackEditorModel: ObservableObject {
     func exportSelectedPack() async {
         guard !isWorking, !isDirty, let id = persistedPackID, let manifest else { return }
         let panel = NSSavePanel()
-        panel.title = "导出 Battuta 音色包"
+        panel.title = L10n.tr("导出 Battuta 音色包")
         panel.nameFieldStringValue = Self.safeFilename(manifest.name) + ".simuboardpack"
         panel.canCreateDirectories = true
         panel.allowedContentTypes = [.simuBoardSoundPack]
@@ -352,7 +373,7 @@ final class SoundPackEditorModel: ObservableObject {
                 from: library,
                 to: destination
             )
-            statusMessage = "已导出到 \(exported.lastPathComponent)"
+            statusMessage = L10n.format("已导出到 %@", exported.lastPathComponent)
         }
     }
 
@@ -362,7 +383,7 @@ final class SoundPackEditorModel: ObservableObject {
             await performWork(status: "正在转换音频…") {
                 let prepared = try await audioImporter.prepareImport(from: sourceURL)
                 install(prepared: prepared, target: target)
-                statusMessage = "已导入 \(sourceURL.lastPathComponent)"
+                statusMessage = L10n.format("已导入 %@", sourceURL.lastPathComponent)
             }
         }
     }
@@ -526,7 +547,9 @@ final class SoundPackEditorModel: ObservableObject {
     }
 
     func assetLabel(_ assetID: SoundPackAssetID?) -> String {
-        guard let assetID, let asset = manifest?.assets[assetID.rawValue] else { return "继承上一级" }
+        guard let assetID, let asset = manifest?.assets[assetID.rawValue] else {
+            return L10n.tr("继承上一级")
+        }
         return asset.originalFilename ?? String(assetID.rawValue.prefix(10))
     }
 
@@ -703,7 +726,7 @@ final class SoundPackEditorModel: ObservableObject {
                 var copy = document.manifest
                 let now = Date()
                 copy.id = UUID()
-                copy.name = "\(copy.name) 副本"
+                copy.name = L10n.format("%@ 副本", copy.name)
                 copy.createdAt = now
                 copy.modifiedAt = now
                 let urls = try Self.assetURLs(for: document)
@@ -738,7 +761,7 @@ final class SoundPackEditorModel: ObservableObject {
         selectedPackID = nil
         mappingMode = .recommended
         isDirty = true
-        statusMessage = "未设置的位置会继承 \(baseProfile.displayName)"
+        statusMessage = L10n.format("未设置的位置会继承 %@", baseProfile.displayName)
     }
 
     private func makeTemporaryDirectory(prefix: String) throws -> URL {
@@ -759,6 +782,9 @@ final class SoundPackEditorModel: ObservableObject {
         operation: @MainActor () async throws -> Void
     ) async {
         isWorking = true
+        // Store stable localization keys for transient progress states. The
+        // view resolves them using the current in-app language, so an active
+        // operation does not pin the UI to the language it started in.
         statusMessage = status
         defer { isWorking = false }
         do {
@@ -785,7 +811,10 @@ final class SoundPackEditorModel: ObservableObject {
     }
 
     private func presentMessage(_ message: String, title: String) {
-        errorPresentation = SoundPackEditorErrorPresentation(title: title, message: message)
+        errorPresentation = SoundPackEditorErrorPresentation(
+            title: L10n.tr(title),
+            message: L10n.tr(message)
+        )
     }
 
     private static func customPackID(from selectionID: String) -> UUID? {

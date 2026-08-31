@@ -1,7 +1,8 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	classes = {};
+	classes = {
+	};
 	objectVersion = 56;
 	objects = {
 
@@ -18,8 +19,6 @@
 		A1000000000000000000000A /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* Audio */; };
 		A1000000000000000000000B /* THIRD_PARTY_NOTICES.txt in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* Assets.xcassets */; };
-		A81000000000000000000001 /* BundledSoundPacks in Resources */ = {isa = PBXBuildFile; fileRef = B81000000000000000000001 /* BundledSoundPacks */; };
-		A90000000000000000000001 /* SPARKLE_LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B90000000000000000000001 /* SPARKLE_LICENSE.txt */; };
 		A20000000000000000000001 /* KeyboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* KeyboardLayout.swift */; };
 		A20000000000000000000002 /* SoundPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* SoundPack.swift */; };
 		A20000000000000000000003 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* SemanticVersion.swift */; };
@@ -51,8 +50,12 @@
 		A60000000000000000000001 /* MacKeyboardLayoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000001 /* MacKeyboardLayoutView.swift */; };
 		A60000000000000000000002 /* BattutaVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000002 /* BattutaVisualStyle.swift */; };
 		A70000000000000000000001 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000001 /* LaunchAtLoginController.swift */; };
+		A81000000000000000000001 /* BundledSoundPacks in Resources */ = {isa = PBXBuildFile; fileRef = B81000000000000000000001 /* BundledSoundPacks */; };
 		A8F4710E2A00000000000001 /* SparkleUpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F4710E2A00000000000001 /* SparkleUpdateService.swift */; };
 		A8F4710E2A00000000000002 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = F8F4710E2A00000000000003 /* Sparkle */; };
+		A90000000000000000000001 /* SPARKLE_LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B90000000000000000000001 /* SPARKLE_LICENSE.txt */; };
+		A95000000000000000000001 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = B95000000000000000000001 /* Localization.swift */; };
+		A95000000000000000000002 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B95000000000000000000002 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -67,11 +70,9 @@
 		B10000000000000000000009 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		B1000000000000000000000A /* Audio */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Audio; sourceTree = "<group>"; };
 		B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = THIRD_PARTY_NOTICES.txt; sourceTree = "<group>"; };
-		B90000000000000000000001 /* SPARKLE_LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = SPARKLE_LICENSE.txt; sourceTree = "<group>"; };
 		B1000000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B1000000000000000000000D /* Battuta.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Battuta.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B81000000000000000000001 /* BundledSoundPacks */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BundledSoundPacks; sourceTree = "<group>"; };
 		B20000000000000000000001 /* KeyboardLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardLayout.swift; sourceTree = "<group>"; };
 		B20000000000000000000002 /* SoundPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPack.swift; sourceTree = "<group>"; };
 		B20000000000000000000003 /* SemanticVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticVersion.swift; sourceTree = "<group>"; };
@@ -103,7 +104,12 @@
 		B60000000000000000000001 /* MacKeyboardLayoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacKeyboardLayoutView.swift; sourceTree = "<group>"; };
 		B60000000000000000000002 /* BattutaVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattutaVisualStyle.swift; sourceTree = "<group>"; };
 		B70000000000000000000001 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
+		B81000000000000000000001 /* BundledSoundPacks */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BundledSoundPacks; sourceTree = "<group>"; };
 		B8F4710E2A00000000000001 /* SparkleUpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdateService.swift; sourceTree = "<group>"; };
+		B90000000000000000000001 /* SPARKLE_LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = SPARKLE_LICENSE.txt; sourceTree = "<group>"; };
+		B95000000000000000000001 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		B95000000000000000000003 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		B95000000000000000000004 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -130,6 +136,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000001 /* SimuBoardApp.swift */,
+				B95000000000000000000001 /* Localization.swift */,
 				B1000000000000000000000E /* Assets.xcassets */,
 				D10000000000000000000003 /* Models */,
 				D10000000000000000000004 /* Services */,
@@ -206,6 +213,7 @@
 			children = (
 				B1000000000000000000000A /* Audio */,
 				B81000000000000000000001 /* BundledSoundPacks */,
+				B95000000000000000000002 /* Localizable.strings */,
 				B1000000000000000000000B /* THIRD_PARTY_NOTICES.txt */,
 				B90000000000000000000001 /* SPARKLE_LICENSE.txt */,
 			);
@@ -231,8 +239,10 @@
 				C10000000000000000000001 /* Frameworks */,
 				C10000000000000000000003 /* Resources */,
 			);
-			buildRules = ();
-			dependencies = ();
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = SimuBoardMac;
 			packageProductDependencies = (
 				F8F4710E2A00000000000003 /* Sparkle */,
@@ -251,14 +261,20 @@
 				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
-					E10000000000000000000001 = { CreatedOnToolsVersion = 27.0; };
+					E10000000000000000000001 = {
+						CreatedOnToolsVersion = 27.0;
+					};
 				};
 			};
 			buildConfigurationList = F10000000000000000000001 /* Build configuration list for PBXProject "SimuBoardMac" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base, "zh-Hans");
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
 			mainGroup = D10000000000000000000001;
 			packageReferences = (
 				F8F4710E2A00000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */,
@@ -266,7 +282,9 @@
 			productRefGroup = D10000000000000000000007 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (E10000000000000000000001 /* SimuBoardMac */);
+			targets = (
+				E10000000000000000000001 /* SimuBoardMac */,
+			);
 		};
 /* End PBXProject section */
 
@@ -277,6 +295,7 @@
 			files = (
 				A1000000000000000000000A /* Audio in Resources */,
 				A81000000000000000000001 /* BundledSoundPacks in Resources */,
+				A95000000000000000000002 /* Localizable.strings in Resources */,
 				A1000000000000000000000B /* THIRD_PARTY_NOTICES.txt in Resources */,
 				A90000000000000000000001 /* SPARKLE_LICENSE.txt in Resources */,
 				A1000000000000000000000C /* Assets.xcassets in Resources */,
@@ -291,6 +310,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* SimuBoardApp.swift in Sources */,
+				A95000000000000000000001 /* Localization.swift in Sources */,
 				A10000000000000000000002 /* SwitchProfile.swift in Sources */,
 				A10000000000000000000003 /* KeySound.swift in Sources */,
 				A40000000000000000000001 /* PointerSound.swift in Sources */,
@@ -336,24 +356,17 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		F8F4710E2A00000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sparkle-project/Sparkle";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.9.6;
-			};
+/* Begin PBXVariantGroup section */
+		B95000000000000000000002 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B95000000000000000000003 /* en */,
+				B95000000000000000000004 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
 		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		F8F4710E2A00000000000003 /* Sparkle */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F8F4710E2A00000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */;
-			productName = Sparkle;
-		};
-/* End XCSwiftPackageProductDependency section */
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		F10000000000000000000010 /* Debug */ = {
@@ -389,7 +402,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-		};
+			};
 			name = Release;
 		};
 		F10000000000000000000020 /* Debug */ = {
@@ -404,7 +417,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
@@ -426,7 +442,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SimuBoardMac/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.simuboard.mac;
@@ -441,17 +460,42 @@
 /* Begin XCConfigurationList section */
 		F10000000000000000000001 /* Build configuration list for PBXProject "SimuBoardMac" */ = {
 			isa = XCConfigurationList;
-			buildConfigurations = (F10000000000000000000010 /* Debug */, F10000000000000000000011 /* Release */);
+			buildConfigurations = (
+				F10000000000000000000010 /* Debug */,
+				F10000000000000000000011 /* Release */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		F10000000000000000000002 /* Build configuration list for PBXNativeTarget "SimuBoardMac" */ = {
 			isa = XCConfigurationList;
-			buildConfigurations = (F10000000000000000000020 /* Debug */, F10000000000000000000021 /* Release */);
+			buildConfigurations = (
+				F10000000000000000000020 /* Debug */,
+				F10000000000000000000021 /* Release */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F8F4710E2A00000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F8F4710E2A00000000000003 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F8F4710E2A00000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E10000000000000000000002 /* Project object */;
 }

@@ -33,11 +33,11 @@ enum KeyboardRowID: String, CaseIterable, Codable, Hashable, Sendable {
 
     var displayName: String {
         switch self {
-        case .r0: "数字行"
-        case .r1: "Q 行"
-        case .r2: "A 行"
-        case .r3: "Z 行"
-        case .r4: "其他键"
+        case .r0: "数字行".localized
+        case .r1: "Q 行".localized
+        case .r2: "A 行".localized
+        case .r3: "Z 行".localized
+        case .r4: "其他键".localized
         }
     }
 }
@@ -49,9 +49,9 @@ enum KeyboardSpecialKeyID: String, CaseIterable, Codable, Hashable, Sendable {
 
     var displayName: String {
         switch self {
-        case .space: "空格"
-        case .enter: "回车"
-        case .backspace: "退格"
+        case .space: "空格".localized
+        case .enter: "回车".localized
+        case .backspace: "退格".localized
         }
     }
 }
@@ -183,7 +183,7 @@ enum KeyboardVisualLayoutCatalog {
                 .key("f1", 1), .key("f2", 1), .key("f3", 1), .key("f4", 1),
                 .key("f5", 1), .key("f6", 1), .key("f7", 1), .key("f8", 1),
                 .key("f9", 1), .key("f10", 1), .key("f11", 1), .key("f12", 1),
-                .decoration(id: "lock", label: "锁定", systemImage: "lock.fill", width: 1),
+                .decoration(id: "lock", label: "锁定".localized, systemImage: "lock.fill", width: 1),
             ],
             [
                 .key("backquote", 1),
@@ -282,9 +282,9 @@ enum KeyboardExtendedLayoutCatalog {
     static let rows: [KeyboardLayoutRow] = [
         row("navigation", [
             key("help", 114, "help"), key("home", 115, "home"),
-            key("pageUp", 116, "page up"),
+            key("pageUp", 116, "pg up"),
             key("forwardDelete", 117, "⌦", special: .backspace),
-            key("end", 119, "end"), key("pageDown", 121, "page down"),
+            key("end", 119, "end"), key("pageDown", 121, "pg dn"),
         ]),
         row("extendedFunction", [
             key("f13", 105, "F13"), key("f14", 107, "F14"),
@@ -319,9 +319,9 @@ enum KeyboardExtendedLayoutCatalog {
             key("jisEisu", 102, "英数"), key("jisKana", 104, "かな"),
         ]),
         row("media", [
-            key("volumeUp", 72, "音量+", width: 1.5),
-            key("volumeDown", 73, "音量−", width: 1.5),
-            key("mute", 74, "静音", width: 1.5),
+            key("volumeUp", 72, "音量+".localized, width: 1.5),
+            key("volumeDown", 73, "音量−".localized, width: 1.5),
+            key("mute", 74, "静音".localized, width: 1.5),
         ]),
     ]
 
@@ -359,7 +359,7 @@ enum KeyboardLayoutCatalog {
 
     static let ansiTKL = KeyboardLayout(
         id: defaultLayoutID,
-        displayName: "Mac US ANSI 紧凑型",
+        displayName: "Mac US ANSI 紧凑型".localized,
         rows: [
             KeyboardLayoutRow(id: "function", keys: [
                 key("escape", 53, "esc", .r4, width: 1.5),

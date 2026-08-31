@@ -29,13 +29,13 @@ enum SoundPackPackageValidator {
             throw SoundPackError.unsafeFile(root.path)
         }
         guard root.pathExtension.lowercased() == "simuboardpack" else {
-            throw SoundPackError.invalidManifest("包扩展名必须是 .simuboardpack")
+            throw SoundPackError.invalidManifest(L10n.tr("包扩展名必须是 .simuboardpack"))
         }
 
         let manifestURL = root.appendingPathComponent("manifest.json")
         let manifestByteCount = try SoundPackFileUtilities.validateRegularFile(at: manifestURL)
         guard manifestByteCount <= limits.maximumManifestBytes else {
-            throw SoundPackError.sizeLimitExceeded("manifest.json 过大")
+            throw SoundPackError.sizeLimitExceeded(L10n.tr("manifest.json 过大"))
         }
         let manifestData: Data
         do {
@@ -67,7 +67,7 @@ enum SoundPackPackageValidator {
                 return false
             }
         ) else {
-            throw SoundPackError.fileOperation("无法读取音色包目录")
+            throw SoundPackError.fileOperation(L10n.tr("无法读取音色包目录"))
         }
 
         let rootPrefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
@@ -80,7 +80,9 @@ enum SoundPackPackageValidator {
             try SoundPackFileUtilities.validateRelativePath(relativePath)
             entryCount += 1
             guard entryCount <= limits.maximumFileCount else {
-                throw SoundPackError.sizeLimitExceeded("目录项数量超过 \(limits.maximumFileCount)")
+                throw SoundPackError.sizeLimitExceeded(
+                    L10n.format("目录项数量超过 %@", "\(limits.maximumFileCount)")
+                )
             }
             let values = try item.resourceValues(forKeys: Set(resourceKeys))
             guard values.isSymbolicLink != true, values.isAliasFile != true else {
@@ -106,7 +108,7 @@ enum SoundPackPackageValidator {
             }
             let (nextTotal, overflow) = totalByteCount.addingReportingOverflow(byteCount)
             guard !overflow, nextTotal <= limits.maximumPackBytes else {
-                throw SoundPackError.sizeLimitExceeded("音色包总大小过大")
+                throw SoundPackError.sizeLimitExceeded(L10n.tr("音色包总大小过大"))
             }
             totalByteCount = nextTotal
 
@@ -138,7 +140,9 @@ enum SoundPackPackageValidator {
             let info = try AudioImportService.validateNormalizedAudio(at: url, limits: limits)
             guard info.byteCount == asset.byteCount,
                   abs(info.durationSeconds - asset.durationSeconds) < 0.002 else {
-                throw SoundPackError.invalidAudio("\(asset.relativePath) 元数据不匹配")
+                throw SoundPackError.invalidAudio(
+                    L10n.format("%@ 元数据不匹配", asset.relativePath)
+                )
             }
             let hash = try SoundPackFileUtilities.sha256(of: url)
             guard hash == asset.sha256 else {
@@ -175,7 +179,7 @@ enum SoundPackPackageValidator {
                 .isAliasFileKey,
             ]
         ) else {
-            throw SoundPackError.fileOperation("无法读取 licenses")
+            throw SoundPackError.fileOperation(L10n.tr("无法读取 licenses"))
         }
         let prefix = licensesRoot.standardizedFileURL.path + "/"
         for case let itemURL as URL in enumerator {

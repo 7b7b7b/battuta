@@ -12,8 +12,8 @@ struct UpdateSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 11) {
             BattutaSectionHeading(
-                "软件更新",
-                subtitle: "从 GitHub Release 检查新版本",
+                "软件更新".localized,
+                subtitle: "从 GitHub Release 检查新版本".localized,
                 symbol: "arrow.triangle.2.circlepath"
             )
             preferenceContent
@@ -59,7 +59,10 @@ struct UpdateSection: View {
     private var resultContent: some View {
         if let release = controller.availableRelease {
             VStack(alignment: .leading, spacing: 6) {
-                Label("发现新版本 \(release.version.description)", systemImage: "sparkles")
+                Label(
+                    L10n.format("发现新版本 %@", release.version.description),
+                    systemImage: "sparkles"
+                )
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BattutaVisualStyle.accentStrong)
                 installationContent(for: release)
@@ -69,12 +72,18 @@ struct UpdateSection: View {
             case .updateAvailable:
                 EmptyView()
             case let .upToDate(version):
-                Label("已是最新版 \(version.description)", systemImage: "checkmark.circle.fill")
+                Label(
+                    L10n.format("已是最新版 %@", version.description),
+                    systemImage: "checkmark.circle.fill"
+                )
                     .foregroundStyle(.secondary)
                     .font(.caption)
             case let .installedVersionIsNewer(latestVersion):
                 Label(
-                    "当前安装版本高于公开版本 \(latestVersion.description)",
+                    L10n.format(
+                        "当前安装版本高于公开版本 %@",
+                        latestVersion.description
+                    ),
                     systemImage: "hammer.fill"
                 )
                 .foregroundStyle(.secondary)
@@ -110,7 +119,7 @@ struct UpdateSection: View {
             installationProgress("正在安装，Battuta 将自动重启…", progress: nil)
 
         case let .failed(message):
-            Label(message, systemImage: "exclamationmark.triangle")
+            Label(L10n.tr(message), systemImage: "exclamationmark.triangle")
                 .failureCaptionStyle()
             installButton
             Button {
@@ -150,7 +159,7 @@ struct UpdateSection: View {
                 ProgressView()
                     .controlSize(.small)
             }
-            Text(title)
+            Text(L10n.tr(title))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -170,7 +179,10 @@ struct UpdateSection: View {
             Label("应用内更新签名配置无效", systemImage: "exclamationmark.shield.fill")
                 .failureCaptionStyle()
         case let .startupFailed(message):
-            Label("更新服务启动失败：\(message)", systemImage: "exclamationmark.arrow.triangle.2.circlepath")
+            Label(
+                L10n.format("更新服务启动失败：%@", L10n.tr(message)),
+                systemImage: "exclamationmark.arrow.triangle.2.circlepath"
+            )
                 .failureCaptionStyle()
         }
     }
@@ -202,14 +214,28 @@ struct UpdateSection: View {
                 .failureCaptionStyle()
         case let .requestedTooSoon(retryAt):
             Label {
-                Text("刚刚检查过，可于 \(retryAt, style: .time) 后再次手动检查")
+                Text(
+                    L10n.format(
+                        "刚刚检查过，可于 %@ 后再次手动检查",
+                        retryAt.formatted(
+                            .dateTime.hour().minute().locale(L10n.locale)
+                        )
+                    )
+                )
             } icon: {
                 Image(systemName: "clock.arrow.circlepath")
             }
             .failureCaptionStyle()
         case let .rateLimited(retryAt):
             Label {
-                Text("GitHub 暂时限制请求，可于 \(retryAt, style: .time) 后重试")
+                Text(
+                    L10n.format(
+                        "GitHub 暂时限制请求，可于 %@ 后重试",
+                        retryAt.formatted(
+                            .dateTime.hour().minute().locale(L10n.locale)
+                        )
+                    )
+                )
             } icon: {
                 Image(systemName: "hourglass")
             }

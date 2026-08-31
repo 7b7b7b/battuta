@@ -47,11 +47,7 @@ struct TypingStatsSummarySection: View {
         }
         .padding(BattutaVisualStyle.cardPadding)
         .battutaPanel()
-        .task { await refreshWhileVisible() }
-        .onChange(of: settings.isTypingStatsEnabled) { enabled in
-            guard enabled else { return }
-            Task { await model.refresh(for: .summary) }
-        }
+        .task(id: settings.isTypingStatsEnabled) { await refreshWhileVisible() }
     }
 
     @ViewBuilder
@@ -88,13 +84,16 @@ struct TypingStatsSummarySection: View {
                 )
                 compactMetric(
                     title: "今日峰值",
-                    value: "\(snapshot.today.peakCPS)/秒",
+                    value: L10n.format("%@ 字/秒", statsCount(snapshot.today.peakCPS)),
                     symbol: "bolt.fill"
                 )
             }
 
             Label(
-                "今日最多应用：\(snapshot.today.topAppName ?? "暂无")",
+                L10n.format(
+                    "今日最多应用：%@",
+                    snapshot.today.topAppName ?? L10n.tr("暂无")
+                ),
                 systemImage: "app.fill"
             )
             .font(.caption)
@@ -102,7 +101,10 @@ struct TypingStatsSummarySection: View {
             .lineLimit(1)
 
             if let message = model.staleDataMessage {
-                Label("统计暂未更新：\(message)", systemImage: "arrow.clockwise.circle")
+                Label(
+                    L10n.format("统计暂未更新：%@", message),
+                    systemImage: "arrow.clockwise.circle"
+                )
                     .font(.caption2)
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
@@ -122,7 +124,7 @@ struct TypingStatsSummarySection: View {
                 Text(value)
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
-                Text(title)
+                Text(L10n.tr(title))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -134,13 +136,18 @@ struct TypingStatsSummarySection: View {
     }
 
     private func refreshWhileVisible() async {
+        guard settings.isTypingStatsEnabled else { return }
         await model.refresh(for: .summary)
         while !Task.isCancelled {
             do {
-                try await Task.sleep(for: .seconds(5))
+                try await Task.sleep(
+                    for: .seconds(5),
+                    tolerance: .milliseconds(750)
+                )
             } catch {
                 return
             }
+            guard settings.isTypingStatsEnabled else { return }
             await model.refresh(for: .summary)
         }
     }
