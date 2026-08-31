@@ -272,7 +272,9 @@ final class TypingStatsModel: ObservableObject {
 
     func loadReport(
         range: TypingDateRange,
-        comparisonRange: TypingDateRange?
+        comparisonRange: TypingDateRange?,
+        rhythmRange: TypingDateRange? = nil,
+        rhythmComparisonRange: TypingDateRange? = nil
     ) async {
         reportRequestID += 1
         let requestID = reportRequestID
@@ -285,9 +287,11 @@ final class TypingStatsModel: ObservableObject {
 
         _ = await flushPending()
         do {
-            let report = try await persistence.loadReport(
+            let report = try await loadCombinedReport(
                 range: range,
-                comparisonRange: comparisonRange
+                comparisonRange: comparisonRange,
+                rhythmRange: rhythmRange,
+                rhythmComparisonRange: rhythmComparisonRange
             )
             guard requestID == reportRequestID, !Task.isCancelled else { return }
             if reportSnapshot?.hasSameVisibleContent(as: report) != true {
@@ -306,7 +310,9 @@ final class TypingStatsModel: ObservableObject {
         guard let reportSnapshot else { return }
         await loadReport(
             range: reportSnapshot.range,
-            comparisonRange: reportSnapshot.comparisonRange
+            comparisonRange: reportSnapshot.comparisonRange,
+            rhythmRange: reportSnapshot.rhythmRange,
+            rhythmComparisonRange: reportSnapshot.rhythmComparisonRange
         )
     }
 
@@ -325,6 +331,8 @@ final class TypingStatsModel: ObservableObject {
 
         let previousReportRange = reportSnapshot?.range
         let previousComparisonRange = reportSnapshot?.comparisonRange
+        let previousRhythmRange = reportSnapshot?.rhythmRange
+        let previousRhythmComparisonRange = reportSnapshot?.rhythmComparisonRange
 
         do {
             try await persistence.clearAll()
@@ -334,10 +342,12 @@ final class TypingStatsModel: ObservableObject {
             let loadedSnapshot = try await persistence.loadSnapshot(timelineRange: timelineRange)
             readStatus.markRead(at: loadedSnapshot.generatedAt)
             snapshot = loadedSnapshot
-            if let previousReportRange {
-                reportSnapshot = try await persistence.loadReport(
+            if let previousReportRange, let previousRhythmRange {
+                reportSnapshot = try await loadCombinedReport(
                     range: previousReportRange,
-                    comparisonRange: previousComparisonRange
+                    comparisonRange: previousComparisonRange,
+                    rhythmRange: previousRhythmRange,
+                    rhythmComparisonRange: previousRhythmComparisonRange
                 )
             } else {
                 reportSnapshot = nil
@@ -350,6 +360,20 @@ final class TypingStatsModel: ObservableObject {
             sourceStatus = .failed(L10n.tr(error.localizedDescription))
             return false
         }
+    }
+
+    private func loadCombinedReport(
+        range: TypingDateRange,
+        comparisonRange: TypingDateRange?,
+        rhythmRange: TypingDateRange?,
+        rhythmComparisonRange: TypingDateRange?
+    ) async throws -> TypingRangeReportSnapshot {
+        try await persistence.loadReport(
+            range: range,
+            comparisonRange: comparisonRange,
+            rhythmRange: rhythmRange,
+            rhythmComparisonRange: rhythmComparisonRange
+        )
     }
 
     private func scheduleFlush(after delay: Duration = .milliseconds(750)) {

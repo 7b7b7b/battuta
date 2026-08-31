@@ -24,6 +24,7 @@ struct TypingStatsCoreHarness {
 
         let now = Date(timeIntervalSince1970: 1_787_422_400)
         let calendar = statisticsCalendar
+        try testRollingRhythmRanges(now: now, calendar: calendar)
         let todayKey = TypingStatsStore.dateKey(for: now, calendar: calendar)
         let yesterday = calendar.date(byAdding: .day, value: -1, to: now) ?? now
         let yesterdayKey = TypingStatsStore.dateKey(for: yesterday, calendar: calendar)
@@ -322,6 +323,42 @@ struct TypingStatsCoreHarness {
             } == 12,
             "preserves the comparison range total across rhythm cells"
         )
+        let twoDaysAgoRange = TypingDateRange(startDate: twoDaysAgo, endDate: twoDaysAgo)
+        let splitRangeReport = try await store.loadReport(
+            range: TypingDateRange(startDate: now, endDate: now),
+            comparisonRange: twoDaysAgoRange,
+            rhythmRange: TypingDateRange(startDate: now, endDate: now),
+            rhythmComparisonRange: TypingDateRange(
+                startDate: yesterday,
+                endDate: yesterday
+            )
+        )
+        try expect(
+            splitRangeReport.comparisonMetrics?.characterCount == 0,
+            "keeps the annual comparison independent from the rhythm comparison"
+        )
+        try expect(
+            splitRangeReport.weekdayHourDistribution.reduce(0) {
+                $0 + $1.characterCount
+            } == 9,
+            "loads the requested rolling rhythm period"
+        )
+        try expect(
+            splitRangeReport.weekdayHourDistribution.reduce(0) {
+                $0 + $1.comparisonCharacterCount
+            } == 12,
+            "loads a nonzero immediately preceding rhythm period"
+        )
+        try expect(
+            splitRangeReport.rhythmRange == TypingDateRange(
+                startDate: calendar.startOfDay(for: now),
+                endDate: calendar.startOfDay(for: now)
+            ) && splitRangeReport.rhythmComparisonRange == TypingDateRange(
+                startDate: calendar.startOfDay(for: yesterday),
+                endDate: calendar.startOfDay(for: yesterday)
+            ),
+            "reports the independent rhythm date ranges used for the matrix"
+        )
         let reversedReport = try await store.loadReport(range: TypingDateRange(
             startDate: now,
             endDate: yesterday
@@ -455,6 +492,58 @@ struct TypingStatsCoreHarness {
         try expect(
             sqlite3_step(recovered) == SQLITE_DONE,
             "recovers a cached statement after a prior SQLite constraint failure"
+        )
+    }
+
+    private static func testRollingRhythmRanges(
+        now: Date,
+        calendar: Calendar
+    ) throws {
+        let ranges = TypingRhythmDateRanges.rollingSevenDays(
+            endingAt: now,
+            calendar: calendar
+        )
+        try expect(
+            calendar.dateComponents(
+                [.day],
+                from: ranges.current.startDate,
+                to: ranges.current.endDate
+            ).day == 6,
+            "uses seven inclusive local days for the current rhythm period"
+        )
+        try expect(
+            calendar.dateComponents(
+                [.day],
+                from: ranges.comparison.startDate,
+                to: ranges.comparison.endDate
+            ).day == 6,
+            "uses seven inclusive local days for the comparison rhythm period"
+        )
+        try expect(
+            calendar.date(byAdding: .day, value: 1, to: ranges.comparison.endDate)
+                == ranges.current.startDate,
+            "keeps the rolling rhythm periods adjacent without overlap"
+        )
+        try expect(
+            ranges.current.endDate == calendar.startOfDay(for: now),
+            "ends the current rhythm period on today"
+        )
+
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+        let nextRanges = TypingRhythmDateRanges.rollingSevenDays(
+            endingAt: nextDay,
+            calendar: calendar
+        )
+        try expect(
+            nextRanges.current.startDate
+                == calendar.date(byAdding: .day, value: 1, to: ranges.current.startDate)
+                && nextRanges.current.endDate
+                    == calendar.date(byAdding: .day, value: 1, to: ranges.current.endDate)
+                && nextRanges.comparison.startDate
+                    == calendar.date(byAdding: .day, value: 1, to: ranges.comparison.startDate)
+                && nextRanges.comparison.endDate
+                    == calendar.date(byAdding: .day, value: 1, to: ranges.comparison.endDate),
+            "rolls both rhythm periods forward at the next local midnight"
         )
     }
 

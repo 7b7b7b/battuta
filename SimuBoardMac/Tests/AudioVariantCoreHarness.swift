@@ -90,6 +90,7 @@ private struct AudioVariantCoreHarness {
             )
 
             try testSharedVoiceSelection(passed: &passed)
+            try testLiveVoiceVolume(passed: &passed)
             try testLeadingSilenceTrimming(passed: &passed)
             try testNormalOutputRouteIntegration(passed: &passed)
 
@@ -175,6 +176,56 @@ private struct AudioVariantCoreHarness {
         )
     }
 
+    private static func testLiveVoiceVolume(passed: inout Int) throws {
+        let keyboardGain = AudioVoiceGainState(domain: .keyboard, sampleGain: 1.02)
+        try check(
+            abs(keyboardGain.outputVolume(masterGain: 0.5) - 0.51) < 0.000_001,
+            "keyboard master gain should preserve the active sample's variation gain",
+            passed: &passed
+        )
+        try check(
+            keyboardGain.outputVolume(masterGain: 0.5, updating: .pointer) == nil,
+            "a pointer-volume change should not alter an active keyboard voice",
+            passed: &passed
+        )
+        try check(
+            keyboardGain.outputVolume(masterGain: 2) == 1,
+            "combined master and sample gain should clamp at unity",
+            passed: &passed
+        )
+
+        let pointerGain = AudioVoiceGainState(domain: .pointer, sampleGain: 1)
+        try check(
+            pointerGain.outputVolume(masterGain: 0.24, updating: .pointer) == 0.24,
+            "pointer-volume changes should update active pointer voices independently",
+            passed: &passed
+        )
+        try check(
+            pointerGain.outputVolume(masterGain: .nan) == 0,
+            "non-finite live volume updates should fail silent",
+            passed: &passed
+        )
+
+        let mixedActiveGains = [keyboardGain, pointerGain]
+        let keyboardUpdates = mixedActiveGains.compactMap {
+            $0.outputVolume(masterGain: 0.4, updating: .keyboard)
+        }
+        try check(
+            keyboardUpdates.count == 1
+                && abs(keyboardUpdates[0] - Float(0.4 * 1.02)) < 0.000_001,
+            "a keyboard gain change should update only keyboard voices in a mixed active pool",
+            passed: &passed
+        )
+        let pointerUpdates = mixedActiveGains.compactMap {
+            $0.outputVolume(masterGain: 0.24, updating: .pointer)
+        }
+        try check(
+            pointerUpdates == [0.24],
+            "a pointer gain change should update only pointer voices in a mixed active pool",
+            passed: &passed
+        )
+    }
+
     private static func testLeadingSilenceTrimming(passed: inout Int) throws {
         let format = AVAudioFormat(
             standardFormatWithSampleRate: 48_000,
@@ -236,6 +287,12 @@ private struct AudioVariantCoreHarness {
         let projectSource = try String(
             contentsOf: projectRoot.appendingPathComponent(
                 "SimuBoardMac/SimuBoardMac.xcodeproj/project.pbxproj"
+            ),
+            encoding: .utf8
+        )
+        let appModelSource = try String(
+            contentsOf: projectRoot.appendingPathComponent(
+                "SimuBoardMac/SimuBoardMac/Services/AppModel.swift"
             ),
             encoding: .utf8
         )
@@ -338,10 +395,85 @@ private struct AudioVariantCoreHarness {
             passed: &passed
         )
         try check(
-            engineSource.contains("voice.player.volume = volume")
+            engineSource.contains("voice.gainState = gainState")
                 && engineSource.contains("completionCallbackType: .dataPlayedBack")
                 && engineSource.contains("if !voice.player.isPlaying"),
             "voice reuse should preserve the optimized interrupt path without a stop/play cycle",
+            passed: &passed
+        )
+        try check(
+            engineSource.contains("func setKeyboardPlaybackGain(_ gain: Double)")
+                && engineSource.contains("func setPointerPlaybackGain(_ gain: Double)")
+                && engineSource.contains("for voice in voices where voice.isActive")
+                && engineSource.contains("updating: domain"),
+            "live volume changes should update only matching active voices in the shared pool",
+            passed: &passed
+        )
+        try check(
+            appModelSource.contains("settings.$volume")
+                && appModelSource.contains("KeyboardVolumeCurve.playbackGain(for: sliderPosition)")
+                && appModelSource.contains("settings.$pointerVolume")
+                && appModelSource.contains("setPointerPlaybackGain(gain)"),
+            "settings publishers should push keyboard and pointer gain changes into active playback",
+            passed: &passed
+        )
+        guard let scheduleStart = engineSource.range(
+            of: "    private func schedule("
+        )?.lowerBound,
+        let nextVoiceStart = engineSource.range(
+            of: "    private func nextVoiceIndex(",
+            range: scheduleStart..<engineSource.endIndex
+        )?.lowerBound else {
+            throw AudioVariantHarnessFailure.assertion("could not isolate voice scheduling")
+        }
+        let scheduleSource = engineSource[scheduleStart..<nextVoiceStart]
+        guard let configureGain = scheduleSource.range(
+            of: "voice.player.volume = gainState.outputVolume"
+        )?.lowerBound,
+        let resumeEngine = scheduleSource.range(
+            of: "guard startEngineIfNeeded()"
+        )?.lowerBound else {
+            throw AudioVariantHarnessFailure.assertion("could not verify idle-resume ordering")
+        }
+        try check(
+            configureGain < resumeEngine,
+            "an idle engine should receive the selected voice gain before it resumes rendering",
+            passed: &passed
+        )
+        guard let advanceGeneration = scheduleSource.range(
+            of: "voice.playbackGeneration &+= 1"
+        )?.lowerBound,
+        let replaceGainState = scheduleSource.range(
+            of: "voice.gainState = gainState"
+        )?.lowerBound else {
+            throw AudioVariantHarnessFailure.assertion("could not verify stolen-voice state replacement")
+        }
+        try check(
+            advanceGeneration < replaceGainState,
+            "stealing a voice should advance its generation before installing the new domain and gain",
+            passed: &passed
+        )
+        guard let finishStart = engineSource.range(
+            of: "    private func finishPlayback("
+        )?.lowerBound,
+        let volumeUpdateStart = engineSource.range(
+            of: "    private func updateActiveVoiceVolumes(",
+            range: finishStart..<engineSource.endIndex
+        )?.lowerBound else {
+            throw AudioVariantHarnessFailure.assertion("could not isolate playback completion")
+        }
+        let finishSource = engineSource[finishStart..<volumeUpdateStart]
+        guard let staleCompletionGuard = finishSource.range(
+            of: "guard voice.playbackGeneration == generation else { return }"
+        )?.lowerBound,
+        let clearGainState = finishSource.range(
+            of: "voice.gainState = nil"
+        )?.lowerBound else {
+            throw AudioVariantHarnessFailure.assertion("could not verify stale completion handling")
+        }
+        try check(
+            staleCompletionGuard < clearGainState,
+            "a stale completion must return before it can clear a stolen voice's new gain state",
             passed: &passed
         )
         try check(

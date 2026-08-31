@@ -116,6 +116,30 @@ struct TypingDateRange: Equatable, Sendable {
     }
 }
 
+struct TypingRhythmDateRanges: Equatable, Sendable {
+    let current: TypingDateRange
+    let comparison: TypingDateRange
+
+    /// Today plus the preceding six local calendar days, compared with the
+    /// seven local calendar days immediately before that window.
+    static func rollingSevenDays(endingAt date: Date, calendar: Calendar) -> Self {
+        let currentEnd = calendar.startOfDay(for: date)
+        let currentStart = calendar.date(byAdding: .day, value: -6, to: currentEnd)
+            ?? currentEnd
+        let comparisonEnd = calendar.date(byAdding: .day, value: -1, to: currentStart)
+            ?? currentStart
+        let comparisonStart = calendar.date(byAdding: .day, value: -6, to: comparisonEnd)
+            ?? comparisonEnd
+        return Self(
+            current: TypingDateRange(startDate: currentStart, endDate: currentEnd),
+            comparison: TypingDateRange(
+                startDate: comparisonStart,
+                endDate: comparisonEnd
+            )
+        )
+    }
+}
+
 struct TypingWeekdayAggregate: Equatable, Identifiable, Sendable {
     /// Foundation calendar weekday: 1 is Sunday and 7 is Saturday.
     let weekday: Int
@@ -193,6 +217,10 @@ struct TypingRangeReportSnapshot: Equatable, Sendable {
     let generatedAt: Date
     let range: TypingDateRange
     let comparisonRange: TypingDateRange?
+    /// The shorter period used by the weekday/hour rhythm panel. It can differ
+    /// from the annual range used by the rest of the history report.
+    let rhythmRange: TypingDateRange
+    let rhythmComparisonRange: TypingDateRange?
     let metrics: TypingRangeMetrics
     let comparisonMetrics: TypingRangeMetrics?
     /// One entry for every requested calendar day, including zero-value days.
@@ -211,6 +239,8 @@ struct TypingRangeReportSnapshot: Equatable, Sendable {
     func hasSameVisibleContent(as other: TypingRangeReportSnapshot) -> Bool {
         range == other.range
             && comparisonRange == other.comparisonRange
+            && rhythmRange == other.rhythmRange
+            && rhythmComparisonRange == other.rhythmComparisonRange
             && metrics == other.metrics
             && comparisonMetrics == other.comparisonMetrics
             && days == other.days

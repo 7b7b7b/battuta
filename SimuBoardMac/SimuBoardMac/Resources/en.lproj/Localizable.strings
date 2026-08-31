@@ -624,3 +624,6 @@
 "深色" = "Dark";
 "音频节点连接失败：%@" = "Couldn’t connect the audio nodes: %@";
 "音频播放启动失败：%@" = "Couldn’t start audio playback: %@";
+"本期为最近 7 天（%@）；上期为紧邻的前 7 天（%@）。" = "Current: the last 7 days (%1$@); previous: the immediately preceding 7 days (%2$@).";
+"%@ %@ · 最近 7 天（%@）：%@ 个字符" = "%1$@ %2$@ · Last 7 days (%3$@): %4$@ characters";
+"%@ %@ · 本期（%@）：%@ 个字符；上期（%@）：%@ 个字符；变化 %@ 个字符" = "%1$@ %2$@ · Current (%3$@): %4$@ characters; previous (%5$@): %6$@ characters; change %7$@ characters";

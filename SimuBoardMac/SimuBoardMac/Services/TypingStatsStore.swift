@@ -77,7 +77,9 @@ protocol TypingStatsPersistence: Sendable {
     func loadSnapshot(request: TypingStatsSnapshotRequest) async throws -> TypingStatsSnapshot
     func loadReport(
         range: TypingDateRange,
-        comparisonRange: TypingDateRange?
+        comparisonRange: TypingDateRange?,
+        rhythmRange: TypingDateRange?,
+        rhythmComparisonRange: TypingDateRange?
     ) async throws -> TypingRangeReportSnapshot
     func clearAll() async throws
 }
@@ -92,12 +94,31 @@ extension TypingStatsPersistence {
     }
 
     func loadReport(range: TypingDateRange) async throws -> TypingRangeReportSnapshot {
-        try await loadReport(range: range, comparisonRange: nil)
+        try await loadReport(
+            range: range,
+            comparisonRange: nil,
+            rhythmRange: nil,
+            rhythmComparisonRange: nil
+        )
     }
 
     func loadReport(
         range: TypingDateRange,
         comparisonRange: TypingDateRange?
+    ) async throws -> TypingRangeReportSnapshot {
+        try await loadReport(
+            range: range,
+            comparisonRange: comparisonRange,
+            rhythmRange: nil,
+            rhythmComparisonRange: nil
+        )
+    }
+
+    func loadReport(
+        range: TypingDateRange,
+        comparisonRange: TypingDateRange?,
+        rhythmRange: TypingDateRange?,
+        rhythmComparisonRange: TypingDateRange?
     ) async throws -> TypingRangeReportSnapshot {
         throw TypingStatsStoreError.queryFailed(L10n.tr("此统计数据源不支持历史区间报告。"))
     }
@@ -300,7 +321,9 @@ actor TypingStatsStore: TypingStatsPersistence {
 
     func loadReport(
         range: TypingDateRange,
-        comparisonRange: TypingDateRange?
+        comparisonRange: TypingDateRange?,
+        rhythmRange: TypingDateRange?,
+        rhythmComparisonRange: TypingDateRange?
     ) async throws -> TypingRangeReportSnapshot {
         let database = try openDatabaseIfNeeded()
         let generatedAt = nowProvider()
@@ -308,6 +331,17 @@ actor TypingStatsStore: TypingStatsPersistence {
         let selected = Self.normalized(range: range, calendar: calendar)
         let comparison = comparisonRange.map {
             Self.normalized(range: $0, calendar: calendar)
+        }
+        let rhythmSelected: NormalizedDateRange
+        let rhythmComparison: NormalizedDateRange?
+        if let rhythmRange {
+            rhythmSelected = Self.normalized(range: rhythmRange, calendar: calendar)
+            rhythmComparison = rhythmComparisonRange.map {
+                Self.normalized(range: $0, calendar: calendar)
+            }
+        } else {
+            rhythmSelected = selected
+            rhythmComparison = comparison
         }
 
         // A single deferred transaction pins every current/comparison/coverage
@@ -317,10 +351,6 @@ actor TypingStatsStore: TypingStatsPersistence {
             let days = try loadRangeDays(range: selected, calendar: calendar, from: database)
             let weekdays = Self.weekdayDistribution(days: days, calendar: calendar)
             let hours = try loadHourDistribution(range: selected, from: database)
-            let weekdayHourCounts = try loadWeekdayHourCounts(
-                range: selected,
-                from: database
-            )
             let metrics = Self.rangeMetrics(
                 days: days,
                 weekdays: weekdays,
@@ -329,7 +359,6 @@ actor TypingStatsStore: TypingStatsPersistence {
 
             let comparisonDays: [TypingDaySummary]
             let comparisonMetrics: TypingRangeMetrics?
-            let comparisonWeekdayHourCounts: [Int: Int64]
             if let comparison {
                 comparisonDays = try loadRangeDays(
                     range: comparison,
@@ -349,15 +378,18 @@ actor TypingStatsStore: TypingStatsPersistence {
                     weekdays: comparisonWeekdays,
                     hours: comparisonHours
                 )
-                comparisonWeekdayHourCounts = try loadWeekdayHourCounts(
-                    range: comparison,
-                    from: database
-                )
             } else {
                 comparisonDays = []
                 comparisonMetrics = nil
-                comparisonWeekdayHourCounts = [:]
             }
+
+            let rhythmCounts = try loadWeekdayHourCounts(
+                range: rhythmSelected,
+                from: database
+            )
+            let rhythmComparisonCounts = try rhythmComparison.map {
+                try loadWeekdayHourCounts(range: $0, from: database)
+            } ?? [:]
 
             let currentApplications = try loadApplicationRangeValues(
                 range: selected,
@@ -383,14 +415,16 @@ actor TypingStatsStore: TypingStatsPersistence {
                 generatedAt: generatedAt,
                 range: selected.value,
                 comparisonRange: comparison?.value,
+                rhythmRange: rhythmSelected.value,
+                rhythmComparisonRange: rhythmComparison?.value,
                 metrics: metrics,
                 comparisonMetrics: comparisonMetrics,
                 days: days,
                 weekdayDistribution: weekdays,
                 hourlyDistribution: hours,
                 weekdayHourDistribution: Self.weekdayHourDistribution(
-                    current: weekdayHourCounts,
-                    comparison: comparisonWeekdayHourCounts
+                    current: rhythmCounts,
+                    comparison: rhythmComparisonCounts
                 ),
                 applications: applications,
                 coverage: coverage

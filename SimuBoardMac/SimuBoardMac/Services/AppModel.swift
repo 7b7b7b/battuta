@@ -117,6 +117,22 @@ final class AppModel: ObservableObject {
                 loadPointerSoundProfile(profileID: profileID)
             }
             .store(in: &cancellables)
+        settings.$volume
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] sliderPosition in
+                self?.audioEngine.setKeyboardPlaybackGain(
+                    KeyboardVolumeCurve.playbackGain(for: sliderPosition)
+                )
+            }
+            .store(in: &cancellables)
+        settings.$pointerVolume
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] gain in
+                self?.audioEngine.setPointerPlaybackGain(gain)
+            }
+            .store(in: &cancellables)
         settings.$appearancePreference
             .removeDuplicates()
             .sink { [weak self] preference in

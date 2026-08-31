@@ -114,6 +114,30 @@ enum AudioVoiceSelector {
     }
 }
 
+enum AudioPlaybackDomain: Equatable, Sendable {
+    case keyboard
+    case pointer
+}
+
+struct AudioVoiceGainState: Equatable, Sendable {
+    let domain: AudioPlaybackDomain
+    let sampleGain: Float
+
+    func outputVolume(masterGain: Double) -> Float {
+        let resolvedGain = masterGain * Double(sampleGain)
+        guard resolvedGain.isFinite else { return 0 }
+        return Float(min(max(resolvedGain, 0), 1))
+    }
+
+    func outputVolume(
+        masterGain: Double,
+        updating targetDomain: AudioPlaybackDomain
+    ) -> Float? {
+        guard domain == targetDomain else { return nil }
+        return outputVolume(masterGain: masterGain)
+    }
+}
+
 @MainActor
 final class KeyboardAudioEngine {
     private static let playbackSampleRate = 48_000.0
@@ -141,6 +165,7 @@ final class KeyboardAudioEngine {
         var playbackGeneration: UInt64 = 0
         var isActive = false
         var lastScheduledEpoch: UInt64 = 0
+        var gainState: AudioVoiceGainState?
 
         init(player: AVAudioPlayerNode, speed: AVAudioUnitVarispeed) {
             self.player = player
@@ -205,6 +230,14 @@ final class KeyboardAudioEngine {
         if startEngineIfNeeded() {
             scheduleIdlePauseIfNeeded()
         }
+    }
+
+    func setKeyboardPlaybackGain(_ gain: Double) {
+        updateActiveVoiceVolumes(masterGain: gain, domain: .keyboard)
+    }
+
+    func setPointerPlaybackGain(_ gain: Double) {
+        updateActiveVoiceVolumes(masterGain: gain, domain: .pointer)
     }
 
     @discardableResult
@@ -440,7 +473,8 @@ final class KeyboardAudioEngine {
         let variant = sample.nextVariant(variationEnabled: pitchVariation)
         playKeyboard(
             buffer: sample.buffer,
-            volume: volume * Double(variant.gain),
+            volume: volume,
+            sampleGain: variant.gain,
             pitchVariation: false,
             baseRate: variant.rate
         )
@@ -449,15 +483,16 @@ final class KeyboardAudioEngine {
     private func playKeyboard(
         buffer: AVAudioPCMBuffer,
         volume: Double,
+        sampleGain: Float = 1,
         pitchVariation: Bool,
         baseRate: Float = 1
     ) {
-        guard startEngineIfNeeded() else { return }
         guard let voiceIndex = nextVoiceIndex(allowsStealing: true) else { return }
         schedule(
             buffer: buffer,
             voiceIndex: voiceIndex,
-            volume: Float(max(0, min(1, volume))),
+            gainState: AudioVoiceGainState(domain: .keyboard, sampleGain: sampleGain),
+            masterGain: volume,
             pitchVariation: pitchVariation,
             baseRate: baseRate
         )
@@ -469,12 +504,12 @@ final class KeyboardAudioEngine {
         pitchVariation: Bool,
         baseRate: Float = 1
     ) {
-        guard startEngineIfNeeded() else { return }
         guard let voiceIndex = nextVoiceIndex(allowsStealing: false) else { return }
         schedule(
             buffer: buffer,
             voiceIndex: voiceIndex,
-            volume: Float(max(0, min(1, volume))),
+            gainState: AudioVoiceGainState(domain: .pointer, sampleGain: 1),
+            masterGain: volume,
             pitchVariation: pitchVariation,
             baseRate: baseRate
         )
@@ -516,11 +551,26 @@ final class KeyboardAudioEngine {
     private func schedule(
         buffer: AVAudioPCMBuffer,
         voiceIndex: Int,
-        volume: Float,
+        gainState: AudioVoiceGainState,
+        masterGain: Double,
         pitchVariation: Bool,
         baseRate: Float
     ) {
         let voice = voices[voiceIndex]
+        let previousVolume = voice.player.volume
+        let previousRate = voice.speed.rate
+        voice.player.volume = gainState.outputVolume(masterGain: masterGain)
+        let variation: Float = pitchVariation ? .random(in: 0.97...1.03) : 1
+        voice.speed.rate = max(0.25, min(4, baseRate * variation))
+
+        // Configure the selected voice before resuming an idle engine so the first
+        // render quantum cannot observe the previous gain or playback rate.
+        guard startEngineIfNeeded() else {
+            voice.player.volume = previousVolume
+            voice.speed.rate = previousRate
+            return
+        }
+
         activityEpoch &+= 1
         idlePauseTask?.cancel()
         idlePauseTask = nil
@@ -528,9 +578,7 @@ final class KeyboardAudioEngine {
         let playbackGeneration = voice.playbackGeneration
         voice.isActive = true
         voice.lastScheduledEpoch = activityEpoch
-        voice.player.volume = volume
-        let variation: Float = pitchVariation ? .random(in: 0.97...1.03) : 1
-        voice.speed.rate = max(0.25, min(4, baseRate * variation))
+        voice.gainState = gainState
         voice.player.scheduleBuffer(
             buffer,
             at: nil,
@@ -547,7 +595,9 @@ final class KeyboardAudioEngine {
         if !voice.player.isPlaying {
             guard startPlayback(for: voice) else {
                 voice.isActive = false
+                voice.gainState = nil
                 voice.player.stop()
+                scheduleIdlePauseIfNeeded()
                 return
             }
         }
@@ -606,7 +656,21 @@ final class KeyboardAudioEngine {
         let voice = voices[voiceIndex]
         guard voice.playbackGeneration == generation else { return }
         voice.isActive = false
+        voice.gainState = nil
         scheduleIdlePauseIfNeeded()
+    }
+
+    private func updateActiveVoiceVolumes(
+        masterGain: Double,
+        domain: AudioPlaybackDomain
+    ) {
+        for voice in voices where voice.isActive {
+            guard let nextVolume = voice.gainState?.outputVolume(
+                masterGain: masterGain,
+                updating: domain
+            ) else { continue }
+            voice.player.volume = nextVolume
+        }
     }
 
     private func scheduleIdlePauseIfNeeded() {

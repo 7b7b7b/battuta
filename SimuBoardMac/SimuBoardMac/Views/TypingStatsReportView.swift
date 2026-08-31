@@ -6,6 +6,10 @@ private struct TypingReportRequest: Hashable {
     let endDate: Date
     let comparisonStartDate: Date?
     let comparisonEndDate: Date?
+    let rhythmStartDate: Date
+    let rhythmEndDate: Date
+    let rhythmComparisonStartDate: Date
+    let rhythmComparisonEndDate: Date
 }
 
 private enum TypingRhythmMode: String, CaseIterable, Identifiable, Equatable {
@@ -27,6 +31,7 @@ struct TypingStatsHistoryView: View {
 
     @State private var rhythmMode: TypingRhythmMode = .difference
     @State private var showsAllApplicationsSheet = false
+    @State private var reportDay = Date()
 
     private static var calendar: Calendar {
         var calendar = Calendar.autoupdatingCurrent
@@ -35,12 +40,8 @@ struct TypingStatsHistoryView: View {
         return calendar
     }
 
-    private static var today: Date {
-        calendar.startOfDay(for: Date())
-    }
-
     private var calendar: Calendar { Self.calendar }
-    private var today: Date { Self.today }
+    private var today: Date { calendar.startOfDay(for: reportDay) }
 
     private var selectedRange: TypingDateRange {
         let start = calendar.date(byAdding: .day, value: -364, to: today) ?? today
@@ -54,12 +55,28 @@ struct TypingStatsHistoryView: View {
         return TypingDateRange(startDate: start, endDate: end)
     }
 
+    private var rhythmDateRanges: TypingRhythmDateRanges {
+        .rollingSevenDays(endingAt: today, calendar: calendar)
+    }
+
+    private var rhythmRange: TypingDateRange {
+        rhythmDateRanges.current
+    }
+
+    private var rhythmComparisonRange: TypingDateRange {
+        rhythmDateRanges.comparison
+    }
+
     private var request: TypingReportRequest {
         TypingReportRequest(
             startDate: selectedRange.startDate,
             endDate: selectedRange.endDate,
             comparisonStartDate: comparisonRange.startDate,
-            comparisonEndDate: comparisonRange.endDate
+            comparisonEndDate: comparisonRange.endDate,
+            rhythmStartDate: rhythmRange.startDate,
+            rhythmEndDate: rhythmRange.endDate,
+            rhythmComparisonStartDate: rhythmComparisonRange.startDate,
+            rhythmComparisonEndDate: rhythmComparisonRange.endDate
         )
     }
 
@@ -126,13 +143,18 @@ struct TypingStatsHistoryView: View {
             }
             await model.loadReport(
                 range: selectedRange,
-                comparisonRange: comparisonRange
+                comparisonRange: comparisonRange,
+                rhythmRange: rhythmRange,
+                rhythmComparisonRange: rhythmComparisonRange
             )
         }
         .sheet(isPresented: $showsAllApplicationsSheet) {
             if let report = model.reportSnapshot {
                 allApplicationsSheet(report)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            reportDay = Date()
         }
     }
 
@@ -305,14 +327,20 @@ struct TypingStatsHistoryView: View {
                 Image(systemName: "info.circle")
                     .font(.caption)
                     .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
-                    .help("把过去 365 天按星期和小时聚合；差异模式与此前 365 天比较。")
+                    .help(
+                        L10n.format(
+                            "本期为最近 7 天（%@）；上期为紧邻的前 7 天（%@）。",
+                            dateRangeText(report.rhythmRange),
+                            dateRangeText(report.rhythmComparisonRange)
+                        )
+                    )
 
                 Spacer(minLength: 8)
 
                 Picker(
                     "节律显示方式",
                     selection: Binding(
-                        get: { report.comparisonRange == nil ? .current : rhythmMode },
+                        get: { report.rhythmComparisonRange == nil ? .current : rhythmMode },
                         set: { rhythmMode = $0 }
                     )
                 ) {
@@ -323,14 +351,16 @@ struct TypingStatsHistoryView: View {
                 .labelsHidden()
                 .pickerStyle(.segmented)
                 .frame(width: 126)
-                .disabled(report.comparisonRange == nil)
+                .disabled(report.rhythmComparisonRange == nil)
             }
 
             TypingWeekdayHourHeatmap(
                 values: report.weekdayHourDistribution,
-                mode: report.comparisonRange == nil ? .current : rhythmMode,
-                currentWeekdayOccurrences: weekdayOccurrences(in: report.range),
-                comparisonWeekdayOccurrences: report.comparisonRange.map {
+                mode: report.rhythmComparisonRange == nil ? .current : rhythmMode,
+                currentRange: report.rhythmRange,
+                comparisonRange: report.rhythmComparisonRange,
+                currentWeekdayOccurrences: weekdayOccurrences(in: report.rhythmRange),
+                comparisonWeekdayOccurrences: report.rhythmComparisonRange.map {
                     weekdayOccurrences(in: $0)
                 } ?? [:],
                 metrics: heatmapMetrics
@@ -744,7 +774,9 @@ struct TypingStatsHistoryView: View {
                 Task {
                     await model.loadReport(
                         range: selectedRange,
-                        comparisonRange: comparisonRange
+                        comparisonRange: comparisonRange,
+                        rhythmRange: rhythmRange,
+                        rhythmComparisonRange: rhythmComparisonRange
                     )
                 }
             }
@@ -891,6 +923,8 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
 
     let values: [TypingWeekdayHourAggregate]
     let mode: TypingRhythmMode
+    let currentRange: TypingDateRange
+    let comparisonRange: TypingDateRange?
     let currentWeekdayOccurrences: [Int: Int]
     let comparisonWeekdayOccurrences: [Int: Int]
     let metrics: TypingHeatmapCellMetrics
@@ -1067,11 +1101,11 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
         let hour = String(format: "%02d:00–%02d:00", value.hour, (value.hour + 1) % 24)
         if mode == .current {
             return L10n.format(
-                "%@ %@ · 合计 %@ 个字符；每个该星期平均 %@ 个字符",
+                "%@ %@ · 最近 7 天（%@）：%@ 个字符",
                 weekdayTitle(value.weekday),
                 hour,
-                statsCount(value.characterCount),
-                averageText(currentAverage(value))
+                rangeText(currentRange),
+                statsCount(value.characterCount)
             )
         }
         let current = currentAverage(value)
@@ -1079,13 +1113,22 @@ private struct TypingWeekdayHourHeatmap: View, Equatable {
         let delta = current - comparison
         let deltaText = delta > 0 ? "+\(averageText(delta))" : averageText(delta)
         return L10n.format(
-            "%@ %@ · 本期 %@ 个字符，上期 %@ 个字符；每个该星期平均变化 %@ 个字符",
+            "%@ %@ · 本期（%@）：%@ 个字符；上期（%@）：%@ 个字符；变化 %@ 个字符",
             weekdayTitle(value.weekday),
             hour,
+            rangeText(currentRange),
             statsCount(value.characterCount),
+            rangeText(comparisonRange),
             statsCount(value.comparisonCharacterCount),
             deltaText
         )
+    }
+
+    private func rangeText(_ range: TypingDateRange?) -> String {
+        guard let range else { return L10n.tr("未启用") }
+        let start = range.startDate.formatted(.dateTime.month().day().locale(L10n.locale))
+        let end = range.endDate.formatted(.dateTime.month().day().locale(L10n.locale))
+        return start == end ? start : "\(start)–\(end)"
     }
 
     private func averageText(_ value: Double) -> String {
