@@ -26,6 +26,7 @@ private enum SoundPackEditorPendingAction {
 
 @MainActor
 struct SoundPackEditorView: View {
+    @Environment(\.locale) private var locale
     @StateObject private var editor: SoundPackEditorModel
     @State private var importPurpose: SoundPackEditorImportPurpose?
     @State private var isShowingFileImporter = false
@@ -62,9 +63,13 @@ struct SoundPackEditorView: View {
             )
             .frame(width: 340)
         }
+        // Keep editor/model state above this boundary while ensuring cached
+        // controls and labels are rebuilt for an in-app language change.
+        .id(locale.identifier)
         .frame(minWidth: 1_120, idealWidth: 1_240, minHeight: 660, idealHeight: 760)
         .battutaWindowGlass()
         .tint(BattutaVisualStyle.actionAccent)
+        .environment(\.locale, locale)
         .disabled(editor.isWorking)
         .task { await editor.loadInitialState() }
         .fileImporter(
@@ -78,8 +83,8 @@ struct SoundPackEditorView: View {
         }
         .alert(item: $editor.errorPresentation) { error in
             Alert(
-                title: Text(error.title),
-                message: Text(error.message),
+                title: Text(L10n.tr(error.title)),
+                message: Text(L10n.tr(error.message)),
                 dismissButton: .default(Text("好"))
             )
         }
@@ -226,7 +231,7 @@ private struct SoundPackSidebar: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("新建音色包")
+                .help(L10n.tr("新建音色包"))
             }
             .padding(12)
 
@@ -271,7 +276,7 @@ private struct SoundPackSidebar: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!editor.canExport || editor.isWorking || editor.isDirty)
-                .help(editor.isDirty ? "请先保存当前修改，再导出音色包" : "导出当前音色包")
+                .help(L10n.tr(editor.isDirty ? "请先保存当前修改，再导出音色包" : "导出当前音色包"))
 
                 if editor.canExport, editor.isDirty {
                     Text("保存当前修改后即可导出")
@@ -293,7 +298,7 @@ private struct SoundPackSidebar: View {
     }
 
     private func sidebarAction(_ title: String, symbol: String) -> some View {
-        Label(title, systemImage: symbol)
+        Label(L10n.tr(title), systemImage: symbol)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 9)
             .padding(.vertical, 7)
@@ -374,6 +379,7 @@ private struct SoundPackKeyboardWorkspace: View {
             BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
             SoundPackKeyboardView(editor: editor)
+                .equatable()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
@@ -390,7 +396,7 @@ private struct SoundPackKeyboardWorkspace: View {
                 }
                 Spacer()
                 if let key = editor.selectedKey {
-                    Text("已选：\(key.label) · \(key.row.diyDisplayName)")
+                    Text(L10n.format("已选：%@ · %@", key.label, key.row.diyDisplayName))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -426,7 +432,7 @@ private struct SoundPackInspector: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("检查器")
                         .font(.headline)
-                    Text(inspectorContext)
+                    Text(L10n.tr(inspectorContext))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -457,7 +463,7 @@ private struct SoundPackInspector: View {
                 if let message = editor.statusMessage {
                     HStack(spacing: 7) {
                         if editor.isWorking { ProgressView().controlSize(.small) }
-                        Text(message)
+                        Text(L10n.tr(message))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
@@ -492,7 +498,7 @@ private struct SoundPackInspector: View {
 
     private var inspectorContext: String {
         if editor.mappingMode == .perKey, let key = editor.selectedKey {
-            return "当前按键：\(key.label)"
+            return L10n.format("当前按键：%@", key.label)
         }
         return editor.mappingMode.displayName
     }
@@ -526,7 +532,10 @@ private struct SoundPackInspector: View {
 
             if let baseID = editor.manifest?.baseProfileID,
                let profile = SwitchProfile(rawValue: baseID) {
-                Label("未设置处继承 \(profile.displayName)", systemImage: "arrow.triangle.branch")
+                Label(
+                    L10n.format("未设置处继承 %@", profile.displayName),
+                    systemImage: "arrow.triangle.branch"
+                )
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -609,7 +618,7 @@ private struct SoundPackSlotPairEditor: View {
                 Label("上传完整击键并自动拆分", systemImage: "scissors")
                     .frame(maxWidth: .infinity)
             }
-            .help("适合一个文件同时包含按下与抬起声音的录音")
+            .help(L10n.tr("适合一个文件同时包含按下与抬起声音的录音"))
         }
         .padding(14)
         .battutaPanel()
@@ -639,7 +648,7 @@ private struct SoundPackPhaseAssignmentCard: View {
                     Image(systemName: "play.fill")
                 }
                 .buttonStyle(.borderless)
-                .help("试听")
+                .help(L10n.tr("试听"))
             }
 
             Text(editor.assetLabel(assetID))
@@ -687,7 +696,10 @@ private struct SoundPackPerKeyEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 11) {
-            BattutaSectionHeading("\(key.label) · 单键覆盖", symbol: "keyboard.badge.ellipsis")
+            BattutaSectionHeading(
+                L10n.format("%@ · 单键覆盖", key.label),
+                symbol: "keyboard.badge.ellipsis"
+            )
             perKeyPhase(.press)
             perKeyPhase(.release)
 
@@ -759,7 +771,7 @@ private struct SoundPackPerKeyEditor: View {
                 }
                 .controlSize(.small)
             } else {
-                Text(choice == .inherit ? "沿用特殊键、所在行、通用音或基础音色。" : "这个阶段不播放声音。")
+                Text(L10n.tr(choice == .inherit ? "沿用特殊键、所在行、通用音或基础音色。" : "这个阶段不播放声音。"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -773,8 +785,8 @@ private struct SoundPackPerKeyEditor: View {
 private extension KeySoundPhase {
     var displayName: String {
         switch self {
-        case .press: "按下"
-        case .release: "回弹"
+        case .press: "按下".localized
+        case .release: "回弹".localized
         }
     }
 }
@@ -787,9 +799,9 @@ private struct ContentUnavailableViewCompat: View {
     var body: some View {
         VStack(spacing: 9) {
             BattutaIconTile(symbol: systemImage, tint: .secondary, size: 48, symbolSize: 21)
-            Text(title)
+            Text(L10n.tr(title))
                 .font(.headline)
-            Text(description)
+            Text(L10n.tr(description))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

@@ -17,12 +17,16 @@ struct SimuBoardApp: App {
     @StateObject private var model: AppModel
 
     init() {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        let model = AppModel(startsServices: !arguments.contains("--preview-only"))
+        #else
         let model = AppModel()
+        #endif
         _model = StateObject(wrappedValue: model)
         appDelegate.model = model
 
         #if DEBUG
-        let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--show-stats")
             || arguments.contains("--show-diy")
             || arguments.contains("--show-menu-preview")
@@ -45,6 +49,7 @@ struct SimuBoardApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuBarView(model: model)
+                .battutaUserPreferences(model.settings)
                 .onAppear {
                     model.updates.scheduleAutomaticCheck(after: 0)
                 }
@@ -62,14 +67,19 @@ private enum BattutaDebugPreviewWindow {
     private static var window: NSWindow?
 
     static func showMenu(model: AppModel) {
-        let controller = BattutaGlassHostingController(rootView: MenuBarView(model: model))
+        let content = MenuBarView(model: model)
+            .battutaUserPreferences(
+                model.settings,
+                windowTitleKey: "Battuta · 菜单预览"
+            )
+        let controller = BattutaGlassHostingController(rootView: content)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 360, height: 760),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Battuta · 菜单预览"
+        window.title = L10n.tr("Battuta · 菜单预览")
         BattutaWindowChrome.apply(to: window)
         window.contentViewController = controller
         window.isReleasedWhenClosed = false

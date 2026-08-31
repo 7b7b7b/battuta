@@ -41,7 +41,7 @@ private struct TypingStatsKeyboardPresentation: Equatable {
                 KeyboardKeyDescriptor(
                     id: KeyboardKeyID("stats.other.\(keyCode)"),
                     keyCode: keyCode,
-                    label: "键码 \(keyCode)",
+                    label: L10n.format("键码 %@", "\(keyCode)"),
                     row: .r4
                 )
             }
@@ -80,7 +80,7 @@ struct TypingStatsKeyboardView: View {
                         VStack(alignment: .trailing, spacing: 10) {
                             Picker("统计范围", selection: $scope) {
                                 ForEach(TypingKeyCountScope.allCases) { scope in
-                                    Text(scope.rawValue).tag(scope)
+                                    Text(L10n.tr(scope.rawValue)).tag(scope)
                                 }
                             }
                             .labelsHidden()
@@ -152,11 +152,12 @@ struct TypingStatsKeyboardView: View {
     private func heatLegend(scale: TypingHeatmapScale) -> some View {
         BattutaHeatmapLegend(
             leadingLabel: scale.hasValues
-                ? "低 \(statsCount(Int64(scale.low.rounded())))"
-                : "低 0",
+                ? L10n.format("低 %@ ", statsCount(Int64(scale.low.rounded())))
+                    .trimmingCharacters(in: .whitespaces)
+                : L10n.tr("低 0"),
             trailingLabel: scale.hasValues
-                ? "高 ≥\(statsCount(Int64(scale.high.rounded())))"
-                : "高 0"
+                ? L10n.format("高 ≥%@", statsCount(Int64(scale.high.rounded())))
+                : L10n.tr("高 0")
         )
     }
 }
@@ -268,8 +269,6 @@ private struct TypingStatsKeyboardExtendedSection: View, Equatable {
 
 @MainActor
 private struct FittedTypingStatsKeyboard: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     let counts: [UInt16: Int64]
     let heatScale: TypingHeatmapScale
     let exposesEmptyKeyMetadata: Bool
@@ -350,7 +349,7 @@ private struct FittedTypingStatsKeyboard: View {
         if let key = entry.renderedKey.descriptor {
             return key.label
         }
-        return "锁定或 Touch ID 键"
+        return L10n.tr("锁定或 Touch ID 键")
     }
 
     private func accessibilityValue(
@@ -358,9 +357,9 @@ private struct FittedTypingStatsKeyboard: View {
         count: Int64
     ) -> String {
         if entry.renderedKey.descriptor != nil {
-            return "\(count) 次"
+            return L10n.format("%@ 次", statsCount(count))
         }
-        return "系统不提供普通按键计数"
+        return L10n.tr("系统不提供普通按键计数")
     }
 
     private func helpText(
@@ -368,9 +367,9 @@ private struct FittedTypingStatsKeyboard: View {
         count: Int64
     ) -> String {
         if let key = entry.renderedKey.descriptor {
-            return "\(key.label)：\(statsCount(count)) 次"
+            return L10n.format("%@：%@ 次", key.label, statsCount(count))
         }
-        return "锁定或 Touch ID 键：系统不提供普通按键事件"
+        return L10n.tr("锁定或 Touch ID 键：系统不提供普通按键事件")
     }
 
     private func draw(
@@ -387,7 +386,7 @@ private struct FittedTypingStatsKeyboard: View {
                 cornerRadius: 7,
                 style: .continuous
             )
-            context.fill(shadowPath, with: .color(.black.opacity(0.055)))
+            context.fill(shadowPath, with: .color(BattutaVisualStyle.keyboardShadow))
         }
 
         context.fill(keyPath, with: .color(BattutaVisualStyle.surface))
@@ -507,9 +506,7 @@ private struct FittedTypingStatsKeyboard: View {
 
     private func keycapForeground(for count: Int64) -> Color {
         guard count > 0 else { return .primary }
-        return colorScheme == .dark
-            ? .white.opacity(0.92)
-            : .black.opacity(0.84)
+        return BattutaVisualStyle.activeKeyForeground
     }
 
     private func keycapIntensity(for count: Int64) -> Double {
@@ -519,8 +516,6 @@ private struct FittedTypingStatsKeyboard: View {
 
 @MainActor
 private struct TypingStatsKeycap: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     let key: KeyboardKeyDescriptor
     let count: Int64
     let heatScale: TypingHeatmapScale
@@ -590,7 +585,7 @@ private struct TypingStatsKeycap: View {
                 )
         )
         .shadow(
-            color: .black.opacity(count > 0 ? 0.055 : 0),
+            color: count > 0 ? BattutaVisualStyle.keyboardShadow : .clear,
             radius: count > 0 ? 1 : 0,
             y: count > 0 ? 1 : 0
         )
@@ -600,13 +595,13 @@ private struct TypingStatsKeycap: View {
                 content
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(key.label)
-                    .accessibilityValue("\(count) 次")
-                    .help("\(key.label)：\(statsCount(count)) 次")
+                    .accessibilityValue(L10n.format("%@ 次", statsCount(count)))
+                    .help(L10n.format("%@：%@ 次", key.label, statsCount(count)))
             } else if exposesEmptyMetadata {
                 content
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(key.label)
-                    .accessibilityValue("0 次")
+                    .accessibilityValue(L10n.tr("0 次"))
             } else {
                 content.accessibilityHidden(true)
             }
@@ -637,23 +632,52 @@ private struct TypingStatsKeycap: View {
 
     private var keycapForeground: Color {
         guard count > 0 else { return .primary }
-        return colorScheme == .dark
-            ? .white.opacity(0.92)
-            : .black.opacity(0.84)
+        return BattutaVisualStyle.activeKeyForeground
     }
 }
 
 private func statsCompactKeyCount(_ count: Int64) -> String {
-    guard count >= 10_000 else { return statsCount(count) }
-    if count >= 100_000_000 {
-        return compactChineseNumber(Double(count) / 100_000_000, unit: "亿")
+    if statsPrefersChineseUI() {
+        guard count >= 10_000 else { return statsCount(count) }
+        if count >= 100_000_000 {
+            return compactChineseNumber(Double(count) / 100_000_000, unit: "亿")
+        }
+        return compactChineseNumber(Double(count) / 10_000, unit: "万")
     }
-    return compactChineseNumber(Double(count) / 10_000, unit: "万")
+    return compactEnglishNumber(count)
 }
 
 private func compactChineseNumber(_ value: Double, unit: String) -> String {
     let decimals = value < 100 ? 1 : 0
     return value.formatted(
-        .number.precision(.fractionLength(0...decimals)).rounded(rule: .down)
+        .number
+            .precision(.fractionLength(0...decimals))
+            .rounded(rule: .down)
+            .locale(L10n.locale)
     ) + unit
+}
+
+private func compactEnglishNumber(_ count: Int64) -> String {
+    guard count >= 1_000 else { return statsCount(count) }
+
+    let units: [(threshold: Double, suffix: String)] = [
+        (1_000_000_000, "B"),
+        (1_000_000, "M"),
+        (1_000, "K"),
+    ]
+
+    let absolute = Double(count)
+    for unit in units where absolute >= unit.threshold {
+        let scaled = absolute / unit.threshold
+        let decimals = scaled < 10 ? 1 : 0
+        let formatted = scaled.formatted(
+            .number
+                .precision(.fractionLength(0...decimals))
+                .rounded(rule: .down)
+                .locale(L10n.locale)
+        )
+        return formatted + unit.suffix
+    }
+
+    return statsCount(count)
 }

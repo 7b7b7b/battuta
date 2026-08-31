@@ -73,31 +73,31 @@ enum PointerSoundProfile: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .classic: "经典微动"
-        case .silent: "静音微动"
-        case .crisp: "电竞脆响"
-        case .heavy: "厚重办公"
-        case .glass: "玻璃触控板"
+        case .classic: "经典微动".localized
+        case .silent: "静音微动".localized
+        case .crisp: "电竞脆响".localized
+        case .heavy: "厚重办公".localized
+        case .glass: "玻璃触控板".localized
         }
     }
 
     var family: String {
         switch self {
-        case .classic: "通用鼠标"
-        case .silent: "静音鼠标"
-        case .crisp: "轻快点击"
-        case .heavy: "办公鼠标"
-        case .glass: "触控板"
+        case .classic: "通用鼠标".localized
+        case .silent: "静音鼠标".localized
+        case .crisp: "轻快点击".localized
+        case .heavy: "办公鼠标".localized
+        case .glass: "触控板".localized
         }
     }
 
     var tone: String {
         switch self {
-        case .classic: "清晰、均衡"
-        case .silent: "柔和、低调"
-        case .crisp: "短促、明亮"
-        case .heavy: "低沉、扎实"
-        case .glass: "干净、通透"
+        case .classic: "清晰、均衡".localized
+        case .silent: "柔和、低调".localized
+        case .crisp: "短促、明亮".localized
+        case .heavy: "低沉、扎实".localized
+        case .glass: "干净、通透".localized
         }
     }
 }

@@ -12,10 +12,12 @@ private enum TypingStatsSection: String, CaseIterable, Identifiable, Hashable {
 private struct TypingStatsRefreshTask: Hashable {
     let section: TypingStatsSection
     let timelineRange: TypingTimelineRange
+    let isRecordingEnabled: Bool
 }
 
 @MainActor
 struct TypingStatsView: View {
+    @Environment(\.locale) private var locale
     @ObservedObject var model: TypingStatsModel
     @ObservedObject var settings: AppSettings
     @State private var selectedSection: TypingStatsSection = {
@@ -37,13 +39,18 @@ struct TypingStatsView: View {
             content
             footer
         }
+        // Recreate only the rendered subtree when the app language changes.
+        // State owned by TypingStatsView (such as the selected tab) remains
+        // intact, while cached formatters, pickers and heatmap labels refresh.
+        .id(locale.identifier)
         .frame(minWidth: 820, idealWidth: 1_040, minHeight: 600, idealHeight: 760)
         .battutaWindowGlass()
         .tint(BattutaVisualStyle.actionAccent)
         .task(
             id: TypingStatsRefreshTask(
                 section: selectedSection,
-                timelineRange: model.timelineRange
+                timelineRange: model.timelineRange,
+                isRecordingEnabled: settings.isTypingStatsEnabled
             )
         ) {
             await refreshWhileVisible(
@@ -123,7 +130,7 @@ struct TypingStatsView: View {
             HStack(spacing: 16) {
                 Picker("统计页面", selection: $selectedSection) {
                     ForEach(TypingStatsSection.allCases) { section in
-                        Text(section.rawValue).tag(section)
+                        Text(L10n.tr(section.rawValue)).tag(section)
                     }
                 }
                 .labelsHidden()
@@ -215,7 +222,10 @@ struct TypingStatsView: View {
     }
 
     private func refreshWarning(_ message: String) -> some View {
-        Label("刷新失败，正在显示上次成功的数据：\(message)", systemImage: "arrow.clockwise.circle")
+        Label(
+            L10n.format("刷新失败，正在显示上次成功的数据：%@", message),
+            systemImage: "arrow.clockwise.circle"
+        )
             .font(.caption)
             .foregroundStyle(.orange)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -257,19 +267,22 @@ struct TypingStatsView: View {
         // The history page owns its one-off annual report refresh. Keeping the
         // today-page polling loop alive here needlessly rebuilt the full 365-day
         // chart every few seconds while the user was reading or scrolling it.
-        guard section != .history else { return }
+        guard section != .history, settings.isTypingStatsEnabled else { return }
 
         while !Task.isCancelled {
             do {
                 try await Task.sleep(
-                    for: .seconds(refreshInterval(for: section, range: range))
+                    for: .seconds(refreshInterval(for: section, range: range)),
+                    tolerance: .milliseconds(750)
                 )
             } catch is CancellationError {
                 return
             } catch {
                 return
             }
-            guard selectedSection == section, model.timelineRange == range else {
+            guard settings.isTypingStatsEnabled,
+                  selectedSection == section,
+                  model.timelineRange == range else {
                 return
             }
             await model.refresh(for: refreshTarget(for: section))
@@ -311,10 +324,18 @@ private struct TypingStatsDataFreshnessView: View {
     var body: some View {
         HStack(spacing: 12) {
             if let dataDate {
-                Label("数据截至 \(statsTimestamp(dataDate))", systemImage: "clock")
+                Label(
+                    L10n.format("数据截至 %@", statsTimestamp(dataDate)),
+                    systemImage: "clock"
+                )
             }
             Text(
-                "读取于 \((readStatus.lastReadAt ?? fallbackReadDate).formatted(date: .omitted, time: .standard))"
+                L10n.format(
+                    "读取于 %@",
+                    (readStatus.lastReadAt ?? fallbackReadDate).formatted(
+                        .dateTime.hour().minute().second().locale(L10n.locale)
+                    )
+                )
             )
         }
         .font(.caption2)
@@ -346,32 +367,41 @@ private struct TypingStatsTodayView: View {
                     valueDetail: "按字符键触发估算",
                     cornerMetric: StatsInstrumentMetric(
                         title: "今日峰值",
-                        value: "\(snapshot.today.peakCPS) 字/秒"
+                        value: L10n.format("%@ 字/秒", statsCount(snapshot.today.peakCPS))
                     ),
                     metrics: [
                         StatsInstrumentMetric(
                             title: "最多应用",
-                            value: snapshot.today.topAppName ?? "暂无",
+                            value: snapshot.today.topAppName ?? L10n.tr("暂无"),
                             detail: snapshot.apps.first.map {
-                                "\(statsCount($0.characterCount)) 个字符"
-                            } ?? "今天还没有输入"
+                                L10n.format("%@ 个字符", statsCount($0.characterCount))
+                            } ?? L10n.tr("今天还没有输入")
                         ),
                         StatsInstrumentMetric(
                             title: "活跃时间",
                             value: statsActiveTime(snapshot.today.activeSeconds),
-                            detail: "\(snapshot.today.activeMinuteBuckets) 个输入分钟"
+                            detail: L10n.format(
+                                "%@ 个输入分钟",
+                                "\(snapshot.today.activeMinuteBuckets)"
+                            )
                         ),
                         StatsInstrumentMetric(
                             title: "空格键",
-                            value: "\(statsCount(snapshot.todayKeyCounts[49, default: 0])) 次",
+                            value: L10n.format(
+                                "%@ 次",
+                                statsCount(snapshot.todayKeyCounts[49, default: 0])
+                            ),
                             detail: "不含长按连发"
                         ),
                     ],
-                    accessibilityValue: "今日 \(snapshot.today.characterCount) 个字符，"
-                        + "最多应用 \(snapshot.today.topAppName ?? "暂无")，"
-                        + "峰值 \(snapshot.today.peakCPS) 字符每秒，"
-                        + "活跃 \(statsActiveTime(snapshot.today.activeSeconds))，"
-                        + "空格键 \(snapshot.todayKeyCounts[49, default: 0]) 次"
+                    accessibilityValue: L10n.format(
+                        "今日 %@ 个字符，最多应用 %@，峰值 %@ 字符每秒，活跃 %@，空格键 %@ 次",
+                        statsCount(snapshot.today.characterCount),
+                        snapshot.today.topAppName ?? L10n.tr("暂无"),
+                        statsCount(snapshot.today.peakCPS),
+                        statsActiveTime(snapshot.today.activeSeconds),
+                        statsCount(snapshot.todayKeyCounts[49, default: 0])
+                    )
                 )
 
                 VStack(alignment: .leading, spacing: 14) {
@@ -447,8 +477,14 @@ private struct TypingStatsTodayView: View {
                             }
                         }
                         .frame(minHeight: 235)
-                        .accessibilityLabel("最近十分钟字符数曲线")
-                        .accessibilityValue("合计 \(recentTotal) 个字符，单个区间峰值 \(recentPeak) 个字符")
+                        .accessibilityLabel(L10n.tr("最近十分钟字符数曲线"))
+                        .accessibilityValue(
+                            L10n.format(
+                                "合计 %@ 个字符，单个区间峰值 %@ 个字符",
+                                statsCount(recentTotal),
+                                statsCount(recentPeak)
+                            )
+                        )
 
                         Text("空白区间表示没有有效输入。")
                             .font(.caption2)
@@ -469,7 +505,7 @@ private struct TypingStatsTodayView: View {
             Text(value)
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
-            Text(title)
+            Text(L10n.tr(title))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -492,7 +528,11 @@ private struct TypingStatsAppsView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Text(snapshot.apps.count == 20 ? "显示前 20 个应用" : "显示 \(snapshot.apps.count) 个应用")
+                    Text(
+                        snapshot.apps.count == 20
+                            ? L10n.tr("显示前 20 个应用")
+                            : L10n.format("显示 %@ 个应用", "\(snapshot.apps.count)")
+                    )
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
@@ -551,7 +591,7 @@ private struct StatsInstrumentCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
-                Label(title, systemImage: symbol)
+                Label(L10n.tr(title), systemImage: symbol)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
                     .labelStyle(.titleAndIcon)
@@ -563,7 +603,7 @@ private struct StatsInstrumentCard: View {
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
                         .monospacedDigit()
-                    Text(cornerMetric.title)
+                    Text(L10n.tr(cornerMetric.title))
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
                 }
@@ -578,12 +618,12 @@ private struct StatsInstrumentCard: View {
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.68)
-                        Text(unit)
+                        Text(L10n.tr(unit))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
                     }
 
-                    Text(valueDetail)
+                    Text(L10n.tr(valueDetail))
                         .font(.caption2)
                         .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
                 }
@@ -601,7 +641,7 @@ private struct StatsInstrumentCard: View {
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(metric.title)
+                            Text(L10n.tr(metric.title))
                                 .font(.caption2.weight(.medium))
                                 .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
                             Text(metric.value)
@@ -636,11 +676,11 @@ private struct StatsInstrumentCard: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                .stroke(BattutaVisualStyle.instrumentStroke, lineWidth: 1)
         }
-        .shadow(color: Color.black.opacity(0.16), radius: 12, y: 6)
+        .shadow(color: BattutaVisualStyle.panelShadow, radius: 12, y: 6)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
+        .accessibilityLabel(L10n.tr(title))
         .accessibilityValue(accessibilityValue)
     }
 }
@@ -684,9 +724,9 @@ private struct TypingAppRow: View {
 
                 HStack {
                     Text(statsPercent(app.characterCount, total: total))
-                    Text("活跃 \(statsActiveTime(app.activeSeconds))")
+                    Text(L10n.format("活跃 %@", statsActiveTime(app.activeSeconds)))
                     Spacer()
-                    Text("峰值 \(app.peakCPS) 字符/秒")
+                    Text(L10n.format("峰值 %@ 字符/秒", statsCount(app.peakCPS)))
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -695,10 +735,17 @@ private struct TypingAppRow: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("第 \(rank) 名，\(app.displayName)")
+        .accessibilityLabel(
+            L10n.format("第 %@ 名，%@", "\(rank)", app.displayName)
+        )
         .accessibilityValue(
-            "\(app.characterCount) 个字符，占比 \(statsPercent(app.characterCount, total: total))，"
-                + "活跃 \(statsActiveTime(app.activeSeconds))，峰值 \(app.peakCPS) 字符每秒"
+            L10n.format(
+                "%@ 个字符，占比 %@，活跃 %@，峰值 %@ 字符每秒",
+                statsCount(app.characterCount),
+                statsPercent(app.characterCount, total: total),
+                statsActiveTime(app.activeSeconds),
+                statsCount(app.peakCPS)
+            )
         )
     }
 }
@@ -718,9 +765,9 @@ private struct StatsPlaceholderView: View {
             } else {
                 BattutaIconTile(symbol: symbol, tint: .secondary, size: 48, symbolSize: 21)
             }
-            Text(title)
+            Text(L10n.tr(title))
                 .font(.headline)
-            Text(message)
+            Text(L10n.tr(message))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -734,36 +781,59 @@ private struct StatsPlaceholderView: View {
 }
 
 func statsCount(_ value: Int64) -> String {
-    value.formatted(.number.grouping(.automatic))
+    value.formatted(.number.grouping(.automatic).locale(L10n.locale))
+}
+
+func statsPrefersChineseUI(locale: Locale = L10n.locale) -> Bool {
+    if let languageCode = locale.language.languageCode?.identifier {
+        return languageCode.hasPrefix("zh")
+    }
+    return locale.identifier.lowercased().hasPrefix("zh")
 }
 
 func statsActiveTime(_ seconds: Int64) -> String {
     if seconds >= 3_600 {
-        return "\(seconds / 3_600) 小时 \((seconds % 3_600) / 60) 分"
+        return L10n.format(
+            "%@ 小时 %@ 分",
+            "\(seconds / 3_600)",
+            "\((seconds % 3_600) / 60)"
+        )
     }
     if seconds >= 60 {
-        return "\(seconds / 60) 分 \(seconds % 60) 秒"
+        return L10n.format("%@ 分 %@ 秒", "\(seconds / 60)", "\(seconds % 60)")
     }
-    return "\(seconds) 秒"
+    return L10n.format("%@ 秒", "\(seconds)")
 }
 
 func statsPercent(_ value: Int64, total: Int64) -> String {
     guard total > 0 else { return "0%" }
     let percent = Double(value) * 100 / Double(total)
-    return percent.formatted(.number.precision(.fractionLength(percent < 10 ? 1 : 0))) + "%"
+    return percent.formatted(
+        .number
+            .precision(.fractionLength(percent < 10 ? 1 : 0))
+            .locale(L10n.locale)
+    ) + "%"
 }
 
 func lastInputDescription(_ date: Date?) -> String {
-    guard let date else { return "还没有输入记录" }
+    guard let date else { return L10n.tr("还没有输入记录") }
     if Calendar.current.isDateInToday(date) {
-        return "最近输入 \(date.formatted(date: .omitted, time: .shortened))"
+        return L10n.format(
+            "最近输入 %@",
+            date.formatted(.dateTime.hour().minute().locale(L10n.locale))
+        )
     }
-    return "最近输入 \(date.formatted(.dateTime.month().day().hour().minute()))"
+    return L10n.format(
+        "最近输入 %@",
+        date.formatted(.dateTime.month().day().hour().minute().locale(L10n.locale))
+    )
 }
 
 func statsTimestamp(_ date: Date) -> String {
     if Calendar.current.isDateInToday(date) {
-        return date.formatted(date: .omitted, time: .standard)
+        return date.formatted(.dateTime.hour().minute().second().locale(L10n.locale))
     }
-    return date.formatted(.dateTime.month().day().hour().minute().second())
+    return date.formatted(
+        .dateTime.month().day().hour().minute().second().locale(L10n.locale)
+    )
 }

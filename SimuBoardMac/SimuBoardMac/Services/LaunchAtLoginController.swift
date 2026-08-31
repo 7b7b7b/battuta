@@ -77,7 +77,10 @@ final class LaunchAtLoginController: ObservableObject {
                 try service.register()
                 updateState()
             } catch {
-                operationError = "无法启用登录时启动：\(error.localizedDescription)"
+                operationError = L10n.format(
+                    "无法启用登录时启动：%@",
+                    L10n.tr(error.localizedDescription)
+                )
                 updateState()
             }
         @unknown default:
@@ -94,7 +97,10 @@ final class LaunchAtLoginController: ObservableObject {
                 try service.unregister()
                 updateState()
             } catch {
-                operationError = "无法关闭登录时启动：\(error.localizedDescription)"
+                operationError = L10n.format(
+                    "无法关闭登录时启动：%@",
+                    L10n.tr(error.localizedDescription)
+                )
                 updateState()
             }
         @unknown default:
@@ -111,7 +117,7 @@ final class LaunchAtLoginController: ObservableObject {
             case .enabled, .requiresApproval:
                 state = .failed(
                     operationError
-                        ?? "系统登录项仍然开启，请重试或在系统设置中关闭 Battuta。"
+                        ?? L10n.tr("系统登录项仍然开启，请重试或在系统设置中关闭 Battuta。")
                 )
             @unknown default:
                 state = operationError.map(State.failed) ?? .disabled

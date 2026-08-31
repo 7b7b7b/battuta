@@ -45,41 +45,65 @@ enum AudioSplitError: Error, LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case let .invalidConfiguration(message):
-            "音频拆分配置无效：\(message)"
+            L10n.format("音频拆分配置无效：%@", message)
         case .sourceNotFound:
-            "找不到音频文件。"
+            L10n.tr("找不到音频文件。")
         case .sourceIsNotARegularFile:
-            "选择的项目不是普通音频文件。"
+            L10n.tr("选择的项目不是普通音频文件。")
         case .sourceIsEmpty:
-            "音频文件为空。"
+            L10n.tr("音频文件为空。")
         case let .sourceIsTooLarge(actualBytes, maximumBytes):
-            "音频文件过大（\(actualBytes) 字节，上限 \(maximumBytes) 字节）。"
+            L10n.format(
+                "音频文件过大（%@ 字节，上限 %@ 字节）。",
+                "\(actualBytes)",
+                "\(maximumBytes)"
+            )
         case let .decodedAudioIsTooLarge(estimatedBytes, maximumBytes):
-            "音频解码后过大（预计 \(estimatedBytes) 字节，上限 \(maximumBytes) 字节）。"
+            L10n.format(
+                "音频解码后过大（预计 %@ 字节，上限 %@ 字节）。",
+                "\(estimatedBytes)",
+                "\(maximumBytes)"
+            )
         case .unsupportedSourceFormat:
-            "音频格式或声道布局不受支持。"
+            L10n.tr("音频格式或声道布局不受支持。")
         case let .durationOutOfRange(actual, minimum, maximum):
-            "音频时长 \(actual.formatted(.number.precision(.fractionLength(3)))) 秒不在允许范围 \(minimum)–\(maximum) 秒内。"
+            L10n.format(
+                "音频时长 %@ 秒不在允许范围 %@–%@ 秒内。",
+                actual.formatted(
+                    .number.precision(.fractionLength(3)).locale(L10n.locale)
+                ),
+                "\(minimum)",
+                "\(maximum)"
+            )
         case .decodedAudioIsEmpty:
-            "音频解码后没有可分析的采样。"
+            L10n.tr("音频解码后没有可分析的采样。")
         case let .decodingFailed(message):
-            "无法读取音频：\(message)"
+            L10n.format("无法读取音频：%@", message)
         case .conversionFailed:
-            "无法将音频转换为 48 kHz 单声道。"
+            L10n.tr("无法将音频转换为 48 kHz 单声道。")
         case let .invalidSplitTime(actual, duration):
-            "拆分时间 \(actual) 秒超出有效范围（音频总长 \(duration) 秒）。"
+            L10n.format(
+                "拆分时间 %@ 秒超出有效范围（音频总长 %@ 秒）。",
+                "\(actual)",
+                "\(duration)"
+            )
         case let .invalidReleaseEndTime(actual, splitTime, duration):
-            "回弹结束时间 \(actual) 秒无效；它必须晚于 \(splitTime) 秒且不超过 \(duration) 秒。"
+            L10n.format(
+                "回弹结束时间 %@ 秒无效；它必须晚于 %@ 秒且不超过 %@ 秒。",
+                "\(actual)",
+                "\(splitTime)",
+                "\(duration)"
+            )
         case .destinationsMustBeDifferent:
-            "按下与回弹音频必须导出到不同文件。"
+            L10n.tr("按下与回弹音频必须导出到不同文件。")
         case .destinationMatchesSource:
-            "导出位置不能覆盖原始音频。"
+            L10n.tr("导出位置不能覆盖原始音频。")
         case let .destinationAlreadyExists(url):
-            "目标文件已存在：\(url.lastPathComponent)"
+            L10n.format("目标文件已存在：%@", url.lastPathComponent)
         case .cannotCreateOutputBuffer:
-            "无法创建导出音频缓冲区。"
+            L10n.tr("无法创建导出音频缓冲区。")
         case let .exportFailed(message):
-            "导出音频失败：\(message)"
+            L10n.format("导出音频失败：%@", message)
         }
     }
 }
@@ -394,7 +418,9 @@ actor AudioSplitService {
               configuration.maximumChannelCount > 0,
               configuration.waveformPointCount > 0,
               configuration.envelopePointCount > 0 else {
-            throw AudioSplitError.invalidConfiguration("参数必须为有限正数，且最短片段不能超过最短音频的一半。")
+            throw AudioSplitError.invalidConfiguration(
+                L10n.tr("参数必须为有限正数，且最短片段不能超过最短音频的一半。")
+            )
         }
     }
 
@@ -486,7 +512,7 @@ actor AudioSplitService {
                 pcmFormat: sourceFormat,
                 frameCapacity: AVAudioFrameCount(file.length)
             ) else {
-                throw AudioSplitError.decodingFailed("无法分配输入缓冲区。")
+                throw AudioSplitError.decodingFailed(L10n.tr("无法分配输入缓冲区。"))
             }
             try file.read(into: sourceBuffer)
             try Task.checkCancellation()
@@ -873,7 +899,7 @@ actor AudioSplitService {
         }
         guard press.pathExtension.lowercased() == "wav",
               release.pathExtension.lowercased() == "wav" else {
-            throw AudioSplitError.exportFailed("目标文件扩展名必须是 .wav。")
+            throw AudioSplitError.exportFailed(L10n.tr("目标文件扩展名必须是 .wav。"))
         }
         if !overwriteExisting {
             if FileManager.default.fileExists(atPath: press.path) {
@@ -959,7 +985,10 @@ actor AudioSplitService {
             }
             if !rollbackFailures.isEmpty {
                 throw AudioSplitError.exportFailed(
-                    "导出失败，且无法完整恢复原文件：\(rollbackFailures.joined(separator: "；"))"
+                    L10n.format(
+                        "导出失败，且无法完整恢复原文件：%@",
+                        rollbackFailures.joined(separator: "; ")
+                    )
                 )
             }
             throw error

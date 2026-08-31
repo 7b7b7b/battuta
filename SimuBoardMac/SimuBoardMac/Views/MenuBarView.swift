@@ -3,19 +3,20 @@ import SwiftUI
 
 struct MenuBarView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.locale) private var locale
     @ObservedObject private var model: AppModel
-    @ObservedObject private var settings: AppSettings
+    private let settings: AppSettings
     @ObservedObject private var permission: InputMonitoringPermissionManager
 
     init(model: AppModel) {
         _model = ObservedObject(wrappedValue: model)
-        _settings = ObservedObject(wrappedValue: model.settings)
+        settings = model.settings
         _permission = ObservedObject(wrappedValue: model.permission)
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            MenuBarHeader(model: model, settings: settings)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
 
@@ -48,8 +49,16 @@ struct MenuBarView: View {
                     dismiss()
                 }
 
-                keyboardSoundSection
+                KeyboardSoundSection(
+                    model: model,
+                    settings: settings,
+                    onOpenEditor: {
+                        model.openSoundPackEditor()
+                        dismiss()
+                    }
+                )
                 PointerSoundSection(settings: settings)
+                InterfacePreferencesSection(settings: settings)
                 LaunchAtLoginSection(
                     settings: settings,
                     controller: model.launchAtLogin,
@@ -76,7 +85,9 @@ struct MenuBarView: View {
 
             BattutaVisualStyle.separator.opacity(0.65).frame(height: 1)
 
-            footer
+            MenuBarFooter(model: model) {
+                dismiss()
+            }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
         }
@@ -87,38 +98,14 @@ struct MenuBarView: View {
         // only its scroller when the content becomes taller.
         .frame(minHeight: 560, idealHeight: 760, maxHeight: 820)
         .tint(BattutaVisualStyle.actionAccent)
-    }
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            BattutaApplicationIcon(size: 40)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Battuta")
-                    .font(.headline.weight(.semibold))
-                Text(headerStatusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-
-            Circle()
-                .fill(headerStatusColor)
-                .frame(width: 8, height: 8)
-                .overlay(Circle().stroke(headerStatusColor.opacity(0.25), lineWidth: 4))
-                .help(headerStatusText)
-        }
-        .padding(.horizontal, 2)
-        .padding(.bottom, 2)
+        .environment(\.locale, locale)
     }
 
     private func monitoringFailureCard(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Label("键盘与点击监听未启动", systemImage: "exclamationmark.triangle.fill")
                 .font(.subheadline.weight(.semibold))
-            Text(message)
+            Text(L10n.tr(message))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -136,9 +123,9 @@ struct MenuBarView: View {
                 .font(.subheadline.weight(.semibold))
             ForEach(failures, id: \.module) { failure in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(failure.module)
+                    Text(L10n.tr(failure.module))
                         .font(.caption.weight(.semibold))
-                    Text(failure.message)
+                    Text(L10n.tr(failure.message))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -183,12 +170,100 @@ struct MenuBarView: View {
         .battutaTintedPanel(.orange, opacity: 0.10, radius: 12)
     }
 
-    private var keyboardSoundSection: some View {
+    private var monitoringFailureMessage: String? {
+        guard case let .failed(message) = model.monitoringState else { return nil }
+        return message
+    }
+
+    private var audioFailures: [(module: String, message: String)] {
+        var failures: [(module: String, message: String)] = []
+        if let message = model.audioError {
+            failures.append(("键盘声音", message))
+        }
+        if let message = model.pointerSoundError {
+            failures.append(("鼠标与触控板", message))
+        }
+        if let message = model.soundPackError {
+            failures.append(("DIY 音色包", message))
+        }
+        return failures
+    }
+
+}
+
+private struct MenuBarHeader: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        HStack(spacing: 10) {
+            BattutaApplicationIcon(size: 40)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Battuta")
+                    .font(.headline.weight(.semibold))
+                Text(L10n.tr(statusText))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+                .overlay(Circle().stroke(statusColor.opacity(0.25), lineWidth: 4))
+                .help(L10n.tr(statusText))
+        }
+        .padding(.horizontal, 2)
+        .padding(.bottom, 2)
+    }
+
+    private var statusText: String {
+        switch model.monitoringState {
+        case .running:
+            if !settings.isTypingStatsEnabled {
+                switch (settings.isEnabled, settings.isPointerSoundEnabled) {
+                case (true, true): return "正在监听键盘与点击 · 统计已暂停"
+                case (true, false): return "正在监听键盘 · 统计已暂停"
+                case (false, true): return "点击音已开启 · 统计已暂停"
+                case (false, false): return "声音与统计均已暂停"
+                }
+            }
+            switch (settings.isEnabled, settings.isPointerSoundEnabled) {
+            case (true, true): return "正在监听键盘与点击 · 统计已开启"
+            case (true, false): return "正在监听键盘 · 统计已开启"
+            case (false, true): return "正在统计输入 · 点击音已开启"
+            case (false, false): return "正在统计输入 · 声音已暂停"
+            }
+        case .waitingForPermission: return "等待输入监控授权"
+        case .failed: return "键盘与点击监听启动失败"
+        case .stopped: return "键盘与点击监听已停止"
+        }
+    }
+
+    private var statusColor: Color {
+        switch model.monitoringState {
+        case .running: BattutaVisualStyle.accentStrong
+        case .waitingForPermission: .orange
+        case .failed: .red
+        case .stopped: .secondary
+        }
+    }
+}
+
+private struct KeyboardSoundSection: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var settings: AppSettings
+    let onOpenEditor: () -> Void
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 BattutaSectionHeading(
-                    "键盘声音",
-                    subtitle: model.selectedSoundPack.tone,
+                    "键盘声音".localized,
+                    subtitle: L10n.tr(model.selectedSoundPack.tone),
                     symbol: "keyboard.fill"
                 )
                 Spacer()
@@ -201,7 +276,7 @@ struct MenuBarView: View {
 
             Picker("轴体音色", selection: $settings.selectedProfileID) {
                 ForEach(model.soundPacks) { soundPack in
-                    Text("\(soundPack.name) · \(soundPack.family)")
+                    Text(L10n.format("%@ · %@", soundPack.name, L10n.tr(soundPack.family)))
                         .tag(soundPack.id)
                 }
             }
@@ -217,17 +292,14 @@ struct MenuBarView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!settings.isEnabled)
 
-                Button {
-                    model.openSoundPackEditor()
-                    dismiss()
-                } label: {
+                Button(action: onOpenEditor) {
                     Label("DIY 音色", systemImage: "slider.horizontal.3")
                 }
                 .buttonStyle(.bordered)
 
                 Spacer()
 
-                Text(model.selectedSoundPack.family)
+                Text(L10n.tr(model.selectedSoundPack.family))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -256,73 +328,29 @@ struct MenuBarView: View {
         .padding(BattutaVisualStyle.cardPadding)
         .battutaPanel()
     }
+}
 
-    private var footer: some View {
+private struct MenuBarFooter: View {
+    @Environment(\.locale) private var locale
+    @ObservedObject var model: AppModel
+    let onDismiss: () -> Void
+
+    var body: some View {
         let status = statusPresentation
-        return HStack {
-            Label(status.text, systemImage: status.symbol)
-            .font(.caption2)
-            .foregroundStyle(status.color)
+        HStack {
+            Label(L10n.tr(status.text), systemImage: status.symbol)
+                .font(.caption2)
+                .foregroundStyle(status.color)
 
             Spacer()
-            Button("收起") { dismiss() }
+            Button("收起", action: onDismiss)
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
             Button("退出") { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
         }
-    }
-
-    private var headerStatusText: String {
-        switch model.monitoringState {
-        case .running:
-            if !settings.isTypingStatsEnabled {
-                switch (settings.isEnabled, settings.isPointerSoundEnabled) {
-                case (true, true): return "正在监听键盘与点击 · 统计已暂停"
-                case (true, false): return "正在监听键盘 · 统计已暂停"
-                case (false, true): return "点击音已开启 · 统计已暂停"
-                case (false, false): return "声音与统计均已暂停"
-                }
-            }
-            switch (settings.isEnabled, settings.isPointerSoundEnabled) {
-            case (true, true): return "正在监听键盘与点击 · 统计已开启"
-            case (true, false): return "正在监听键盘 · 统计已开启"
-            case (false, true): return "正在统计输入 · 点击音已开启"
-            case (false, false): return "正在统计输入 · 声音已暂停"
-            }
-        case .waitingForPermission: return "等待输入监控授权"
-        case .failed: return "键盘与点击监听启动失败"
-        case .stopped: return "键盘与点击监听已停止"
-        }
-    }
-
-    private var headerStatusColor: Color {
-        switch model.monitoringState {
-        case .running: BattutaVisualStyle.accentStrong
-        case .waitingForPermission: .orange
-        case .failed: .red
-        case .stopped: .secondary
-        }
-    }
-
-    private var monitoringFailureMessage: String? {
-        guard case let .failed(message) = model.monitoringState else { return nil }
-        return message
-    }
-
-    private var audioFailures: [(module: String, message: String)] {
-        var failures: [(module: String, message: String)] = []
-        if let message = model.audioError {
-            failures.append(("键盘声音", message))
-        }
-        if let message = model.pointerSoundError {
-            failures.append(("鼠标与触控板", message))
-        }
-        if let message = model.soundPackError {
-            failures.append(("DIY 音色包", message))
-        }
-        return failures
+        .environment(\.locale, locale)
     }
 
     private var statusPresentation: (text: String, symbol: String, color: Color) {
@@ -339,6 +367,63 @@ struct MenuBarView: View {
     }
 }
 
+private struct InterfacePreferencesSection: View {
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            BattutaSectionHeading(
+                "界面",
+                subtitle: "语言与外观",
+                symbol: "paintbrush.pointed"
+            )
+
+            Text("首次安装默认跟随系统，可在这里单独覆盖语言和外观。")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            preferenceRow("语言") {
+                Picker("语言", selection: $settings.languagePreference) {
+                    ForEach(AppLanguagePreference.allCases) { preference in
+                        Text(L10n.tr(preference.displayNameKey)).tag(preference)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(width: 156)
+                .accessibilityLabel(L10n.tr("语言"))
+            }
+
+            preferenceRow("外观") {
+                Picker("外观", selection: $settings.appearancePreference) {
+                    ForEach(AppAppearancePreference.allCases) { preference in
+                        Text(L10n.tr(preference.displayNameKey)).tag(preference)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(width: 156)
+                .accessibilityLabel(L10n.tr("外观"))
+            }
+        }
+        .font(.subheadline)
+        .padding(BattutaVisualStyle.cardPadding)
+        .battutaPanel()
+    }
+
+    private func preferenceRow<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(spacing: 12) {
+            Text(L10n.tr(title))
+            Spacer(minLength: 12)
+            content()
+        }
+    }
+}
+
 private struct LaunchAtLoginSection: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var controller: LaunchAtLoginController
@@ -349,8 +434,8 @@ private struct LaunchAtLoginSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 BattutaSectionHeading(
-                    "启动",
-                    subtitle: "跟随用户登录",
+                    "启动".localized,
+                    subtitle: "跟随用户登录".localized,
                     symbol: "power"
                 )
                 Spacer()
@@ -360,7 +445,7 @@ private struct LaunchAtLoginSection: View {
                     .accessibilityLabel("登录时自动启动")
             }
 
-            Label(statusText, systemImage: statusSymbol)
+            Label(L10n.tr(statusText), systemImage: statusSymbol)
                 .font(.caption)
                 .foregroundStyle(statusColor)
                 .fixedSize(horizontal: false, vertical: true)
@@ -443,8 +528,8 @@ private struct PointerSoundSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 BattutaSectionHeading(
-                    "鼠标与触控板",
-                    subtitle: settings.selectedPointerProfile.tone,
+                    "鼠标与触控板".localized,
+                    subtitle: settings.selectedPointerProfile.tone.localized,
                     symbol: "computermouse.fill"
                 )
                 Spacer()
@@ -456,7 +541,7 @@ private struct PointerSoundSection: View {
 
             Picker("点击音色", selection: $settings.selectedPointerProfileID) {
                 ForEach(PointerSoundProfile.allCases) { profile in
-                    Text("\(profile.displayName) · \(profile.family)")
+                    Text(L10n.format("%@ · %@", profile.displayName, profile.family))
                         .tag(profile.rawValue)
                 }
             }
@@ -464,7 +549,7 @@ private struct PointerSoundSection: View {
             .disabled(!settings.isPointerSoundEnabled)
 
             HStack {
-                Text(settings.selectedPointerProfile.family)
+                Text(settings.selectedPointerProfile.family.localized)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()

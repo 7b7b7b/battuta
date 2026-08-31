@@ -5,17 +5,33 @@ import SwiftUI
 /// System semantic colors keep the hierarchy legible in both light and dark mode;
 /// the lime accent is reserved for state, selection and the primary action.
 enum BattutaVisualStyle {
-    static let accent = Color(red: 0.72, green: 0.91, blue: 0.30)
+    private static func isDark(_ appearance: NSAppearance) -> Bool {
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
+    private static func adaptiveColor(
+        name: String,
+        light: NSColor,
+        dark: NSColor
+    ) -> Color {
+        Color(nsColor: NSColor(name: name) { appearance in
+            isDark(appearance) ? dark : light
+        })
+    }
+
+    static let accent = Color(nsColor: NSColor(name: "BattutaAccent") { appearance in
+        return isDark(appearance)
+            ? NSColor(srgbRed: 0.72, green: 0.91, blue: 0.30, alpha: 1)
+            : NSColor(srgbRed: 0.38, green: 0.57, blue: 0.07, alpha: 1)
+    })
     static let accentStrong = Color(nsColor: NSColor(name: "BattutaAccentStrong") { appearance in
-        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        return isDark
+        return isDark(appearance)
             ? NSColor(srgbRed: 0.57, green: 0.79, blue: 0.17, alpha: 1)
             : NSColor(srgbRed: 0.27, green: 0.43, blue: 0.04, alpha: 1)
     })
     /// Darker than the decorative lime so white control labels remain legible.
     static let actionAccent = Color(nsColor: NSColor(name: "BattutaActionAccent") { appearance in
-        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        return isDark
+        return isDark(appearance)
             ? NSColor(srgbRed: 0.29, green: 0.48, blue: 0.04, alpha: 1)
             : NSColor(srgbRed: 0.28, green: 0.47, blue: 0.04, alpha: 1)
     })
@@ -26,21 +42,46 @@ enum BattutaVisualStyle {
 
     static let canvas = Color(nsColor: .windowBackgroundColor)
     static let recessed = Color(nsColor: .underPageBackgroundColor)
-    static let surface = Color(nsColor: NSColor.controlBackgroundColor.withAlphaComponent(1))
+    // Keep AppKit's semantic color unresolved so an in-app appearance switch
+    // updates existing cards instead of retaining the launch-time appearance.
+    static let surface = Color(nsColor: .controlBackgroundColor)
     static let separator = Color(nsColor: .separatorColor)
 
-    /// Dense, high-contrast surface used by the statistics instrument cards.
-    /// It intentionally stays dark in both appearances so the eul-inspired
-    /// hierarchy remains stable against Battuta's translucent window canvas.
+    /// Dense statistics surface that keeps the instrument hierarchy while
+    /// adapting its contrast to the selected system appearance.
     static let instrumentSurface = Color(nsColor: NSColor(name: "BattutaInstrumentSurface") { appearance in
-        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        return isDark
+        return isDark(appearance)
             ? NSColor(srgbRed: 0.025, green: 0.030, blue: 0.026, alpha: 0.98)
-            : NSColor(srgbRed: 0.045, green: 0.050, blue: 0.045, alpha: 0.96)
+            : NSColor(srgbRed: 0.965, green: 0.972, blue: 0.955, alpha: 0.98)
     })
-    static let instrumentPrimary = Color.white.opacity(0.94)
-    static let instrumentSecondary = Color.white.opacity(0.58)
-    static let instrumentSeparator = Color.white.opacity(0.12)
+    static let instrumentPrimary = Color(nsColor: .labelColor)
+    static let instrumentSecondary = Color(nsColor: .secondaryLabelColor)
+    static let instrumentSeparator = Color(nsColor: .separatorColor)
+    static let instrumentStroke = adaptiveColor(
+        name: "BattutaInstrumentStroke",
+        light: NSColor.black.withAlphaComponent(0.10),
+        dark: NSColor.white.withAlphaComponent(0.11)
+    )
+    static let panelShadow = adaptiveColor(
+        name: "BattutaPanelShadow",
+        light: NSColor.black.withAlphaComponent(0.10),
+        dark: NSColor.black.withAlphaComponent(0.16)
+    )
+    static let tooltipShadow = adaptiveColor(
+        name: "BattutaTooltipShadow",
+        light: NSColor.black.withAlphaComponent(0.16),
+        dark: NSColor.black.withAlphaComponent(0.30)
+    )
+    static let keyboardShadow = adaptiveColor(
+        name: "BattutaKeyboardShadow",
+        light: NSColor.black.withAlphaComponent(0.035),
+        dark: NSColor.black.withAlphaComponent(0.055)
+    )
+    static let activeKeyForeground = adaptiveColor(
+        name: "BattutaActiveKeyForeground",
+        light: NSColor(srgbRed: 0.13, green: 0.17, blue: 0.11, alpha: 1),
+        dark: NSColor.white.withAlphaComponent(0.92)
+    )
 
     static let cardRadius: CGFloat = 14
     static let compactRadius: CGFloat = 10
@@ -92,7 +133,7 @@ enum BattutaHeatmapPalette {
         gradient([
             (BattutaVisualStyle.cyan.opacity(0.72), 0.00),
             (BattutaVisualStyle.cyan.opacity(0.14), 0.45),
-            (Color.white.opacity(0.08), 0.50),
+            (BattutaVisualStyle.instrumentSeparator.opacity(0.70), 0.50),
             (BattutaVisualStyle.accent.opacity(0.14), 0.55),
             (BattutaVisualStyle.accent.opacity(0.76), 1.00),
         ])
@@ -138,7 +179,7 @@ enum BattutaHeatmapPalette {
         if value > 0 {
             return BattutaVisualStyle.accent.opacity(0.14 + value * 0.62)
         }
-        return Color.white.opacity(0.08)
+        return BattutaVisualStyle.instrumentSeparator.opacity(0.70)
     }
 
     private static func gradient(_ stops: [(Color, CGFloat)]) -> LinearGradient {
@@ -165,6 +206,8 @@ enum BattutaHeatmapLegendPalette {
 }
 
 struct BattutaHeatmapLegend: View {
+    @Environment(\.locale) private var locale
+
     let leadingLabel: String
     let trailingLabel: String
     var palette: BattutaHeatmapLegendPalette = .keyboard
@@ -173,7 +216,7 @@ struct BattutaHeatmapLegend: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(leadingLabel)
+            Text(L10n.tr(leadingLabel))
                 .monospacedDigit()
 
             RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -181,14 +224,15 @@ struct BattutaHeatmapLegend: View {
                 .frame(width: barWidth, height: 9)
                 .overlay {
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .stroke(Color.white.opacity(0.16), lineWidth: 0.5)
+                        .stroke(BattutaVisualStyle.instrumentSeparator, lineWidth: 0.5)
                 }
 
-            Text(trailingLabel)
+            Text(L10n.tr(trailingLabel))
                 .monospacedDigit()
         }
         .font(.caption2)
         .foregroundStyle(labelColor)
+        .environment(\.locale, locale)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }
@@ -211,9 +255,9 @@ struct BattutaHeatmapLegend: View {
     private var accessibilityText: String {
         switch palette {
         case .keyboard, .year, .timeline, .rhythm:
-            "连续颜色图例，从 \(leadingLabel) 到 \(trailingLabel)"
+            L10n.format("连续颜色图例，从 %@ 到 %@", leadingLabel, trailingLabel)
         case .diverging:
-            "连续差异颜色图例，从 \(leadingLabel)，经过零，到 \(trailingLabel)"
+            L10n.format("连续差异颜色图例，从 %@，经过零，到 %@", leadingLabel, trailingLabel)
         }
     }
 }
@@ -251,11 +295,11 @@ struct BattutaHeatmapTooltip: View {
                 .stroke(
                     isPinned
                         ? BattutaVisualStyle.accent.opacity(0.55)
-                        : Color.white.opacity(0.18),
+                        : BattutaVisualStyle.instrumentSeparator,
                     lineWidth: 1
                 )
         }
-        .shadow(color: Color.black.opacity(0.30), radius: 8, y: 4)
+        .shadow(color: BattutaVisualStyle.tooltipShadow, radius: 8, y: 4)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
@@ -318,6 +362,91 @@ enum BattutaWindowChrome {
         window.backgroundColor = .clear
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .line
+    }
+}
+
+private extension AppAppearancePreference {
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
+@MainActor
+private final class BattutaPreferenceWindowAccessorView: NSView {
+    var appearancePreference: AppAppearancePreference = .system
+    var windowTitleKey: String?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyPreferences()
+    }
+
+    func applyPreferences() {
+        guard let window else { return }
+        let desiredAppearance = appearancePreference.nsAppearance
+        let appearanceChanged =
+            window.appearance?.name != desiredAppearance?.name
+            || (window.appearance == nil) != (desiredAppearance == nil)
+        if appearanceChanged {
+            window.appearance = desiredAppearance
+        }
+        if let windowTitleKey {
+            let localizedTitle = L10n.tr(windowTitleKey)
+            if window.title != localizedTitle {
+                window.title = localizedTitle
+            }
+        }
+        if appearanceChanged {
+            window.invalidateShadow()
+        }
+    }
+}
+
+private struct BattutaPreferenceWindowAccessor: NSViewRepresentable {
+    let appearancePreference: AppAppearancePreference
+    let windowTitleKey: String?
+
+    func makeNSView(context: Context) -> BattutaPreferenceWindowAccessorView {
+        let view = BattutaPreferenceWindowAccessorView()
+        view.appearancePreference = appearancePreference
+        view.windowTitleKey = windowTitleKey
+        return view
+    }
+
+    func updateNSView(_ nsView: BattutaPreferenceWindowAccessorView, context: Context) {
+        nsView.appearancePreference = appearancePreference
+        nsView.windowTitleKey = windowTitleKey
+        nsView.applyPreferences()
+    }
+}
+
+private struct BattutaUserPreferencesModifier: ViewModifier {
+    @ObservedObject var settings: AppSettings
+    let windowTitleKey: String?
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.locale, L10n.locale(for: settings.languagePreference))
+            .preferredColorScheme(settings.appearancePreference.colorScheme)
+            .background {
+                BattutaPreferenceWindowAccessor(
+                    appearancePreference: settings.appearancePreference,
+                    windowTitleKey: windowTitleKey
+                )
+                .frame(width: 0, height: 0)
+            }
     }
 }
 
@@ -407,6 +536,18 @@ private struct BattutaTintedPanelModifier: ViewModifier {
 }
 
 extension View {
+    func battutaUserPreferences(
+        _ settings: AppSettings,
+        windowTitleKey: String? = nil
+    ) -> some View {
+        modifier(
+            BattutaUserPreferencesModifier(
+                settings: settings,
+                windowTitleKey: windowTitleKey
+            )
+        )
+    }
+
     func battutaPanel(
         radius: CGFloat = BattutaVisualStyle.cardRadius,
         emphasized: Bool = false
@@ -467,6 +608,8 @@ struct BattutaIconTile: View {
 /// Uses the icon embedded in the running app bundle so the UI always stays in
 /// sync when Battuta's App Icon asset changes.
 struct BattutaApplicationIcon: View {
+    @Environment(\.locale) private var locale
+
     var size: CGFloat = 40
 
     var body: some View {
@@ -475,17 +618,20 @@ struct BattutaApplicationIcon: View {
             .interpolation(.high)
             .scaledToFit()
             .frame(width: size, height: size)
-            .accessibilityLabel("Battuta 应用图标")
+            .accessibilityLabel(L10n.tr("Battuta 应用图标"))
+            .environment(\.locale, locale)
     }
 }
 
 struct BattutaStatusPill: View {
+    @Environment(\.locale) private var locale
+
     let title: String
     let symbol: String
     var tint: Color = BattutaVisualStyle.accentStrong
 
     var body: some View {
-        Label(title, systemImage: symbol)
+        Label(L10n.tr(title), systemImage: symbol)
             .font(.caption.weight(.semibold))
             .foregroundStyle(tint)
             .padding(.horizontal, 10)
@@ -494,10 +640,13 @@ struct BattutaStatusPill: View {
             .overlay {
                 Capsule().stroke(tint.opacity(0.16))
             }
+            .environment(\.locale, locale)
     }
 }
 
 struct BattutaSectionHeading: View {
+    @Environment(\.locale) private var locale
+
     let title: String
     let subtitle: String?
     let symbol: String?
@@ -517,27 +666,31 @@ struct BattutaSectionHeading: View {
                     .frame(width: 22, height: 22)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(L10n.tr(title))
                     .font(.headline)
                 if let subtitle {
-                    Text(subtitle)
+                    Text(L10n.tr(subtitle))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
+        .environment(\.locale, locale)
     }
 }
 
 struct BattutaCardLabel: View {
+    @Environment(\.locale) private var locale
+
     let title: String
     let symbol: String
     var tint: Color = BattutaVisualStyle.accentStrong
 
     var body: some View {
-        Label(title, systemImage: symbol)
+        Label(L10n.tr(title), systemImage: symbol)
             .font(.caption.weight(.semibold))
             .foregroundStyle(tint)
+            .environment(\.locale, locale)
     }
 }

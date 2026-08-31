@@ -79,15 +79,15 @@ struct TypingStatsOverviewView: View {
                 title: "今日字符",
                 value: statsCount(snapshot.today.characterCount),
                 unit: "字符",
-                detail: "按字符键触发估算",
+                detail: L10n.tr("按字符键触发估算"),
                 symbol: "keyboard"
             ),
             TypingOverviewMetric(
                 title: "最多应用",
-                value: snapshot.today.topAppName ?? "暂无",
+                value: snapshot.today.topAppName ?? L10n.tr("暂无"),
                 detail: snapshot.apps.first.map {
-                    "\(statsCount($0.characterCount)) 个字符"
-                } ?? "今天还没有输入",
+                    L10n.format("%@ 个字符", statsCount($0.characterCount))
+                } ?? L10n.tr("今天还没有输入"),
                 symbol: "app.fill"
             ),
             TypingOverviewMetric(
@@ -100,7 +100,7 @@ struct TypingStatsOverviewView: View {
             TypingOverviewMetric(
                 title: "活跃时间",
                 value: statsActiveTime(snapshot.today.activeSeconds),
-                detail: "\(snapshot.today.activeMinuteBuckets) 个输入分钟",
+                detail: L10n.format("%@ 个输入分钟", "\(snapshot.today.activeMinuteBuckets)"),
                 symbol: "clock.fill"
             ),
         ]
@@ -156,7 +156,7 @@ private struct TypingOverviewMetricCard: View {
                     .foregroundStyle(BattutaVisualStyle.instrumentPrimary)
                     .accessibilityHidden(true)
                 Spacer(minLength: 8)
-                Text(metric.title)
+                Text(L10n.tr(metric.title))
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
                     .lineLimit(1)
@@ -173,7 +173,7 @@ private struct TypingOverviewMetricCard: View {
                     .minimumScaleFactor(0.45)
                     .allowsTightening(true)
                 if let unit = metric.unit {
-                    Text(unit)
+                    Text(L10n.tr(unit))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
                         .lineLimit(1)
@@ -188,6 +188,8 @@ private struct TypingOverviewMetricCard: View {
                 .font(.caption2)
                 .foregroundStyle(BattutaVisualStyle.instrumentSecondary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .allowsTightening(true)
                 .truncationMode(.tail)
                 .help(metric.detail)
         }
@@ -200,12 +202,14 @@ private struct TypingOverviewMetricCard: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                .stroke(BattutaVisualStyle.instrumentStroke, lineWidth: 1)
         }
-        .shadow(color: Color.black.opacity(0.14), radius: 10, y: 5)
+        .shadow(color: BattutaVisualStyle.panelShadow, radius: 10, y: 5)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(metric.title)
-        .accessibilityValue("\(metric.value) \(metric.unit ?? "")，\(metric.detail)")
+        .accessibilityLabel(L10n.tr(metric.title))
+        .accessibilityValue(
+            L10n.format("%@ %@，%@", metric.value, metric.unit.map(L10n.tr) ?? "", metric.detail)
+        )
     }
 }
 
@@ -245,7 +249,7 @@ private struct TypingRecentTrendCard: View {
             HStack(alignment: .top, spacing: 12) {
                 BattutaSectionHeading(
                     "输入趋势",
-                    subtitle: "\(range.displayTitle) · \(range.bucketDescription)",
+                    subtitle: L10n.format("%@ · %@", range.displayTitle, range.bucketDescription),
                     symbol: "waveform.path.ecg"
                 )
                 Spacer(minLength: 8)
@@ -264,7 +268,7 @@ private struct TypingRecentTrendCard: View {
                 .pickerStyle(.segmented)
                 .frame(width: 196)
                 .help("调整输入趋势与应用时间线的统计范围")
-                .accessibilityLabel("统计时间范围")
+                .accessibilityLabel(L10n.tr("统计时间范围"))
             }
 
             HStack {
@@ -352,8 +356,10 @@ private struct TypingRecentTrendCard: View {
                         AxisValueLabel()
                     }
                 }
-                .accessibilityLabel("\(range.displayTitle)字符数曲线")
-                .accessibilityValue("合计 \(total) 个字符，单个区间峰值 \(peak) 个字符")
+                .accessibilityLabel(L10n.format("%@字符数曲线", range.displayTitle))
+                .accessibilityValue(
+                    L10n.format("合计 %@ 个字符，单个区间峰值 %@ 个字符", "\(total)", "\(peak)")
+                )
             }
         }
         .padding(16)
@@ -366,7 +372,7 @@ private struct TypingRecentTrendCard: View {
             Text(value)
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
-            Text(title)
+            Text(L10n.tr(title))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -392,12 +398,19 @@ private struct TypingRecentTrendCard: View {
     private func axisLabel(for date: Date) -> String {
         switch range {
         case .sevenDays:
-            date.formatted(.dateTime.month(.twoDigits).day(.twoDigits))
+            date.formatted(
+                .dateTime.month(.twoDigits).day(.twoDigits).locale(L10n.locale)
+            )
         case .twentyFourHours:
-            date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)))
+            date.formatted(
+                .dateTime.hour(.twoDigits(amPM: .omitted)).locale(L10n.locale)
+            )
         case .sixHours, .oneHour:
             date.formatted(
-                .dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
+                .dateTime
+                    .hour(.twoDigits(amPM: .omitted))
+                    .minute(.twoDigits)
+                    .locale(L10n.locale)
             )
         }
     }
@@ -426,12 +439,12 @@ private struct TypingAppTimelinePanel: View {
             HStack(alignment: .top) {
                 BattutaSectionHeading(
                     "应用时间线",
-                    subtitle: "\(range.displayTitle) · \(range.bucketDescription)",
+                    subtitle: L10n.format("%@ · %@", range.displayTitle, range.bucketDescription),
                     symbol: "square.grid.3x1.folder.badge.plus"
                 )
                 Spacer()
                 VStack(alignment: .trailing, spacing: 7) {
-                    Text("\(timelines.count) 个应用")
+                    Text(L10n.format("%@ 个应用", "\(timelines.count)"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(BattutaVisualStyle.accentStrong)
                         .padding(.horizontal, 10)
@@ -449,7 +462,7 @@ private struct TypingAppTimelinePanel: View {
                 HStack(spacing: 10) {
                     Image(systemName: "app.dashed")
                         .foregroundStyle(BattutaVisualStyle.accentStrong)
-                    Text("\(range.displayTitle)还没有应用输入。")
+                    Text(L10n.format("%@还没有应用输入。", range.displayTitle))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -488,11 +501,12 @@ private struct TypingAppTimelinePanel: View {
     private func timelineHeatLegend(_ heatScale: TypingHeatmapScale) -> some View {
         BattutaHeatmapLegend(
             leadingLabel: heatScale.hasValues
-                ? "低 \(statsCount(Int64(heatScale.low.rounded())))"
-                : "低 0",
+                ? L10n.format("低 %@ ", statsCount(Int64(heatScale.low.rounded())))
+                    .trimmingCharacters(in: .whitespaces)
+                : L10n.tr("低 0"),
             trailingLabel: heatScale.hasValues
-                ? "高 ≥\(statsCount(Int64(heatScale.high.rounded())))"
-                : "高 0",
+                ? L10n.format("高 ≥%@", statsCount(Int64(heatScale.high.rounded())))
+                : L10n.tr("高 0"),
             palette: .timeline,
             barWidth: 92
         )
@@ -500,11 +514,11 @@ private struct TypingAppTimelinePanel: View {
 
     private var timelineHeader: some View {
         HStack(spacing: 12) {
-            Text("应用")
+            Text(L10n.tr("应用"))
                 .frame(width: appWidth, alignment: .leading)
-            Text("区间")
+            Text(L10n.tr("区间"))
                 .frame(width: countWidth, alignment: .trailing)
-            Text("输入时间线")
+            Text(L10n.tr("输入时间线"))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.caption2.weight(.semibold))
@@ -541,9 +555,10 @@ private struct TypingAppTimelinePanel: View {
             return date.formatted(
                 .dateTime.month(.twoDigits).day(.twoDigits)
                     .hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
+                    .locale(L10n.locale)
             )
         }
-        return date.formatted(date: .omitted, time: .shortened)
+        return date.formatted(.dateTime.hour().minute().locale(L10n.locale))
     }
 }
 
@@ -574,8 +589,11 @@ private struct TypingAppTimelineRow: View {
                         .fill(color(for: bucket.characterCount))
                         .frame(maxWidth: .infinity, minHeight: 18, maxHeight: 18)
                         .help(
-                            "\(tooltipTimestamp(bucket.start)) · "
-                                + "\(bucket.characterCount) 个字符"
+                            L10n.format(
+                                "%@ · %@ 个字符",
+                                tooltipTimestamp(bucket.start),
+                                "\(bucket.characterCount)"
+                            )
                         )
                 }
             }
@@ -584,23 +602,34 @@ private struct TypingAppTimelineRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(timeline.application.displayName)
         .accessibilityValue(
-            "\(range.displayTitle) \(timeline.rangeCharacterCount) 个字符，"
-                + "峰值区间 \(timeline.peakBucketCount) 个字符，"
-                + activeTimeDescription
+            L10n.format(
+                "%@ %@ 个字符，峰值区间 %@ 个字符，%@",
+                range.displayTitle,
+                "\(timeline.rangeCharacterCount)",
+                "\(timeline.peakBucketCount)",
+                activeTimeDescription
+            )
         )
     }
 
     private var activeTimeDescription: String {
         let activeBuckets = timeline.buckets.filter { $0.characterCount > 0 }
         guard let first = activeBuckets.first, let last = activeBuckets.last else {
-            return "\(range.displayTitle)没有输入"
+            return L10n.format("%@没有输入", range.displayTitle)
         }
 
-        let start = first.start.formatted(date: .omitted, time: .shortened)
+        let start = first.start.formatted(
+            .dateTime.hour().minute().locale(L10n.locale)
+        )
         let end = last.start
             .addingTimeInterval(TimeInterval(range.bucketSeconds))
-            .formatted(date: .omitted, time: .shortened)
-        return "\(start) 至 \(end) 有输入，共 \(activeBuckets.count) 个活跃区间"
+            .formatted(.dateTime.hour().minute().locale(L10n.locale))
+        return L10n.format(
+            "%@ 至 %@ 有输入，共 %@ 个活跃区间",
+            start,
+            end,
+            "\(activeBuckets.count)"
+        )
     }
 
     private func tooltipTimestamp(_ date: Date) -> String {
@@ -608,9 +637,12 @@ private struct TypingAppTimelineRow: View {
             return date.formatted(
                 .dateTime.month(.twoDigits).day(.twoDigits)
                     .hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
+                    .locale(L10n.locale)
             )
         }
-        return date.formatted(date: .omitted, time: .standard)
+        return date.formatted(
+            .dateTime.hour().minute().second().locale(L10n.locale)
+        )
     }
 
     private func color(for count: Int64) -> Color {

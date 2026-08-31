@@ -175,13 +175,16 @@ final class TypingStatsModel: ObservableObject {
                 consecutiveWriteFailures = min(consecutiveWriteFailures + 1, 6)
                 if consecutiveWriteFailures >= 6 {
                     isRecordingSuspended = true
-                    lastWriteError = "\(error.localizedDescription) 连续写入失败，输入统计已暂停；打开统计页面刷新或清除数据后可重试。"
+                    lastWriteError = L10n.format(
+                        "%@ 连续写入失败，输入统计已暂停；打开统计页面刷新或清除数据后可重试。",
+                        L10n.tr(error.localizedDescription)
+                    )
                 } else {
-                    lastWriteError = error.localizedDescription
+                    lastWriteError = L10n.tr(error.localizedDescription)
                     let retrySeconds = min(60, 1 << consecutiveWriteFailures)
                     scheduleFlush(after: .seconds(retrySeconds))
                 }
-                setSourceStatus(.failed(lastWriteError ?? error.localizedDescription))
+                setSourceStatus(.failed(lastWriteError ?? L10n.tr(error.localizedDescription)))
                 succeeded = false
                 break
             }
@@ -241,6 +244,7 @@ final class TypingStatsModel: ObservableObject {
             let request = snapshotRequest(for: target)
             do {
                 let loadedSnapshot = try await persistence.loadSnapshot(request: request)
+                guard !Task.isCancelled else { return }
                 guard request.timelineRange == timelineRange else { continue }
                 readStatus.markRead(at: loadedSnapshot.generatedAt)
                 let mergedSnapshot = mergeSnapshot(loadedSnapshot, request: request)
@@ -258,8 +262,9 @@ final class TypingStatsModel: ObservableObject {
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled else { return }
                 guard request.timelineRange == timelineRange else { continue }
-                setSourceStatus(.failed(error.localizedDescription))
+                setSourceStatus(.failed(L10n.tr(error.localizedDescription)))
                 return
             }
         }
@@ -293,7 +298,7 @@ final class TypingStatsModel: ObservableObject {
             return
         } catch {
             guard requestID == reportRequestID else { return }
-            reportErrorMessage = error.localizedDescription
+            reportErrorMessage = L10n.tr(error.localizedDescription)
         }
     }
 
@@ -341,8 +346,8 @@ final class TypingStatsModel: ObservableObject {
             sourceStatus = .available
             return true
         } catch {
-            lastWriteError = error.localizedDescription
-            sourceStatus = .failed(error.localizedDescription)
+            lastWriteError = L10n.tr(error.localizedDescription)
+            sourceStatus = .failed(L10n.tr(error.localizedDescription))
             return false
         }
     }
@@ -351,7 +356,7 @@ final class TypingStatsModel: ObservableObject {
         guard scheduledFlushTask == nil else { return }
         scheduledFlushTask = Task { [weak self] in
             do {
-                try await Task.sleep(for: delay)
+                try await Task.sleep(for: delay, tolerance: .milliseconds(100))
             } catch {
                 return
             }

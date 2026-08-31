@@ -1,6 +1,22 @@
 import Combine
 import Foundation
 
+enum AppAppearancePreference: String, CaseIterable, Identifiable, Sendable {
+    case system
+    case light
+    case dark
+
+    var id: Self { self }
+
+    var displayNameKey: String {
+        switch self {
+        case .system: "跟随系统"
+        case .light: "浅色"
+        case .dark: "深色"
+        }
+    }
+}
+
 enum KeyboardVolumeCurve {
     static let currentVersion = 1
     static let legacyDefaultGain = 0.42
@@ -39,6 +55,8 @@ final class AppSettings: ObservableObject {
         static let pointerReleaseSound = "pointerReleaseSound"
         static let typingStatsEnabled = "typingStatsEnabled"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
+        static let languagePreference = "languagePreference"
+        static let appearancePreference = "appearancePreference"
     }
 
     private let defaults: UserDefaults
@@ -91,6 +109,15 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(isLaunchAtLoginEnabled, forKey: Key.launchAtLoginEnabled) }
     }
 
+    @Published var languagePreference: AppLanguagePreference {
+        willSet { L10n.configure(for: newValue) }
+        didSet { defaults.set(languagePreference.rawValue, forKey: Key.languagePreference) }
+    }
+
+    @Published var appearancePreference: AppAppearancePreference {
+        didSet { defaults.set(appearancePreference.rawValue, forKey: Key.appearancePreference) }
+    }
+
     var selectedProfile: SwitchProfile {
         get { SwitchProfile(rawValue: selectedProfileID) ?? .holyPanda }
         set { selectedProfileID = newValue.rawValue }
@@ -103,6 +130,13 @@ final class AppSettings: ObservableObject {
 
     var keyboardPlaybackGain: Double {
         KeyboardVolumeCurve.playbackGain(for: volume)
+    }
+
+    func refreshSystemLanguageIfNeeded() {
+        guard languagePreference == .system else { return }
+        if L10n.refreshSystemLocalizationIfNeeded() {
+            objectWillChange.send()
+        }
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -137,6 +171,11 @@ final class AppSettings: ObservableObject {
         playsPointerReleaseSound = defaults.object(forKey: Key.pointerReleaseSound) as? Bool ?? true
         isTypingStatsEnabled = defaults.object(forKey: Key.typingStatsEnabled) as? Bool ?? false
         isLaunchAtLoginEnabled = defaults.object(forKey: Key.launchAtLoginEnabled) as? Bool ?? true
+        let storedLanguagePreference = defaults.string(forKey: Key.languagePreference)
+        languagePreference = AppLanguagePreference(rawValue: storedLanguagePreference ?? "") ?? .system
+        let storedAppearancePreference = defaults.string(forKey: Key.appearancePreference)
+        appearancePreference = AppAppearancePreference(rawValue: storedAppearancePreference ?? "") ?? .system
+        L10n.configure(for: languagePreference)
         if selectedPointerProfileID != storedPointerProfileID {
             defaults.set(selectedPointerProfileID, forKey: Key.selectedPointerProfile)
         }
@@ -148,6 +187,12 @@ final class AppSettings: ObservableObject {
         }
         if storedPointerVolume == nil || storedPointerVolume != pointerVolume {
             defaults.set(pointerVolume, forKey: Key.pointerVolume)
+        }
+        if storedLanguagePreference != languagePreference.rawValue {
+            defaults.set(languagePreference.rawValue, forKey: Key.languagePreference)
+        }
+        if storedAppearancePreference != appearancePreference.rawValue {
+            defaults.set(appearancePreference.rawValue, forKey: Key.appearancePreference)
         }
     }
 }

@@ -1,14 +1,72 @@
 import Foundation
 import SQLite3
 
-private final class TypingStatsSQLiteConnection: @unchecked Sendable {
+final class TypingStatsSQLiteConnection: @unchecked Sendable {
+    enum ReusableStatementKey: Hashable {
+        case upsertApplication
+        case selectApplicationID
+        case upsertCharacterAggregate
+        case upsertKeyDailyAggregate
+        case upsertKeyTotalAggregate
+        case deleteExpiredCharacterSeconds
+    }
+
     let pointer: OpaquePointer
+    private var reusableStatements: [ReusableStatementKey: OpaquePointer] = [:]
 
     init(pointer: OpaquePointer) {
         self.pointer = pointer
     }
 
+    func reusableStatement(
+        for key: ReusableStatementKey,
+        sql: String
+    ) throws -> OpaquePointer {
+        if let statement = reusableStatements[key] {
+            let resetResult = sqlite3_reset(statement)
+            if resetResult != SQLITE_SCHEMA {
+                let clearResult = sqlite3_clear_bindings(statement)
+                if clearResult == SQLITE_OK {
+                    // sqlite3_reset reports the prior sqlite3_step result. That
+                    // error was already delivered to the previous caller, and
+                    // a successfully reset/cleared statement is reusable.
+                    return statement
+                }
+                let error = queryError(code: clearResult)
+                sqlite3_finalize(statement)
+                reusableStatements.removeValue(forKey: key)
+                if clearResult != SQLITE_SCHEMA { throw error }
+            } else {
+                sqlite3_finalize(statement)
+                reusableStatements.removeValue(forKey: key)
+            }
+        }
+
+        var preparedStatement: OpaquePointer?
+        let result = sqlite3_prepare_v2(pointer, sql, -1, &preparedStatement, nil)
+        guard result == SQLITE_OK, let preparedStatement else {
+            throw queryError(code: result)
+        }
+        reusableStatements[key] = preparedStatement
+        return preparedStatement
+    }
+
+    func invalidateReusableStatements() {
+        for statement in reusableStatements.values {
+            sqlite3_finalize(statement)
+        }
+        reusableStatements.removeAll(keepingCapacity: false)
+    }
+
+    private func queryError(code: Int32) -> TypingStatsStoreError {
+        mapTypingStatsSQLiteError(
+            code: code,
+            message: String(cString: sqlite3_errmsg(pointer))
+        )
+    }
+
     deinit {
+        invalidateReusableStatements()
         sqlite3_close_v2(pointer)
     }
 }
@@ -41,7 +99,7 @@ extension TypingStatsPersistence {
         range: TypingDateRange,
         comparisonRange: TypingDateRange?
     ) async throws -> TypingRangeReportSnapshot {
-        throw TypingStatsStoreError.queryFailed("此统计数据源不支持历史区间报告。")
+        throw TypingStatsStoreError.queryFailed(L10n.tr("此统计数据源不支持历史区间报告。"))
     }
 }
 
@@ -56,18 +114,38 @@ enum TypingStatsStoreError: Error, Equatable, LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case let .cannotCreateDirectory(message):
-            "无法创建 Battuta 统计目录：\(message)"
+            L10n.format("无法创建 Battuta 统计目录：%@", message)
         case let .cannotOpen(message):
-            "无法打开 Battuta 本地统计：\(message)"
+            L10n.format("无法打开 Battuta 本地统计：%@", message)
         case .incompatibleSchema:
-            "Battuta 本地统计数据库版本不兼容。"
+            L10n.tr("Battuta 本地统计数据库版本不兼容。")
         case .busy:
-            "本地统计数据库暂时繁忙，请稍后重试。"
+            L10n.tr("本地统计数据库暂时繁忙，请稍后重试。")
         case .corrupt:
-            "本地统计数据库无法读取或已经损坏。"
+            L10n.tr("本地统计数据库无法读取或已经损坏。")
         case let .queryFailed(message):
-            "读取 Battuta 本地统计失败：\(message)"
+            L10n.format("读取 Battuta 本地统计失败：%@", message)
         }
+    }
+}
+
+private func mapTypingStatsSQLiteError(code: Int32, message: String) -> TypingStatsStoreError {
+    let primaryCode = code & 0xFF
+    let normalizedMessage = message.lowercased()
+    if primaryCode == SQLITE_SCHEMA
+        || normalizedMessage.contains("no such table")
+        || normalizedMessage.contains("no such column") {
+        return .incompatibleSchema
+    }
+    return switch primaryCode {
+    case SQLITE_BUSY, SQLITE_LOCKED:
+        .busy
+    case SQLITE_CORRUPT, SQLITE_NOTADB:
+        .corrupt
+    case SQLITE_CANTOPEN:
+        .cannotOpen(message)
+    default:
+        .queryFailed(message)
     }
 }
 
@@ -347,6 +425,7 @@ actor TypingStatsStore: TypingStatsPersistence {
         }
 
         // The logical deletion above is authoritative; these are best-effort file compaction steps.
+        invalidateReusableStatements()
         try? execute("PRAGMA wal_checkpoint(TRUNCATE);", in: database)
         try? execute("VACUUM;", in: database)
     }
@@ -370,7 +449,7 @@ actor TypingStatsStore: TypingStatsPersistence {
             let message = openedDatabase.map { String(cString: sqlite3_errmsg($0)) }
                 ?? "SQLite \(result)"
             if let openedDatabase { sqlite3_close_v2(openedDatabase) }
-            throw mapSQLiteError(code: result, message: message)
+            throw mapTypingStatsSQLiteError(code: result, message: message)
         }
 
         do {
@@ -777,7 +856,8 @@ actor TypingStatsStore: TypingStatsPersistence {
         updatedAt: Int64,
         in database: OpaquePointer
     ) throws -> Int64 {
-        let upsert = try prepare(
+        let upsert = try reusableStatement(
+            .upsertApplication,
             """
             INSERT INTO AppProfile (
                 ProcessKey, ProcessName, DisplayName, BundleIdentifier, UpdatedAtUtc
@@ -790,7 +870,6 @@ actor TypingStatsStore: TypingStatsPersistence {
             """,
             in: database
         )
-        defer { sqlite3_finalize(upsert) }
         try bind(application.processKey, at: 1, to: upsert, in: database)
         try bind(application.processName, at: 2, to: upsert, in: database)
         try bind(application.displayName, at: 3, to: upsert, in: database)
@@ -800,11 +879,11 @@ actor TypingStatsStore: TypingStatsPersistence {
 
         if let cached = cachedApplicationIDs[application.processKey] { return cached }
 
-        let select = try prepare(
+        let select = try reusableStatement(
+            .selectApplicationID,
             "SELECT Id FROM AppProfile WHERE ProcessKey = ?1 LIMIT 1;",
             in: database
         )
-        defer { sqlite3_finalize(select) }
         try bind(application.processKey, at: 1, to: select, in: database)
         let result = sqlite3_step(select)
         guard result == SQLITE_ROW else { throw queryError(database, code: result) }
@@ -819,7 +898,8 @@ actor TypingStatsStore: TypingStatsPersistence {
         updatedAt: Int64,
         in database: OpaquePointer
     ) throws {
-        let statement = try prepare(
+        let statement = try reusableStatement(
+            .upsertCharacterAggregate,
             """
             INSERT INTO CharacterSecondStat (
                 SecondStartUtc, LocalDate, LocalHour, AppId, CharacterCount, UpdatedAtUtc
@@ -830,7 +910,6 @@ actor TypingStatsStore: TypingStatsPersistence {
             """,
             in: database
         )
-        defer { sqlite3_finalize(statement) }
         try bind(aggregate.secondStart, at: 1, to: statement, in: database)
         try bind(aggregate.localDate, at: 2, to: statement, in: database)
         try bind(Self.localHour(for: aggregate.secondStart), at: 3, to: statement, in: database)
@@ -845,7 +924,8 @@ actor TypingStatsStore: TypingStatsPersistence {
         updatedAt: Int64,
         in database: OpaquePointer
     ) throws {
-        let daily = try prepare(
+        let daily = try reusableStatement(
+            .upsertKeyDailyAggregate,
             """
             INSERT INTO KeyDailyStat (LocalDate, KeyCode, PressCount, UpdatedAtUtc)
             VALUES (?1, ?2, ?3, ?4)
@@ -855,14 +935,14 @@ actor TypingStatsStore: TypingStatsPersistence {
             """,
             in: database
         )
-        defer { sqlite3_finalize(daily) }
         try bind(aggregate.localDate, at: 1, to: daily, in: database)
         try bind(Int64(aggregate.keyCode), at: 2, to: daily, in: database)
         try bind(aggregate.count, at: 3, to: daily, in: database)
         try bind(updatedAt, at: 4, to: daily, in: database)
         try stepToCompletion(daily, in: database)
 
-        let total = try prepare(
+        let total = try reusableStatement(
+            .upsertKeyTotalAggregate,
             """
             INSERT INTO KeyTotalStat (KeyCode, PressCount, UpdatedAtUtc)
             VALUES (?1, ?2, ?3)
@@ -872,7 +952,6 @@ actor TypingStatsStore: TypingStatsPersistence {
             """,
             in: database
         )
-        defer { sqlite3_finalize(total) }
         try bind(Int64(aggregate.keyCode), at: 1, to: total, in: database)
         try bind(aggregate.count, at: 2, to: total, in: database)
         try bind(updatedAt, at: 3, to: total, in: database)
@@ -892,11 +971,11 @@ actor TypingStatsStore: TypingStatsPersistence {
             to: calendar.startOfDay(for: now)
         ) else { return nil }
         let cutoffKey = Self.dateKey(for: cutoffDate, calendar: calendar)
-        let statement = try prepare(
+        let statement = try reusableStatement(
+            .deleteExpiredCharacterSeconds,
             "DELETE FROM CharacterSecondStat WHERE LocalDate < ?1;",
             in: database
         )
-        defer { sqlite3_finalize(statement) }
         try bind(cutoffKey, at: 1, to: statement, in: database)
         try stepToCompletion(statement, in: database)
 
@@ -1024,7 +1103,7 @@ actor TypingStatsStore: TypingStatsPersistence {
             sparseAppCounts[processKey, default: [:]][index] = count
             identities[processKey] = TypingApplicationIdentity(
                 processKey: processKey,
-                displayName: text(at: 1, in: statement) ?? "未知应用",
+                displayName: text(at: 1, in: statement) ?? "未知应用".localized,
                 processName: text(at: 2, in: statement) ?? "unknown",
                 bundleIdentifier: text(at: 3, in: statement)
             )
@@ -1106,7 +1185,7 @@ actor TypingStatsStore: TypingStatsPersistence {
             guard result == SQLITE_ROW else { throw queryError(database, code: result) }
             output.append(TypingAppSummary(
                 processKey: text(at: 0, in: statement) ?? "unknown:\(output.count)",
-                displayName: text(at: 1, in: statement) ?? "未知应用",
+                displayName: text(at: 1, in: statement) ?? "未知应用".localized,
                 processName: text(at: 2, in: statement) ?? "unknown",
                 bundleIdentifier: text(at: 3, in: statement),
                 characterCount: sqlite3_column_int64(statement, 4),
@@ -1441,7 +1520,7 @@ actor TypingStatsStore: TypingStatsPersistence {
             output[processKey] = ApplicationRangeValue(
                 application: TypingApplicationIdentity(
                     processKey: processKey,
-                    displayName: text(at: 1, in: statement) ?? "未知应用",
+                    displayName: text(at: 1, in: statement) ?? "未知应用".localized,
                     processName: text(at: 2, in: statement) ?? "unknown",
                     bundleIdentifier: text(at: 3, in: statement)
                 ),
@@ -1698,6 +1777,21 @@ actor TypingStatsStore: TypingStatsPersistence {
         return statement
     }
 
+    private func reusableStatement(
+        _ key: TypingStatsSQLiteConnection.ReusableStatementKey,
+        _ sql: String,
+        in database: OpaquePointer
+    ) throws -> OpaquePointer {
+        guard let connection, connection.pointer == database else {
+            throw TypingStatsStoreError.cannotOpen(L10n.tr("SQLite 连接状态不可用。"))
+        }
+        return try connection.reusableStatement(for: key, sql: sql)
+    }
+
+    private func invalidateReusableStatements() {
+        connection?.invalidateReusableStatements()
+    }
+
     private func execute(_ sql: String, in database: OpaquePointer) throws {
         let result = sqlite3_exec(database, sql, nil, nil, nil)
         guard result == SQLITE_OK else { throw queryError(database, code: result) }
@@ -1755,27 +1849,7 @@ actor TypingStatsStore: TypingStatsPersistence {
     }
 
     private func queryError(_ database: OpaquePointer, code: Int32) -> TypingStatsStoreError {
-        mapSQLiteError(code: code, message: String(cString: sqlite3_errmsg(database)))
-    }
-
-    private func mapSQLiteError(code: Int32, message: String) -> TypingStatsStoreError {
-        let primaryCode = code & 0xFF
-        let normalizedMessage = message.lowercased()
-        if primaryCode == SQLITE_SCHEMA
-            || normalizedMessage.contains("no such table")
-            || normalizedMessage.contains("no such column") {
-            return .incompatibleSchema
-        }
-        return switch primaryCode {
-        case SQLITE_BUSY, SQLITE_LOCKED:
-            .busy
-        case SQLITE_CORRUPT, SQLITE_NOTADB:
-            .corrupt
-        case SQLITE_CANTOPEN:
-            .cannotOpen(message)
-        default:
-            .queryFailed(message)
-        }
+        mapTypingStatsSQLiteError(code: code, message: String(cString: sqlite3_errmsg(database)))
     }
 
     private static var statisticsCalendar: Calendar {

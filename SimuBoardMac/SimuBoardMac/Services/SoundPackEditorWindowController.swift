@@ -26,9 +26,13 @@ final class SoundPackEditorWindowController: NSWindowController, NSWindowDelegat
         self.editor = editor
 
         let content = SoundPackEditorView(editor: editor)
+            .battutaUserPreferences(
+                appModel.settings,
+                windowTitleKey: "Battuta · DIY 音色编辑器"
+            )
         let hostingController = BattutaGlassHostingController(rootView: content)
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "Battuta · DIY 音色编辑器"
+        window.title = L10n.tr("Battuta · DIY 音色编辑器")
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         BattutaWindowChrome.apply(to: window)
         window.setContentSize(NSSize(width: 1_240, height: 760))
@@ -75,11 +79,11 @@ final class SoundPackEditorWindowController: NSWindowController, NSWindowDelegat
         isShowingCloseConfirmation = true
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "保存 DIY 音色的更改吗？"
-        alert.informativeText = "关闭窗口会丢失尚未保存的音频映射。"
-        alert.addButton(withTitle: "保存")
-        alert.addButton(withTitle: "取消")
-        alert.addButton(withTitle: "放弃更改")
+        alert.messageText = L10n.tr("保存 DIY 音色的更改吗？")
+        alert.informativeText = L10n.tr("关闭窗口会丢失尚未保存的音频映射。")
+        alert.addButton(withTitle: L10n.tr("保存"))
+        alert.addButton(withTitle: L10n.tr("取消"))
+        alert.addButton(withTitle: L10n.tr("放弃更改"))
         alert.beginSheetModal(for: sender) { [weak self, weak sender] response in
             Task { @MainActor in
                 guard let self, let sender else { return }
@@ -148,11 +152,11 @@ final class SoundPackEditorWindowController: NSWindowController, NSWindowDelegat
     private func makeUnsavedChangesAlert(message: String) -> NSAlert {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "保存 DIY 音色的更改吗？"
-        alert.informativeText = message
-        alert.addButton(withTitle: "保存")
-        alert.addButton(withTitle: "取消")
-        alert.addButton(withTitle: "放弃更改")
+        alert.messageText = L10n.tr("保存 DIY 音色的更改吗？")
+        alert.informativeText = L10n.tr(message)
+        alert.addButton(withTitle: L10n.tr("保存"))
+        alert.addButton(withTitle: L10n.tr("取消"))
+        alert.addButton(withTitle: L10n.tr("放弃更改"))
         return alert
     }
 
@@ -203,9 +207,9 @@ final class SoundPackEditorWindowController: NSWindowController, NSWindowDelegat
         isShowingBusyExplanation = true
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "正在处理音频"
-        alert.informativeText = message
-        alert.addButton(withTitle: "好")
+        alert.messageText = L10n.tr("正在处理音频")
+        alert.informativeText = L10n.tr(message)
+        alert.addButton(withTitle: L10n.tr("好"))
         alert.beginSheetModal(for: window) { [weak self] _ in
             Task { @MainActor in
                 self?.isShowingBusyExplanation = false

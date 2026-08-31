@@ -27,6 +27,44 @@ struct KeyboardEvent: Equatable, Sendable {
 
 @MainActor
 final class KeyboardMonitor {
+    struct EventInterest: Equatable, Sendable {
+        let keyboardPresses: Bool
+        let keyboardReleases: Bool
+        let pointerPresses: Bool
+        let pointerReleases: Bool
+
+        static let all = EventInterest(
+            keyboardPresses: true,
+            keyboardReleases: true,
+            pointerPresses: true,
+            pointerReleases: true
+        )
+
+        var eventTypes: [CGEventType] {
+            var types: [CGEventType] = []
+            if keyboardPresses { types.append(.keyDown) }
+            if keyboardReleases { types.append(.keyUp) }
+            // Modifier keys arrive only as flagsChanged, which represents both
+            // transitions even when a future caller asks only for releases.
+            if keyboardPresses || keyboardReleases { types.append(.flagsChanged) }
+            if pointerPresses { types.append(.leftMouseDown) }
+            if pointerReleases { types.append(.leftMouseUp) }
+            if pointerPresses { types.append(.rightMouseDown) }
+            if pointerReleases { types.append(.rightMouseUp) }
+            if pointerPresses { types.append(.otherMouseDown) }
+            if pointerReleases { types.append(.otherMouseUp) }
+            return types
+        }
+
+        var eventMask: CGEventMask {
+            eventTypes.reduce(CGEventMask(0)) { mask, type in
+                mask | (CGEventMask(1) << type.rawValue)
+            }
+        }
+
+        var isEmpty: Bool { eventTypes.isEmpty }
+    }
+
     private struct RunState {
         let port: CFMachPort
         let source: CFRunLoopSource
@@ -36,25 +74,16 @@ final class KeyboardMonitor {
     private var handler: (@MainActor (GlobalInputEvent) -> Void)?
     private var pressedModifierKeyCodes: Set<UInt16> = []
 
-    static let observedEventTypes: [CGEventType] = [
-        .keyDown,
-        .keyUp,
-        .flagsChanged,
-        .leftMouseDown,
-        .leftMouseUp,
-        .rightMouseDown,
-        .rightMouseUp,
-        .otherMouseDown,
-        .otherMouseUp,
-    ]
-
-    static let observedEventMask = observedEventTypes.reduce(CGEventMask(0)) { mask, type in
-        mask | (CGEventMask(1) << type.rawValue)
-    }
+    static let observedEventTypes = EventInterest.all.eventTypes
+    static let observedEventMask = EventInterest.all.eventMask
 
     @discardableResult
-    func start(handler: @escaping @MainActor (GlobalInputEvent) -> Void) -> Bool {
+    func start(
+        interest: EventInterest = .all,
+        handler: @escaping @MainActor (GlobalInputEvent) -> Void
+    ) -> Bool {
         stop()
+        guard !interest.isEmpty else { return true }
         self.handler = handler
 
         let userInfo = Unmanaged.passUnretained(self).toOpaque()
@@ -63,7 +92,7 @@ final class KeyboardMonitor {
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .listenOnly,
-            eventsOfInterest: Self.observedEventMask,
+            eventsOfInterest: interest.eventMask,
             callback: Self.eventTapCallback,
             userInfo: userInfo
         ), let source = CFMachPortCreateRunLoopSource(nil, port, 0) else {

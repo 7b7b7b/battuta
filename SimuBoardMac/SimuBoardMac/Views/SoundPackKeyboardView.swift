@@ -13,13 +13,102 @@ enum SoundPackKeyboardPalette {
 }
 
 @MainActor
-struct SoundPackKeyboardView: View {
-    @ObservedObject var editor: SoundPackEditorModel
+private enum SoundPackExtendedKeyboardRows {
+    private static let rowsByID = Dictionary(
+        uniqueKeysWithValues: KeyboardExtendedLayoutCatalog.rows.map { ($0.id, $0.keys) }
+    )
+
+    static let navigation = rowsByID["extended.navigation"] ?? []
+    static let functionKeys = rowsByID["extended.extendedFunction"] ?? []
+    static let keypadRows = [
+        rowsByID["extended.keypadTop"] ?? [],
+        rowsByID["extended.keypadUpper"] ?? [],
+        rowsByID["extended.keypadMiddle"] ?? [],
+        rowsByID["extended.keypadLower"] ?? [],
+        rowsByID["extended.keypadBottom"] ?? [],
+    ]
+    static let internationalAndMedia =
+        (rowsByID["extended.international"] ?? [])
+        + (rowsByID["extended.media"] ?? [])
+}
+
+private struct SoundPackKeyboardPresentation: Equatable {
+    private static let visualLayout = KeyboardVisualLayoutCatalog.magicKeyboardANSI
+    private static let overrideChoicesToHighlight: Set<SoundPackKeyOverride> = [.silent]
+
+    let editorIdentity: ObjectIdentifier
+    let layout: KeyboardLayout
+    let mappingMode: SoundPackEditorMappingMode
+    let selectedKeyID: KeyboardKeyID
+    let overriddenKeyIDs: Set<KeyboardKeyID>
+    let unplacedKeys: [KeyboardKeyDescriptor]
+
+    @MainActor
+    init(editor: SoundPackEditorModel) {
+        editorIdentity = ObjectIdentifier(editor)
+        layout = editor.layout
+        mappingMode = editor.mappingMode
+        selectedKeyID = editor.selectedKeyID
+        overriddenKeyIDs = Self.overriddenKeyIDs(in: editor.manifest)
+        unplacedKeys = editor.layout.keys.filter { !Self.visualLayout.keyIDs.contains($0.id) }
+    }
+
+    func keycapPresentation(
+        for key: KeyboardKeyDescriptor,
+        size: CGSize? = nil
+    ) -> SoundPackKeycapPresentation {
+        SoundPackKeycapPresentation(
+            key: key,
+            size: size,
+            isSelected: selectedKeyID == key.id,
+            hasOverride: overriddenKeyIDs.contains(key.id),
+            mappingMode: mappingMode
+        )
+    }
+
+    private static func overriddenKeyIDs(
+        in manifest: SoundPackManifest?
+    ) -> Set<KeyboardKeyID> {
+        guard let manifest else { return [] }
+        let press = manifest.press.keyOverrides.compactMap { key, value -> KeyboardKeyID? in
+            guard shouldHighlightOverride(value) else { return nil }
+            return KeyboardKeyID(key)
+        }
+        let release = manifest.release.keyOverrides.compactMap { key, value -> KeyboardKeyID? in
+            guard shouldHighlightOverride(value) else { return nil }
+            return KeyboardKeyID(key)
+        }
+        return Set(press).union(release)
+    }
+
+    private static func shouldHighlightOverride(_ value: SoundPackKeyOverride) -> Bool {
+        if overrideChoicesToHighlight.contains(value) { return true }
+        if case .asset = value { return true }
+        return false
+    }
+}
+
+@MainActor
+struct SoundPackKeyboardView: View, Equatable {
+    private let presentation: SoundPackKeyboardPresentation
+    private let onPressKey: (KeyboardKeyDescriptor) -> Void
+    private let onReleaseKey: (KeyboardKeyDescriptor) -> Void
 
     private let visualLayout = KeyboardVisualLayoutCatalog.magicKeyboardANSI
 
-    private var unplacedKeys: [KeyboardKeyDescriptor] {
-        editor.layout.keys.filter { !visualLayout.keyIDs.contains($0.id) }
+    init(editor: SoundPackEditorModel) {
+        presentation = SoundPackKeyboardPresentation(editor: editor)
+        onPressKey = { key in
+            editor.selectedKeyID = key.id
+            editor.preview(keyCode: key.keyCode, phase: .press)
+        }
+        onReleaseKey = { key in
+            editor.preview(keyCode: key.keyCode, phase: .release)
+        }
+    }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.presentation == rhs.presentation
     }
 
     var body: some View {
@@ -33,16 +122,20 @@ struct SoundPackKeyboardView: View {
                     )
 
                     FittedSoundPackKeyboard(
-                        editor: editor,
-                        visualLayout: visualLayout
+                        presentation: presentation,
+                        visualLayout: visualLayout,
+                        onPressKey: onPressKey,
+                        onReleaseKey: onReleaseKey
                     )
                 }
                 .padding(16)
                 .battutaPanel()
 
                 SoundPackExtendedKeyboardSection(
-                    editor: editor,
-                    modifierKeys: unplacedKeys
+                    presentation: presentation,
+                    modifierKeys: presentation.unplacedKeys,
+                    onPressKey: onPressKey,
+                    onReleaseKey: onReleaseKey
                 )
             }
             .padding(20)
@@ -54,8 +147,10 @@ struct SoundPackKeyboardView: View {
 
 @MainActor
 private struct FittedSoundPackKeyboard: View {
-    @ObservedObject var editor: SoundPackEditorModel
+    let presentation: SoundPackKeyboardPresentation
     let visualLayout: KeyboardVisualLayout
+    let onPressKey: (KeyboardKeyDescriptor) -> Void
+    let onReleaseKey: (KeyboardKeyDescriptor) -> Void
 
     private let baseMetrics = MacKeyboardLayoutMetrics.soundPackEditor
 
@@ -66,12 +161,17 @@ private struct FittedSoundPackKeyboard: View {
             let scale = max(0.1, proxy.size.width / baseSize.width)
 
             MacKeyboardLayoutView(
-                keyboardLayout: editor.layout,
+                keyboardLayout: presentation.layout,
                 visualLayout: visualLayout,
                 metrics: baseMetrics
             ) { renderedKey, size in
                 if let key = renderedKey.descriptor {
-                    SoundPackKeycap(editor: editor, key: key, size: size)
+                    SoundPackKeycap(
+                        presentation: presentation.keycapPresentation(for: key, size: size),
+                        onPressKey: onPressKey,
+                        onReleaseKey: onReleaseKey
+                    )
+                    .equatable()
                 } else {
                     SoundPackDecorativeKeycap(renderedKey: renderedKey, size: size)
                 }
@@ -89,18 +189,10 @@ private struct FittedSoundPackKeyboard: View {
 
 @MainActor
 private struct SoundPackExtendedKeyboardSection: View {
-    @ObservedObject var editor: SoundPackEditorModel
+    let presentation: SoundPackKeyboardPresentation
     let modifierKeys: [KeyboardKeyDescriptor]
-
-    private var navigation: [KeyboardKeyDescriptor] { row("navigation") }
-    private var functionKeys: [KeyboardKeyDescriptor] { row("extendedFunction") }
-    private var keypadRows: [[KeyboardKeyDescriptor]] {
-        ["keypadTop", "keypadUpper", "keypadMiddle", "keypadLower", "keypadBottom"]
-            .map(row)
-    }
-    private var internationalAndMedia: [KeyboardKeyDescriptor] {
-        row("international") + row("media")
-    }
+    let onPressKey: (KeyboardKeyDescriptor) -> Void
+    let onReleaseKey: (KeyboardKeyDescriptor) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -112,24 +204,27 @@ private struct SoundPackExtendedKeyboardSection: View {
 
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 12) {
-                    keyGroup("修饰与导航", rows: [modifierKeys + navigation])
+                    keyGroup(
+                        "修饰与导航",
+                        rows: [modifierKeys + SoundPackExtendedKeyboardRows.navigation]
+                    )
                     keyGroup(
                         "扩展功能键",
                         rows: [
-                            Array(functionKeys.prefix(4)),
-                            Array(functionKeys.dropFirst(4)),
+                            Array(SoundPackExtendedKeyboardRows.functionKeys.prefix(4)),
+                            Array(SoundPackExtendedKeyboardRows.functionKeys.dropFirst(4)),
                         ]
                     )
                     keyGroup(
                         "国际与媒体键",
-                        rows: internationalAndMedia.chunked(maximumCount: 5)
+                        rows: SoundPackExtendedKeyboardRows.internationalAndMedia.chunked(maximumCount: 5)
                     )
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Divider()
 
-                keyGroup("数字键盘", rows: keypadRows)
+                keyGroup("数字键盘", rows: SoundPackExtendedKeyboardRows.keypadRows)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -137,25 +232,24 @@ private struct SoundPackExtendedKeyboardSection: View {
         .battutaPanel()
     }
 
-    private func row(_ id: String) -> [KeyboardKeyDescriptor] {
-        KeyboardExtendedLayoutCatalog.rows
-            .first(where: { $0.id == "extended.\(id)" })?
-            .keys ?? []
-    }
-
     private func keyGroup(
         _ title: String,
         rows: [[KeyboardKeyDescriptor]]
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
+            Text(L10n.tr(title))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
             ForEach(Array(rows.enumerated()), id: \.offset) { _, keys in
                 HStack(spacing: 4) {
                     ForEach(keys) { key in
-                        SoundPackKeycap(editor: editor, key: key)
+                        SoundPackKeycap(
+                            presentation: presentation.keycapPresentation(for: key),
+                            onPressKey: onPressKey,
+                            onReleaseKey: onReleaseKey
+                        )
+                        .equatable()
                     }
                 }
             }
@@ -172,35 +266,50 @@ private extension Array {
     }
 }
 
-@MainActor
-private struct SoundPackKeycap: View {
-    @ObservedObject var editor: SoundPackEditorModel
+private struct SoundPackKeycapPresentation: Equatable {
     let key: KeyboardKeyDescriptor
     let size: CGSize?
+    let isSelected: Bool
+    let hasOverride: Bool
+    let mappingMode: SoundPackEditorMappingMode
+}
+
+@MainActor
+private struct SoundPackKeycap: View, Equatable {
+    let presentation: SoundPackKeycapPresentation
+    let onPressKey: (KeyboardKeyDescriptor) -> Void
+    let onReleaseKey: (KeyboardKeyDescriptor) -> Void
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.presentation == rhs.presentation
+    }
+
+    var body: some View {
+        SoundPackKeycapBody(
+            presentation: presentation,
+            onPressKey: onPressKey,
+            onReleaseKey: onReleaseKey
+        )
+    }
+}
+
+@MainActor
+private struct SoundPackKeycapBody: View {
+    let presentation: SoundPackKeycapPresentation
+    let onPressKey: (KeyboardKeyDescriptor) -> Void
+    let onReleaseKey: (KeyboardKeyDescriptor) -> Void
     @State private var isPointerDown = false
 
-    init(
-        editor: SoundPackEditorModel,
-        key: KeyboardKeyDescriptor,
-        size: CGSize? = nil
-    ) {
-        self.editor = editor
-        self.key = key
-        self.size = size
-    }
-
-    private var isSelected: Bool { editor.selectedKeyID == key.id }
-    private var hasOverride: Bool {
-        editor.overrideChoice(for: key.id, phase: .press) != .inherit
-            || editor.overrideChoice(for: key.id, phase: .release) != .inherit
-    }
+    private var key: KeyboardKeyDescriptor { presentation.key }
+    private var isSelected: Bool { presentation.isSelected }
+    private var hasOverride: Bool { presentation.hasOverride }
 
     private var width: CGFloat {
         max(34, CGFloat(key.widthUnits) * 34 + CGFloat(max(0, key.widthUnits - 1)) * 4)
     }
 
     private var resolvedSize: CGSize {
-        size ?? CGSize(width: width, height: 32)
+        presentation.size ?? CGSize(width: width, height: 32)
     }
 
     var body: some View {
@@ -230,20 +339,23 @@ private struct SoundPackKeycap: View {
         }
         .frame(width: resolvedSize.width, height: resolvedSize.height)
         .scaleEffect(isPointerDown ? 0.96 : 1)
-        .shadow(color: .black.opacity(isPointerDown ? 0.04 : 0.12), radius: 1, y: 1)
+        .shadow(
+            color: BattutaVisualStyle.keyboardShadow.opacity(isPointerDown ? 0.55 : 1),
+            radius: 1,
+            y: 1
+        )
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     guard key.isAssignable, !isPointerDown else { return }
                     isPointerDown = true
-                    editor.selectedKeyID = key.id
-                    editor.preview(keyCode: key.keyCode, phase: .press)
+                    onPressKey(key)
                 }
                 .onEnded { _ in
                     guard key.isAssignable else { return }
                     if isPointerDown {
-                        editor.preview(keyCode: key.keyCode, phase: .release)
+                        onReleaseKey(key)
                     }
                     isPointerDown = false
                 }
@@ -251,13 +363,12 @@ private struct SoundPackKeycap: View {
         .animation(.easeOut(duration: 0.08), value: isPointerDown)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(key.label)
-        .accessibilityValue(hasOverride ? "已设置单键覆盖" : "继承映射")
+        .accessibilityValue(L10n.tr(hasOverride ? "已设置单键覆盖" : "继承映射"))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction {
             guard key.isAssignable else { return }
-            editor.selectedKeyID = key.id
-            editor.preview(keyCode: key.keyCode, phase: .press)
-            editor.preview(keyCode: key.keyCode, phase: .release)
+            onPressKey(key)
+            onReleaseKey(key)
         }
     }
 
@@ -265,7 +376,7 @@ private struct SoundPackKeycap: View {
         if !key.isAssignable { return Color.secondary.opacity(0.06) }
         if isPointerDown { return rowColor.opacity(0.30) }
         if isSelected { return rowColor.opacity(0.20) }
-        switch editor.mappingMode {
+        switch presentation.mappingMode {
         case .generic:
             return .clear
         case .recommended:
@@ -277,7 +388,7 @@ private struct SoundPackKeycap: View {
 
     private var keycapStroke: Color {
         if isSelected { return BattutaVisualStyle.accentStrong }
-        if editor.mappingMode == .recommended { return rowColor.opacity(0.26) }
+        if presentation.mappingMode == .recommended { return rowColor.opacity(0.26) }
         return BattutaVisualStyle.separator.opacity(0.70)
     }
 
@@ -310,8 +421,8 @@ private struct SoundPackDecorativeKeycap: View {
         }
         .frame(width: size.width, height: size.height)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("锁定或 Touch ID 键")
-        .accessibilityValue("不可分配音效")
-        .help("锁定或 Touch ID 键由系统处理，不能作为普通按键分配")
+        .accessibilityLabel(L10n.tr("锁定或 Touch ID 键"))
+        .accessibilityValue(L10n.tr("不可分配音效"))
+        .help(L10n.tr("锁定或 Touch ID 键由系统处理，不能作为普通按键分配"))
     }
 }

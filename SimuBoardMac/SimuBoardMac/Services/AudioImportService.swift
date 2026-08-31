@@ -82,7 +82,10 @@ actor AudioImportService {
                 guard sourceURL.pathExtension.lowercased() == "mp3",
                       let ffmpegURL = ffmpegExecutableURL() else {
                     throw SoundPackError.invalidAudio(
-                        "系统无法解码此格式（\(error.localizedDescription)）。请改用 WAV、AIFF、CAF 或 M4A；已安装 ffmpeg 时仅对本地 MP3 自动尝试备用转换。"
+                        L10n.format(
+                            "系统无法解码此格式（%@）。请改用 WAV、AIFF、CAF 或 M4A；已安装 ffmpeg 时仅对本地 MP3 自动尝试备用转换。",
+                            error.localizedDescription
+                        )
                     )
                 }
                 try await normalizeWithFFmpeg(
@@ -160,7 +163,7 @@ actor AudioImportService {
             throw SoundPackError.sizeLimitExceeded(url.lastPathComponent)
         }
         guard url.pathExtension.lowercased() == "wav" else {
-            throw SoundPackError.invalidAudio("规范化资源必须是 WAV")
+            throw SoundPackError.invalidAudio(L10n.tr("规范化资源必须是 WAV"))
         }
 
         let file: AVAudioFile
@@ -175,16 +178,16 @@ actor AudioImportService {
               format.sampleRate == targetSampleRate,
               format.channelCount == 1,
               format.commonFormat == .pcmFormatInt16 else {
-            throw SoundPackError.invalidAudio("必须为 48 kHz 单声道 16-bit PCM WAV")
+            throw SoundPackError.invalidAudio(L10n.tr("必须为 48 kHz 单声道 16-bit PCM WAV"))
         }
         guard file.length > 0 else {
-            throw SoundPackError.invalidAudio("音频为空")
+            throw SoundPackError.invalidAudio(L10n.tr("音频为空"))
         }
         let duration = Double(file.length) / format.sampleRate
         guard duration.isFinite,
               duration >= limits.minimumAudioDurationSeconds,
               duration <= limits.maximumAudioDurationSeconds else {
-            throw SoundPackError.invalidAudio("音频时长超出允许范围")
+            throw SoundPackError.invalidAudio(L10n.tr("音频时长超出允许范围"))
         }
         return NormalizedSoundPackAudioInfo(
             durationSeconds: duration,
@@ -203,16 +206,16 @@ actor AudioImportService {
         guard sampleRate.isFinite,
               sampleRate >= minimumSourceSampleRate,
               sampleRate <= maximumSourceSampleRate else {
-            throw SoundPackError.invalidAudio("源音频采样率超出安全范围")
+            throw SoundPackError.invalidAudio(L10n.tr("源音频采样率超出安全范围"))
         }
         guard channelCount > 0, channelCount <= maximumSourceChannelCount else {
-            throw SoundPackError.invalidAudio("源音频声道数超出安全范围")
+            throw SoundPackError.invalidAudio(L10n.tr("源音频声道数超出安全范围"))
         }
         guard frameLength > 0, frameLength <= Int64(AVAudioFrameCount.max) else {
-            throw SoundPackError.sizeLimitExceeded("源音频帧数过多")
+            throw SoundPackError.sizeLimitExceeded(L10n.tr("源音频帧数过多"))
         }
         guard bytesPerSample > 0 else {
-            throw SoundPackError.invalidAudio("源音频采样格式无效")
+            throw SoundPackError.invalidAudio(L10n.tr("源音频采样格式无效"))
         }
 
         let frameCount = UInt64(frameLength)
@@ -220,7 +223,7 @@ actor AudioImportService {
             by: UInt64(channelCount)
         )
         guard !sampleCountOverflowed else {
-            throw SoundPackError.sizeLimitExceeded("源音频解码体积溢出")
+            throw SoundPackError.sizeLimitExceeded(L10n.tr("源音频解码体积溢出"))
         }
         let (decodedByteCount, byteCountOverflowed) = sampleCount.multipliedReportingOverflow(
             by: UInt64(bytesPerSample)
@@ -228,7 +231,7 @@ actor AudioImportService {
         guard !byteCountOverflowed,
               decodedByteCount <= UInt64(maximumDecodedPCMBytes),
               decodedByteCount <= UInt64(Int64.max) else {
-            throw SoundPackError.sizeLimitExceeded("源音频解码后超过 64 MiB")
+            throw SoundPackError.sizeLimitExceeded(L10n.tr("源音频解码后超过 64 MiB"))
         }
         return Int64(decodedByteCount)
     }
@@ -245,7 +248,7 @@ actor AudioImportService {
         case .pcmFormatInt16:
             bytesPerSample = 2
         default:
-            throw SoundPackError.invalidAudio("源音频不是可安全解码的 PCM 格式")
+            throw SoundPackError.invalidAudio(L10n.tr("源音频不是可安全解码的 PCM 格式"))
         }
         _ = try Self.checkedDecodedPCMByteCount(
             sampleRate: sourceFormat.sampleRate,
@@ -258,20 +261,26 @@ actor AudioImportService {
         guard sourceDuration.isFinite,
               sourceDuration >= limits.minimumAudioDurationSeconds,
               sourceDuration <= limits.maximumAudioDurationSeconds else {
-            throw SoundPackError.invalidAudio("源音频时长必须介于 \(limits.minimumAudioDurationSeconds)–\(limits.maximumAudioDurationSeconds) 秒")
+            throw SoundPackError.invalidAudio(
+                L10n.format(
+                    "源音频时长必须介于 %@–%@ 秒",
+                    "\(limits.minimumAudioDurationSeconds)",
+                    "\(limits.maximumAudioDurationSeconds)"
+                )
+            )
         }
         guard sourceFile.length <= Int64(AVAudioFrameCount.max) else {
-            throw SoundPackError.sizeLimitExceeded("源音频帧数过多")
+            throw SoundPackError.sizeLimitExceeded(L10n.tr("源音频帧数过多"))
         }
         guard let sourceBuffer = AVAudioPCMBuffer(
             pcmFormat: sourceFormat,
             frameCapacity: AVAudioFrameCount(sourceFile.length)
         ) else {
-            throw SoundPackError.invalidAudio("无法创建源音频缓冲区")
+            throw SoundPackError.invalidAudio(L10n.tr("无法创建源音频缓冲区"))
         }
         try sourceFile.read(into: sourceBuffer)
         guard sourceBuffer.frameLength > 0 else {
-            throw SoundPackError.invalidAudio("源音频为空")
+            throw SoundPackError.invalidAudio(L10n.tr("源音频为空"))
         }
 
         guard let targetFormat = AVAudioFormat(
@@ -280,7 +289,7 @@ actor AudioImportService {
             channels: 1,
             interleaved: false
         ), let converter = AVAudioConverter(from: sourceBuffer.format, to: targetFormat) else {
-            throw SoundPackError.invalidAudio("无法创建 48 kHz 单声道转换器")
+            throw SoundPackError.invalidAudio(L10n.tr("无法创建 48 kHz 单声道转换器"))
         }
 
         let estimatedFrames = ceil(
@@ -289,13 +298,13 @@ actor AudioImportService {
         guard estimatedFrames.isFinite,
               estimatedFrames > 0,
               estimatedFrames <= Double(AVAudioFrameCount.max - 128) else {
-            throw SoundPackError.sizeLimitExceeded("转换后的音频帧数过多")
+            throw SoundPackError.sizeLimitExceeded(L10n.tr("转换后的音频帧数过多"))
         }
         guard let outputBuffer = AVAudioPCMBuffer(
             pcmFormat: targetFormat,
             frameCapacity: AVAudioFrameCount(estimatedFrames) + 128
         ) else {
-            throw SoundPackError.invalidAudio("无法创建目标音频缓冲区")
+            throw SoundPackError.invalidAudio(L10n.tr("无法创建目标音频缓冲区"))
         }
 
         var providedInput = false
@@ -314,7 +323,7 @@ actor AudioImportService {
         }
         guard status == .haveData || status == .endOfStream,
               outputBuffer.frameLength > 0 else {
-            throw SoundPackError.invalidAudio("音频转换未产生数据")
+            throw SoundPackError.invalidAudio(L10n.tr("音频转换未产生数据"))
         }
 
         let outputSettings: [String: Any] = [
@@ -361,7 +370,7 @@ actor AudioImportService {
         guard rawMaximumOutputBytes.isFinite,
               rawMaximumOutputBytes > 0,
               rawMaximumOutputBytes <= Double(Int64.max - 65_536) else {
-            throw SoundPackError.invalidAudio("备用音频转换时长限制无效")
+            throw SoundPackError.invalidAudio(L10n.tr("备用音频转换时长限制无效"))
         }
         let maximumOutputBytes = Int64(rawMaximumOutputBytes) + 65_536
         process.executableURL = executableURL
@@ -398,7 +407,9 @@ actor AudioImportService {
             if process.isRunning {
                 _ = stopFFmpegProcess(process)
             }
-            throw SoundPackError.invalidAudio("无法启动备用音频转换器：\(error.localizedDescription)")
+            throw SoundPackError.invalidAudio(
+                L10n.format("无法启动备用音频转换器：%@", error.localizedDescription)
+            )
         }
 
         do {
@@ -407,14 +418,14 @@ actor AudioImportService {
             let stopped = stopFFmpegProcess(process)
             try? fileManager.removeItem(at: destinationURL)
             guard stopped else {
-                throw SoundPackError.invalidAudio("无法安全终止备用音频转换器")
+                throw SoundPackError.invalidAudio(L10n.tr("无法安全终止备用音频转换器"))
             }
             throw error
         }
         try Task.checkCancellation()
         guard process.terminationStatus == 0 else {
             throw SoundPackError.invalidAudio(
-                "备用音频转换失败；系统也无法解码此格式，请改用 WAV、AIFF、CAF 或 M4A。"
+                L10n.tr("备用音频转换失败；系统也无法解码此格式，请改用 WAV、AIFF、CAF 或 M4A。")
             )
         }
         _ = try Self.validateNormalizedAudio(at: destinationURL, limits: limits)
@@ -426,7 +437,10 @@ actor AudioImportService {
             try Task.checkCancellation()
             guard ProcessInfo.processInfo.systemUptime < deadline else {
                 throw SoundPackError.invalidAudio(
-                    "备用音频转换超时（最长 \(Int(ceil(ffmpegTimeoutSeconds))) 秒）"
+                    L10n.format(
+                        "备用音频转换超时（最长 %@ 秒）",
+                        "\(Int(ceil(ffmpegTimeoutSeconds)))"
+                    )
                 )
             }
             try await Task.sleep(for: .milliseconds(25))

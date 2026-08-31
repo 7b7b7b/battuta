@@ -14,7 +14,12 @@ xcrun --sdk macosx swiftc \
   -strict-concurrency=complete \
   -parse-as-library \
   -module-cache-path "$HARNESS_TEMP/module-cache" \
+  SimuBoardMac/SimuBoardMac/Localization.swift \
+  SimuBoardMac/SimuBoardMac/Models/PointerSound.swift \
+  SimuBoardMac/SimuBoardMac/Models/SwitchProfile.swift \
+  SimuBoardMac/SimuBoardMac/Models/AppSettings.swift \
   SimuBoardMac/SimuBoardMac/Models/TypingStats.swift \
+  SimuBoardMac/SimuBoardMac/Services/KeyboardMonitor.swift \
   SimuBoardMac/SimuBoardMac/Services/TypingStatsStore.swift \
   SimuBoardMac/SimuBoardMac/Services/TypingStatsModel.swift \
   SimuBoardMac/Tests/TypingStatsCoreHarness.swift \

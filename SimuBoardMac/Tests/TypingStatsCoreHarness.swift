@@ -375,6 +375,7 @@ struct TypingStatsCoreHarness {
         try await testClearBarrier(now: now, application: appOne)
         try await testMidnightDateBoundary(now: now, application: appOne)
         try await testRetention(in: directory, now: now, application: appOne)
+        try testReusableStatementRecovery()
         try await testVersionOneMigration(in: directory, now: now, application: appOne)
         try await testTimelineRangeBoundaries(
             in: directory,
@@ -419,6 +420,42 @@ struct TypingStatsCoreHarness {
                 "counts character-producing key code \(keyCode)"
             )
         }
+    }
+
+    private static func testReusableStatementRecovery() throws {
+        var database: OpaquePointer?
+        guard sqlite3_open(":memory:", &database) == SQLITE_OK, let database else {
+            throw HarnessError.message("could not create statement-cache fixture")
+        }
+        let connection = TypingStatsSQLiteConnection(pointer: database)
+        guard sqlite3_exec(
+            database,
+            "CREATE TABLE Probe (Value INTEGER PRIMARY KEY);",
+            nil,
+            nil,
+            nil
+        ) == SQLITE_OK else {
+            throw HarnessError.message("could not create statement-cache table")
+        }
+
+        let sql = "INSERT INTO Probe (Value) VALUES (?1);"
+        let first = try connection.reusableStatement(for: .upsertApplication, sql: sql)
+        sqlite3_bind_int64(first, 1, 1)
+        try expect(sqlite3_step(first) == SQLITE_DONE, "primes a reusable SQLite statement")
+
+        let duplicate = try connection.reusableStatement(for: .upsertApplication, sql: sql)
+        sqlite3_bind_int64(duplicate, 1, 1)
+        try expect(
+            sqlite3_step(duplicate) & 0xFF == SQLITE_CONSTRAINT,
+            "captures a reusable statement constraint failure"
+        )
+
+        let recovered = try connection.reusableStatement(for: .upsertApplication, sql: sql)
+        sqlite3_bind_int64(recovered, 1, 2)
+        try expect(
+            sqlite3_step(recovered) == SQLITE_DONE,
+            "recovers a cached statement after a prior SQLite constraint failure"
+        )
     }
 
     private static func testModelSemantics(
@@ -1091,7 +1128,9 @@ struct TypingStatsCoreHarness {
         )
         try expect(
             !annualGrid.contains(".help(")
-                && annualSource.contains("detailText: \"\\(dateText) · \\(formattedCount) 个字符\""),
+                && annualSource.contains(
+                    "detailText: L10n.format(\"%@ · %@ 个字符\", dateText, formattedCount)"
+                ),
             "does not rely on AppKit's delayed annual help tooltip"
         )
 

@@ -87,7 +87,7 @@ actor SoundPackLibrary {
             fileManager: fileManager
         )
         guard manifest.id == id else {
-            throw SoundPackError.invalidManifest("目录 ID 与 manifest ID 不一致")
+            throw SoundPackError.invalidManifest(L10n.tr("目录 ID 与 manifest ID 不一致"))
         }
         return SoundPackDocument(
             descriptor: .custom(manifest: manifest),
@@ -106,7 +106,7 @@ actor SoundPackLibrary {
         case let .custom(packID):
             return try loadCustomPack(id: packID)
         case .bundled:
-            throw SoundPackError.invalidManifest("静态内置音色不使用音色包")
+            throw SoundPackError.invalidManifest(L10n.tr("静态内置音色不使用音色包"))
         }
     }
 
@@ -216,7 +216,7 @@ actor SoundPackLibrary {
 
         let manifestData = try SoundPackCoding.encode(manifest)
         guard Int64(manifestData.count) <= limits.maximumManifestBytes else {
-            throw SoundPackError.sizeLimitExceeded("manifest.json 过大")
+            throw SoundPackError.sizeLimitExceeded(L10n.tr("manifest.json 过大"))
         }
         try manifestData.write(
             to: staging.appendingPathComponent("manifest.json"),
